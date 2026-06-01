@@ -107,6 +107,7 @@ The local HTTP server is used so browser modules, PDF workers, WebAssembly asset
 - `src/styles.css` - application and report styling
 - `server.mjs` - local static server for the built app
 - `start-auditer.bat` - end-user launcher
+- `Resources/` - reference PDFs and example labels used when checking audit behaviour
 
 ## Known Limits
 
