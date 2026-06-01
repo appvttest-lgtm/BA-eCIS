@@ -100,6 +100,15 @@ The local HTTP server is used so browser modules, PDF workers, WebAssembly asset
 - No admin rights, Windows service, Docker, WSL or registry changes are required.
 - Uploaded labels and generated reports can contain customer names, addresses, article IDs, SSCC values, account references and barcode data, so reports should be handled as internal/customer data.
 
+- ummary of Dependency Vulnerability Assessment
+Package	Version	Vulnerability Status	Critical Notes
+pdfjs-dist	4.10.38	No known direct vulnerabilities	Version is well above the patched threshold for the critical CVE-2024-4367 arbitrary code execution vulnerability.
+@zxing/library	0.21.3	No known direct vulnerabilities	The project is in maintenance mode, but the specific version has no reported CVEs.
+react / react-dom	18.3.1	No known direct vulnerabilities	Unaffected by the critical CVE-2025-55182 ("React2Shell") as the app does not use React Server Components.
+vite	5.4.21	Mitigated (Patched)	The version successfully patches an important security advisory (CVE-2025-62522) related to directory traversal bypass.
+typescript	5.6.3	No known direct vulnerabilities	The dependency is pinned to an exact version, which is a secure practice.
+zxing-wasm	3.0.3	No known direct vulnerabilities	No issues found in the direct dependency or Snyk database for this version.
+
 ## Project Files
 
 - `src/main.jsx` - React UI, upload flow, rendering, scan orchestration and report export
