@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as pdfjsLib from 'pdfjs-dist';
 import {
@@ -2006,7 +2006,28 @@ function AuditBookmarks({ audit, sections }) {
   );
 }
 
-function FullLabelImageSection({ audit, items }) {
+function ImageZoomModal({ image, onClose }) {
+  useEffect(() => {
+    if (!image) return undefined;
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [image, onClose]);
+
+  if (!image) return null;
+  return (
+    <div className="image-zoom-overlay" role="dialog" aria-modal="true" aria-label={image.alt || 'Full label image'} onClick={onClose}>
+      <button className="image-zoom-close" type="button" onClick={onClose} aria-label="Close full screen label image">Close</button>
+      <div className="image-zoom-stage" onClick={event => event.stopPropagation()}>
+        <img src={image.src} alt={image.alt || 'Full label image'} />
+      </div>
+    </div>
+  );
+}
+
+function FullLabelImageSection({ audit, items, onZoomLabel }) {
   const facts = audit?.labelFacts || {};
   const images = audit?.labelImages || {};
   return (
@@ -2014,7 +2035,16 @@ function FullLabelImageSection({ audit, items }) {
       <div className="section-heading"><SectionTitle id="full-label-image-title">Full label image</SectionTitle><SectionStatus items={items} /></div>
       <div className="two-col label-layout-grid">
         <div>
-          {images.labelPreview ? <img className="label-preview-large" src={images.labelPreview} alt="Full label preview" /> : <p className="muted">No label preview captured.</p>}
+          {images.labelPreview ? (
+            <button
+              className="label-preview-button"
+              type="button"
+              onClick={() => onZoomLabel?.({ src: images.labelPreview, alt: 'Full label preview' })}
+              aria-label="Open full screen label image"
+            >
+              <img className="label-preview-large" src={images.labelPreview} alt="Full label preview" />
+            </button>
+          ) : <p className="muted">No label preview captured.</p>}
         </div>
         <div>
           <h3>Visible label facts</h3>
@@ -2324,6 +2354,7 @@ function App() {
   const [audits, setAudits] = useState([]);
   // Index of the audit currently selected in the tabbed report view.
   const [activeIndex, setActiveIndex] = useState(0);
+  const [zoomImage, setZoomImage] = useState(null);
 
   const activeAudit = audits[activeIndex] || null;
   const activeScanData = scanDatas[activeIndex] || null;
@@ -2585,7 +2616,7 @@ function App() {
                 </section>
 
                 <AuditBookmarks audit={activeAudit} sections={sections} />
-                <FullLabelImageSection audit={activeAudit} items={sections.label} />
+                <FullLabelImageSection audit={activeAudit} items={sections.label} onZoomLabel={setZoomImage} />
                 {activeAudit.carrier === 'startrack' ? (
                   <>
                     <StarTrackQrSection audit={activeAudit} items={sections.datamatrix} scanData={activeScanData || activeAudit} />
@@ -2612,6 +2643,7 @@ function App() {
           })()}
         </section>
       )}
+      <ImageZoomModal image={zoomImage} onClose={() => setZoomImage(null)} />
     </main>
   );
 }
