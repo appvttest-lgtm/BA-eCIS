@@ -346,7 +346,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
 @media (max-width: 780px) { .dm-ai-cards { grid-template-columns: 1fr; } }
 
 
-/* Batch scanning progress UI used while files/pages are being rendered and decoded. */
+/* Batch scanning status shown while files/pages are being rendered and decoded. */
 .scan-progress {
   display: grid;
   gap: 10px;
@@ -368,50 +368,42 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   color: #606b76;
   font-size: 13px;
 }
-.progress-percent {
-  min-width: 46px;
-  text-align: right;
+.scan-debug-label {
+  display: block;
+  margin: 10px 0 6px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.scan-debug-log {
+  min-height: 150px;
+  max-height: 260px;
+  resize: vertical;
+  font-family: var(--font-code);
+  font-size: 12px;
+  line-height: 1.45;
+  color: #1f2937;
+  background: #f8fafc;
+  border-color: #d7e0ea;
+}
+.scan-debug-card {
+  border-color: #d7e0ea;
+  background: #fbfdff;
+}
+.scan-debug-card details {
+  display: grid;
+  gap: 10px;
+}
+.scan-debug-card summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  color: #1f2a37;
   font-weight: 800;
-  color: #1f2a37 !important;
-}
-.progress-detail {
-  margin: 0;
-  color: #606b76;
-  font-size: 12.5px;
-  line-height: 1.35;
-}
-.progress-bar {
-  position: relative;
-  height: 11px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e7edf5;
-  box-shadow: inset 0 0 0 1px rgba(10, 31, 68, .04);
-}
-.progress-bar > div {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 0%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #d4001a, #f56b7a 58%, #8ecaf8);
-  transition: width .65s cubic-bezier(.22, 1, .36, 1);
-  overflow: hidden;
-}
-.progress-bar > div::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,.36) 42%, transparent 74%);
-  transform: translateX(-100%);
-  animation: progress-shimmer 1.8s linear infinite;
-}
-@keyframes progress-shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
 }
 @media (max-width: 780px) {
   .scan-progress-head { align-items: flex-start; flex-direction: column; }
-  .progress-percent { text-align: left; }
 }
 
 /* eParcel service/product reference matrix with selected decoded combinations highlighted. */
