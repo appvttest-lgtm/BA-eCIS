@@ -223,7 +223,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   gap: 2px;
   min-width: 170px;
 }
-.selected-chip, .selected-row { background: #e8f3ff !important; outline: 2px solid #2f75bb; }
+.selected-chip, .selected-row { background: #e8f3ff !important; }
 .selected-pill, .product-chip em {
   display: inline-block;
   margin-left: 6px;
@@ -593,7 +593,6 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
 .startrack-matrix .selected,
 .startrack-matrix tr.selected td {
   background: #e4f6ff !important;
-  outline: 2px solid #2c9fd6;
 }
 .info-panel {
   border: 1px solid #d8e6f2;
