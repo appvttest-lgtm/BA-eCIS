@@ -165,6 +165,53 @@ function result(id, title, severity, category, status, message, extra = {}) {
   return { id, title, severity, category, status, message, ...extra };
 }
 
+function normalizeSsccCompanyPrefixInput(input) {
+  const raw = String(input || '').trim();
+  if (!raw) return { provided: false, raw: '', companyPrefix: '', reason: '' };
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('00')) {
+    digits = digits.slice(2);
+    if (digits.length > 0) digits = digits.slice(1);
+  }
+  if (!digits) {
+    return { provided: true, raw, companyPrefix: '', reason: 'Enter the GS1 Company Prefix digits, for example 9315345.' };
+  }
+  if (digits.length < 4 || digits.length > 12) {
+    return { provided: true, raw, companyPrefix: digits, reason: 'GS1 Company Prefix should usually be 4 to 12 digits.' };
+  }
+  return { provided: true, raw, companyPrefix: digits, reason: '' };
+}
+
+function validateExpectedSsccPrefix({ expectedSscc, validSsccs = [], invalidSsccs = [], category = 'sscc', idPrefix = 'SSCC_EXPECTED' }) {
+  if (!expectedSscc?.provided) return [];
+  const validations = [];
+  if (!expectedSscc.companyPrefix) {
+    validations.push(result(
+      `${idPrefix}_PREFIX_INPUT`,
+      'SSCC GS1 Company Prefix input',
+      'ERROR',
+      category,
+      'fail',
+      expectedSscc.reason || 'The supplied SSCC GS1 Company Prefix is not usable.',
+      { actual: expectedSscc.raw }
+    ));
+    return validations;
+  }
+
+  validations.push(validSsccs.length
+    ? result(`${idPrefix}_DECODED`, 'AI 00 SSCC barcode decoded', 'CRITICAL', category, 'pass', `${validSsccs.length} valid AI 00 SSCC barcode(s) decoded.`, { actual: validSsccs.map(s => `00${s.sscc}`).join(', ') })
+    : result(`${idPrefix}_DECODED`, 'AI 00 SSCC barcode decoded', 'CRITICAL', category, 'fail', invalidSsccs.length ? invalidSsccs[0].reason : 'SSCC assessment was selected, but no valid AI 00 SSCC barcode was decoded.', { expected: `AI 00 SSCC with GS1 Company Prefix ${expectedSscc.companyPrefix}`, actual: invalidSsccs.map(s => s.raw).filter(Boolean).join(', ') || 'not decoded' }));
+
+  if (validSsccs.length) {
+    const matches = validSsccs.filter(s => String(s.companyPrefixAndSerial || '').startsWith(expectedSscc.companyPrefix) || String(s.sscc || '').startsWith(expectedSscc.companyPrefix));
+    validations.push(matches.length
+      ? result(`${idPrefix}_COMPANY_PREFIX`, 'SSCC GS1 Company Prefix', 'ERROR', category, 'pass', `Decoded SSCC company prefix matches ${expectedSscc.companyPrefix}.`, { expected: expectedSscc.companyPrefix, actual: matches.map(s => `00${s.sscc}`).join(', ') })
+      : result(`${idPrefix}_COMPANY_PREFIX`, 'SSCC GS1 Company Prefix', 'ERROR', category, 'fail', `No decoded SSCC starts with GS1 Company Prefix ${expectedSscc.companyPrefix}.`, { expected: expectedSscc.companyPrefix, actual: validSsccs.map(s => s.sscc).join(', ') }));
+  }
+
+  return validations;
+}
+
 /** Normalizes scanner output before parsing GS1 application identifiers and separators. */
 export function normalizeBarcode(raw) {
   return String(raw || '')
@@ -177,6 +224,7 @@ export function normalizeBarcode(raw) {
     .replace(/\x1e/g, '|')
     .replace(/\u001c/g, '|')
     .replace(/\x1c/g, '|')
+    .replace(/\(00\)/g, '00')
     .replace(/\(01\)/g, '01')
     .replace(/\(91\)/g, '91')
     .replace(/\(420\)/g, '|420')
@@ -1054,8 +1102,9 @@ function attachApiPayloadComparison(audit, payloadText) {
 }
 
 /** Runs the full eParcel rule set against one rendered label/page. */
-function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null }) {
+function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '' }) {
   const validations = [];
+  const expectedSscc = normalizeSsccCompanyPrefixInput(ssccCompanyPrefix);
   const facts = extractLabelFacts(extractedText);
   const manualValues = String(manualBarcodes || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean); // Optional diagnostic input; never treated as decoded proof.
   const decodedValues = decodedRawValues(detectedBarcodes);
@@ -1069,10 +1118,10 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
     const portraitOk = Math.abs(widthMm - 105) <= 5 && Math.abs(heightMm - 148) <= 5;
     const landscapeOk = Math.abs(widthMm - 148) <= 5 && Math.abs(heightMm - 105) <= 5;
     validations.push(portraitOk || landscapeOk
-      ? result('A6_SIZE', 'A6 label dimensions', 'WARNING', 'label-layout', 'pass', `Page dimensions are approximately A6 (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: 'A6 105mm x 148mm ±5mm, portrait or landscape', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` })
-      : result('A6_SIZE', 'A6 label dimensions', 'WARNING', 'label-layout', 'warning', `Page dimensions differ from A6 (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: 'A6 105mm x 148mm ±5mm, portrait or landscape', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` }));
+      ? result('A6_SIZE', 'A6 label dimensions', 'WARNING', 'label-layout', 'pass', `Page dimensions match an accepted eParcel A6-style label size (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: 'A6 105mm x 148mm or thermal 100mm x 150mm, portrait or landscape, within tolerance', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` })
+      : result('A6_SIZE', 'A6 label dimensions', 'WARNING', 'label-layout', 'warning', `Page dimensions do not match the accepted eParcel A6-style label sizes (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: 'A6 105mm x 148mm or thermal 100mm x 150mm, portrait or landscape, within tolerance', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` }));
   } else {
-    validations.push(result('A6_SIZE', 'A6 label dimensions', 'WARNING', 'label-layout', 'manual_review', 'Physical dimensions could not be determined from this file. A6 is assumed for audit heuristics.'));
+    validations.push(result('A6_SIZE', 'A6 label dimensions', 'WARNING', 'label-layout', 'manual_review', 'Physical dimensions could not be determined from this file. Review whether the label is A6-style, such as 105mm x 148mm or 100mm x 150mm.'));
   }
 
   validations.push(...validateLabelFacts(facts));
@@ -1095,11 +1144,16 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
   }
 
   const parsed = allRawBarcodes.map(raw => looksLikeDataMatrix(raw) ? parseGs1DataMatrix(raw) : parseEparcelBarcode(raw));
+  const ssccParses = allRawBarcodes.map(parseSsccBarcode).filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
+  const validSsccs = ssccParses.filter(p => p.valid);
+  const invalidSsccs = ssccParses.filter(p => !p.valid);
+  validations.push(...validateExpectedSsccPrefix({ expectedSscc, validSsccs, invalidSsccs, category: 'sscc', idPrefix: 'SSCC_EXPECTED' }));
   const articleMap = new Map();
   for (const article of parsed.map(p => p.article || p.base?.article).filter(Boolean)) {
     articleMap.set(article.articleId || article.sscc, article);
   }
-  const articles = [...articleMap.values()];
+  const allArticles = [...articleMap.values()];
+  const articles = expectedSscc.provided ? allArticles.filter(article => article.type === 'sscc') : allArticles;
   const invalidMap = new Map();
   for (const invalid of parsed.map(p => p.articleAnalysis || p.base?.articleAnalysis).filter(a => a && !a.valid)) {
     invalidMap.set(invalid.candidate, invalid);
@@ -1108,11 +1162,11 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
   const dmParses = parsed.filter(p => 'hasAi420' in p);
 
   if (articles.length === 0 && invalidAnalyses.length === 0) {
-    validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'fail', 'No standard eParcel article ID, SSCC article ID, or invalid article candidate could be extracted from decoded barcode data. Visible AP Article ID text is context only.'));
+    validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'fail', expectedSscc.provided ? 'SSCC assessment was selected, but no SSCC article ID could be extracted from decoded barcode data.' : 'No standard eParcel article ID, SSCC article ID, or invalid article candidate could be extracted from decoded barcode data. Visible AP Article ID text is context only.'));
   } else if (articles.length === 0 && invalidAnalyses.length) {
     validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'fail', invalidAnalyses[0].reason, { expected: '21-char eParcel, 23-char eParcel, or 20-digit SSCC including AI 00', actual: invalidAnalyses.map(a => a.candidate).join(', ') }));
   } else {
-    validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'pass', `${articles.length} valid article ID(s) parsed.`, { actual: articles.map(a => a.articleId).join(', ') }));
+    validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'pass', expectedSscc.provided ? `${articles.length} valid SSCC article ID(s) parsed.` : `${articles.length} valid article ID(s) parsed.`, { actual: articles.map(a => a.articleId).join(', ') }));
   }
 
   for (const [i, p] of parsed.entries()) {
@@ -1209,6 +1263,7 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
     visualEvidence,
     detectedBarcodes,
     manualBarcodeCount: manualValues.length,
+    expectedSscc,
     parsed,
     articles,
     invalidArticleCandidates: invalidAnalyses,
@@ -1536,8 +1591,9 @@ function validateStarTrackTextFacts(facts) {
 }
 
 /** Runs the full StarTrack rule set against one rendered label/page. */
-function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null }) {
+function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '' }) {
   const validations = [];
+  const expectedSscc = normalizeSsccCompanyPrefixInput(ssccCompanyPrefix);
   let facts = extractStarTrackFacts(extractedText);
   const manualValues = String(manualBarcodes || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   const decodedValues = decodedRawValues(detectedBarcodes);
@@ -1551,15 +1607,16 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
     const landscape = Math.abs(widthMm - 150) <= 10 && Math.abs(heightMm - 100) <= 8;
     const extended = Math.abs(widthMm - 100) <= 8 && Math.abs(heightMm - 200) <= 12;
     validations.push(normal || landscape || extended
-      ? result('ST_LABEL_SIZE', 'StarTrack label dimensions', 'WARNING', 'startrack-label-layout', 'pass', `Page dimensions are compatible with StarTrack thermal label formats (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: 'Despatch 10cm x 15cm; optional 10cm x 20cm; returns/transfer 15cm x 10cm', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` })
-      : result('ST_LABEL_SIZE', 'StarTrack label dimensions', 'WARNING', 'startrack-label-layout', 'warning', `Page dimensions do not match the usual StarTrack label sizes (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: 'Despatch 10cm x 15cm; optional 10cm x 20cm; returns/transfer 15cm x 10cm', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` }));
+      ? result('ST_LABEL_SIZE', 'StarTrack label dimensions', 'WARNING', 'startrack-label-layout', 'pass', `Page dimensions match an accepted StarTrack label size (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: '100mm x 150mm despatch, 100mm x 200mm optional extended despatch, or 150mm x 100mm controlled returns/transfer, within tolerance', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` })
+      : result('ST_LABEL_SIZE', 'StarTrack label dimensions', 'WARNING', 'startrack-label-layout', 'warning', `Page dimensions do not match the accepted StarTrack label sizes (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: '100mm x 150mm despatch, 100mm x 200mm optional extended despatch, or 150mm x 100mm controlled returns/transfer, within tolerance', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` }));
   } else {
-    validations.push(result('ST_LABEL_SIZE', 'StarTrack label dimensions', 'WARNING', 'startrack-label-layout', 'manual_review', 'Physical dimensions could not be determined from this file.'));
+    validations.push(result('ST_LABEL_SIZE', 'StarTrack label dimensions', 'WARNING', 'startrack-label-layout', 'manual_review', 'Physical dimensions could not be determined from this file. Review whether the label is 100mm x 150mm, 100mm x 200mm, or 150mm x 100mm.'));
   }
   const qrParses = qrValues.map(parseStarTrackQrBarcode).filter(p => p.valid);
   const freightParses = linearValues.map(parseStarTrackFreightItemBarcode).filter(p => p.valid);
   const ssccParses = decodedValues.map(parseSsccBarcode).filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
   const validSsccs = ssccParses.filter(p => p.valid);
+  const invalidSsccs = ssccParses.filter(p => !p.valid);
   const routingParses = linearValues.map(parseStarTrackRoutingBarcode).filter(p => p.valid);
   const atlParses = linearValues.map(parseStarTrackAtlBarcode).filter(p => p.valid);
   const expectedAtlNumbers = uniqueNonEmpty([
@@ -1567,18 +1624,19 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
     ...qrParses.map(q => q.fields?.atlNumber).filter(Boolean)
   ]);
   const atlExpected = Boolean(facts.authorityToLeavePresent || expectedAtlNumbers.length);
-  const ssccOnly = validSsccs.length > 0 && freightParses.length === 0;
+  const ssccOnly = expectedSscc.provided || (validSsccs.length > 0 && freightParses.length === 0);
 
   facts = enrichStarTrackFactsFromDecodedData(facts, { qrParses, freightParses, routingParses, validSsccs });
   validations.push(...validateStarTrackTextFacts(facts));
+  validations.push(...validateExpectedSsccPrefix({ expectedSscc, validSsccs, invalidSsccs, category: 'startrack-sscc', idPrefix: 'ST_SSCC_EXPECTED' }));
 
   validations.push(qrParses.length
     ? result('ST_QR_PRESENT', 'StarTrack 2D QR barcode decoded', 'CRITICAL', 'startrack-qr', 'pass', `${qrParses.length} StarTrack QR payload(s) decoded from the uploaded file.`, { actual: `${qrParses.length}` })
     : result('ST_QR_PRESENT', 'StarTrack 2D QR barcode decoded', 'CRITICAL', 'startrack-qr', 'fail', 'StarTrack labels must contain a 2D QR barcode and it was not decoded from the uploaded file.'));
 
-  validations.push((freightParses.length || validSsccs.length)
-    ? result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'pass', freightParses.length ? `${freightParses.length} StarTrack Code 128 freight item barcode(s) decoded.` : `${validSsccs.length} SSCC freight item barcode(s) decoded.`, { actual: [...freightParses.map(f => f.freightItemId), ...validSsccs.map(s => `00${s.sscc}`)].join(', ') })
-    : result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'fail', 'No StarTrack 20-character freight item barcode or valid AI 00 SSCC barcode was decoded.'));
+  validations.push((expectedSscc.provided ? validSsccs.length : (freightParses.length || validSsccs.length))
+    ? result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'pass', expectedSscc.provided ? `${validSsccs.length} SSCC freight item barcode(s) decoded.` : freightParses.length ? `${freightParses.length} StarTrack Code 128 freight item barcode(s) decoded.` : `${validSsccs.length} SSCC freight item barcode(s) decoded.`, { actual: [...freightParses.map(f => f.freightItemId), ...validSsccs.map(s => `00${s.sscc}`)].join(', ') })
+    : result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'fail', expectedSscc.provided ? 'SSCC assessment was selected, but no valid AI 00 SSCC freight item barcode was decoded.' : 'No StarTrack 20-character freight item barcode or valid AI 00 SSCC barcode was decoded.', { expected: expectedSscc.provided ? `AI 00 SSCC with GS1 Company Prefix ${expectedSscc.companyPrefix || expectedSscc.raw}` : undefined }));
 
   validations.push(routingParses.length
     ? result('ST_ROUTING_BARCODE_PRESENT', 'Routing barcode decoded', 'CRITICAL', 'startrack-routing', 'pass', `${routingParses.length} routing barcode(s) decoded.`, { actual: routingParses.map(r => r.raw).join(', ') })
@@ -1700,6 +1758,7 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
     visualEvidence,
     detectedBarcodes,
     manualBarcodeCount: manualValues.length,
+    expectedSscc,
     parsed: [...qrParses, ...freightParses, ...routingParses, ...atlParses, ...validSsccs],
     startrack: { qrParses, freightParses, routingParses, ssccParses: validSsccs, atlParses, ssccOnly },
     articles,

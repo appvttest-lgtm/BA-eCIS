@@ -451,42 +451,63 @@ function squareCanvas(sourceCanvas, paddingRatio = 0.08) {
   return out;
 }
 
-function makeScanVariants(baseCanvas, kind) {
+function makeScanVariants(baseCanvas, kind, labels = null) {
+  const allowed = labels ? new Set(labels) : null;
+  const variants = [];
+  const add = (label, makeCanvas, options = {}) => {
+    if (!allowed || allowed.has(label)) variants.push({ label, canvas: makeCanvas(), options });
+  };
   const trimmed = trimDarkBounds(baseCanvas, kind === FORMAT_KIND.datamatrix ? 8 : 18, kind === FORMAT_KIND.datamatrix ? 220 : 210);
   const bordered = addWhiteBorder(trimmed, kind === FORMAT_KIND.datamatrix ? 0.18 : 0.08);
-  const squared = kind === FORMAT_KIND.datamatrix ? squareCanvas(trimmed, 0.16) : bordered;
-  const variants = [
-    { label: 'original', canvas: baseCanvas, options: {} },
-    { label: 'trimmed + border', canvas: bordered, options: {} },
-    { label: '2x nearest', canvas: scaleCanvas(bordered, 2), options: {} },
-    { label: '4x nearest', canvas: scaleCanvas(bordered, 4), options: {} },
-    { label: 'threshold 150', canvas: thresholdCanvas(scaleCanvas(bordered, 2), 150), options: { binarizer: 'FixedThreshold' } },
-    { label: 'threshold 185', canvas: thresholdCanvas(scaleCanvas(bordered, 2), 185), options: { binarizer: 'FixedThreshold' } }
-  ];
+  let bordered2x = null;
+  const getBordered2x = () => {
+    if (!bordered2x) bordered2x = scaleCanvas(bordered, 2);
+    return bordered2x;
+  };
+  add('original', () => baseCanvas);
+  add('trimmed + border', () => bordered);
+  add('2x nearest', getBordered2x);
+  add('4x nearest', () => scaleCanvas(bordered, 4));
+  add('threshold 150', () => thresholdCanvas(getBordered2x(), 150), { binarizer: 'FixedThreshold' });
+  add('threshold 185', () => thresholdCanvas(getBordered2x(), 185), { binarizer: 'FixedThreshold' });
   if (kind === FORMAT_KIND.datamatrix || kind === FORMAT_KIND.qr) {
-    variants.push({ label: 'square pure 2x', canvas: scaleCanvas(squareCanvas(trimmed, 0.20), 2), options: { isPure: true, binarizer: 'FixedThreshold' } });
-    variants.push({ label: 'square pure 4x', canvas: scaleCanvas(squared, 4), options: { isPure: true } });
+    add('square pure 2x', () => scaleCanvas(squareCanvas(trimmed, 0.20), 2), { isPure: true, binarizer: 'FixedThreshold' });
+    add('square pure 4x', () => scaleCanvas(kind === FORMAT_KIND.datamatrix ? squareCanvas(trimmed, 0.16) : bordered, 4), { isPure: true });
   }
   return variants;
 }
 
-function bestGridCrop(canvas, cellsX = 6, cellsY = 5, windowScale = 1.4) {
-  let best = null;
-  const minCell = 42;
-  for (let gy = 0; gy < cellsY; gy += 1) {
-    for (let gx = 0; gx < cellsX; gx += 1) {
-      const cw = Math.max(minCell, Math.floor(canvas.width / cellsX * windowScale));
-      const ch = Math.max(minCell, Math.floor(canvas.height / cellsY * windowScale));
-      const x = Math.max(0, Math.min(canvas.width - cw, Math.floor((canvas.width - cw) * (gx / Math.max(1, cellsX - 1)))));
-      const y = Math.max(0, Math.min(canvas.height - ch, Math.floor((canvas.height - ch) * (gy / Math.max(1, cellsY - 1)))));
-      const crop = cropCanvas(canvas, x, y, cw, ch);
-      const stats = imageStats(crop, `grid ${gx},${gy}`);
-      const squarePenalty = Math.abs(cw - ch) / Math.max(cw, ch);
-      const score = (stats.blackRatio * 1.5) + (stats.transitionRate * 4.0) - squarePenalty * 0.15;
-      if (!best || score > best.score) best = { x, y, width: cw, height: ch, score, crop, stats };
-    }
-  }
-  return best;
+function selectScanVariants(baseCanvas, kind) {
+  const preferred = {
+    [FORMAT_KIND.linear]: ['original', 'trimmed + border', '2x nearest', 'threshold 150'],
+    [FORMAT_KIND.qr]: ['original', 'trimmed + border', '2x nearest', 'square pure 2x'],
+    [FORMAT_KIND.datamatrix]: ['original', 'trimmed + border', '2x nearest', '4x nearest', 'threshold 150', 'square pure 2x'],
+    [FORMAT_KIND.mixed]: ['original', 'trimmed + border', '2x nearest']
+  }[kind] || ['original', 'trimmed + border', '2x nearest'];
+  return makeScanVariants(baseCanvas, kind, preferred);
+}
+
+function shouldStopTargetScan(target, found) {
+  if (!found.length) return false;
+  if (target.kind === FORMAT_KIND.datamatrix || target.kind === FORMAT_KIND.qr) return true;
+  if (target.kind === FORMAT_KIND.linear) return true;
+  return found.length >= 2;
+}
+
+function shortenBarcodeValue(value, maxLength = 42) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+function detectorResultSummary(decoded) {
+  if (!decoded.length) return 'no detector results';
+  return decoded.map(barcode => {
+    const source = barcode.source || 'Unknown detector';
+    const format = barcode.format || barcode.symbology || 'unknown format';
+    const variant = barcode.variantLabel ? ` via ${barcode.variantLabel}` : '';
+    return `${source} (${format}${variant}) "${shortenBarcodeValue(barcode.rawValue)}"`;
+  }).join('; ');
 }
 
 function makeTarget(sourceCanvas, kind, label, x, y, w, h, formats) {
@@ -496,26 +517,39 @@ function makeTarget(sourceCanvas, kind, label, x, y, w, h, formats) {
   return { kind, label, x, y, w, h, canvas: targetCanvas, formats };
 }
 
-function buildCategorizedScanTargets(canvas) {
+function hasBarcodeKind(barcodes, kind) {
+  return (barcodes || []).some(barcode => (
+    kind === FORMAT_KIND.qr ? isQrBarcode(barcode)
+      : kind === FORMAT_KIND.datamatrix ? isDataMatrixBarcode(barcode)
+        : kind === FORMAT_KIND.linear ? isLinearBarcode(barcode) && !isDataMatrixBarcode(barcode) && !isQrBarcode(barcode)
+          : false
+  ));
+}
+
+function shouldSkipFullPageSafetyScan(found, labelFamily = 'eparcel') {
+  const unique = dedupeBarcodes(found);
+  if (labelFamily === 'startrack') {
+    return unique.length >= 3 && hasBarcodeKind(unique, FORMAT_KIND.qr);
+  }
+  return unique.length >= 2;
+}
+
+function buildCategorizedScanTargets(canvas, labelFamily = 'eparcel') {
   const w = canvas.width;
   const h = canvas.height;
-  const dmBroadRect = { x: w * 0.52, y: h * 0.01, w: w * 0.47, h: h * 0.34 };
-  const dmBroad = cropCanvas(canvas, dmBroadRect.x, dmBroadRect.y, dmBroadRect.w, dmBroadRect.h);
-  const dmGrid = bestGridCrop(dmBroad, 6, 5, 1.35);
-  const targets = [
-    makeTarget(canvas, FORMAT_KIND.datamatrix, 'DataMatrix top-right broad crop', dmBroadRect.x, dmBroadRect.y, dmBroadRect.w, dmBroadRect.h, ['DataMatrix']),
-    makeTarget(canvas, FORMAT_KIND.datamatrix, 'DataMatrix expected crop', w * 0.70, h * 0.055, w * 0.29, h * 0.24, ['DataMatrix']),
-    ...(dmGrid ? [makeTarget(canvas, FORMAT_KIND.datamatrix, `DataMatrix high-density window (${dmGrid.stats.label})`, dmBroadRect.x + dmGrid.x, dmBroadRect.y + dmGrid.y, dmGrid.width, dmGrid.height, ['DataMatrix'])] : []),
-    makeTarget(canvas, FORMAT_KIND.qr, 'QR barcode upper/middle scan', w * 0.35, h * 0.10, w * 0.60, h * 0.55, ['QRCode']),
-    makeTarget(canvas, FORMAT_KIND.qr, 'QR barcode full label scan', 0, 0, w, h, ['QRCode']),
-    makeTarget(canvas, FORMAT_KIND.linear, 'StarTrack routing barcode expected crop', w * 0.04, h * 0.23, w * 0.62, h * 0.22, ['Code128']),
-    makeTarget(canvas, FORMAT_KIND.linear, 'StarTrack freight item barcode expected crop', w * 0.04, h * 0.50, w * 0.92, h * 0.20, ['Code128']),
-    makeTarget(canvas, FORMAT_KIND.linear, 'Linear barcode lower horizontal crop', w * 0.03, h * 0.43, w * 0.94, h * 0.32, ['Code128']),
-    makeTarget(canvas, FORMAT_KIND.linear, 'Linear barcode lower tight crop', w * 0.05, h * 0.56, w * 0.90, h * 0.18, ['Code128']),
-    makeTarget(canvas, FORMAT_KIND.linear, 'Linear barcode right vertical crop', w * 0.66, h * 0.14, w * 0.33, h * 0.74, ['Code128']),
-    makeTarget(canvas, FORMAT_KIND.mixed, 'Full page safety scan', 0, 0, w, h, ['Code128', 'DataMatrix', 'QRCode'])
+  if (labelFamily === 'startrack') {
+    return [
+      makeTarget(canvas, FORMAT_KIND.qr, 'StarTrack QR full label scan', 0, 0, w, h, ['QRCode']),
+      makeTarget(canvas, FORMAT_KIND.linear, 'StarTrack routing barcode expected crop', w * 0.04, h * 0.23, w * 0.62, h * 0.22, ['Code128']),
+      makeTarget(canvas, FORMAT_KIND.linear, 'StarTrack freight item barcode expected crop', w * 0.04, h * 0.50, w * 0.92, h * 0.20, ['Code128']),
+      makeTarget(canvas, FORMAT_KIND.linear, 'Linear barcode lower horizontal crop', w * 0.03, h * 0.43, w * 0.94, h * 0.32, ['Code128']),
+      makeTarget(canvas, FORMAT_KIND.mixed, 'Full page safety scan', 0, 0, w, h, ['Code128', 'QRCode'])
+    ];
+  }
+  return [
+    makeTarget(canvas, FORMAT_KIND.linear, 'eParcel primary linear barcode crop', w * 0.04, h * 0.23, w * 0.62, h * 0.22, ['Code128']),
+    makeTarget(canvas, FORMAT_KIND.mixed, 'Full page safety scan', 0, 0, w, h, ['Code128', 'DataMatrix'])
   ];
-  return targets;
 }
 function buildScanRegions(canvas) {
   const w = canvas.width;
@@ -793,7 +827,7 @@ function createLabelImages(canvas, detectedBarcodes = []) {
 }
 
 const STANDARD_EXAMPLES = {
-  A6_SIZE: 'Sample label size: A6 / 15 cm × 10 cm style label. This MVP accepts approximately 105 × 148 mm or 100 × 150 mm PDF pages.',
+  A6_SIZE: 'eParcel labels should be supplied as an A6-style PDF page. The audit accepts either true A6 sizing (105mm x 148mm) or common thermal-label sizing (100mm x 150mm), in portrait or landscape, with tolerance for PDF rounding.',
   TEXT_EXTRACTED: 'Digital PDF/image should expose or render label content such as DELIVER TO, SENDER/FROM, AP Article ID and barcode zones.',
   LABEL_TYPE: 'Parcel Post / Express Post branding may be image-only. Product family is verified primarily from decoded product code when text extraction cannot expose the header.',
   VISIBLE_ARTICLE_ID: 'AP Article ID: 2JD569514501000910903',
@@ -822,7 +856,7 @@ const STANDARD_EXAMPLES = {
   DM_DPID: 'AI 92 DPID is optional; if present it must be 8 digits and not 00000000. If unavailable, omit AI 92 and its separator.',
   DM_SEPARATORS: 'GS1 FNC1/group separators must be encoded as control characters, not literal text such as FNC1, _1 or $.',
   SSCC: 'SSCC uses AI 00 and is treated differently from standard eParcel article IDs.',
-  ST_LABEL_SIZE: 'StarTrack Despatch label: 10cm x 15cm; optional 10cm x 20cm; Controlled Returns/Transfer label: 15cm x 10cm.',
+  ST_LABEL_SIZE: 'StarTrack despatch labels are normally 100mm x 150mm. Optional extended despatch labels may be 100mm x 200mm. Controlled Returns/Transfer labels may be 150mm x 100mm. The audit allows tolerance for PDF rounding.',
   ST_TEXT_EXTRACTED: 'Digital PDF/image should expose or render StarTrack label content such as CONNOTE, receiver, sender, routing and barcode zones.',
   ST_LOGO_HEADER: 'The P-StarTrack logo must appear in the label header.',
   ST_LABEL_CODE_VISIBLE: 'A 3-character StarTrack label code such as EXP, PRM, ARL, RET, RE2, APT or TSE should appear in the header.',
@@ -898,7 +932,7 @@ function selectedProductCodes(audit) {
 
 function auditHasSsccOnly(audit) {
   const articles = audit?.articles || [];
-  return articles.some(a => a?.type === 'sscc') && !articles.some(a => a?.type === 'eparcel-standard');
+  return Boolean(audit?.expectedSscc?.provided) || (articles.some(a => a?.type === 'sscc') && !articles.some(a => a?.type === 'eparcel-standard'));
 }
 
 function isSsccArticle(article) {
@@ -1077,8 +1111,18 @@ function rawBarcodeListHtml(items, esc) {
   return (items || []).map(b => `<li><strong>${esc(barcodeDisplayName(b))}</strong> page ${esc(b.pageNumber || '')}: <code class="raw-code">${esc(b.rawValue || '')}</code></li>`).join('');
 }
 
+function formatDurationMs(ms) {
+  if (!Number.isFinite(ms)) return '';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
+}
+
+function yieldToBrowser() {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
 const VALIDATION_TABLE_REPORT_CSS = `
-.validation-table th:nth-child(1),.validation-table td:nth-child(1){width:38%}.validation-table th:nth-child(2),.validation-table td:nth-child(2){width:44%}.validation-table th:last-child,.validation-table td:last-child{width:120px;text-align:center;vertical-align:top}.validation-table.has-payload-column th:nth-child(1),.validation-table.has-payload-column td:nth-child(1){width:34%}.validation-table.has-payload-column th:nth-child(2),.validation-table.has-payload-column td:nth-child(2){width:30%}.validation-table.has-payload-column th:nth-child(3),.validation-table.has-payload-column td:nth-child(3){width:22%}.validation-table.has-payload-column th:last-child,.validation-table.has-payload-column td:last-child{width:140px}.criteria-cell,.measurement-cell,.status-stack{display:grid;gap:6px;align-content:start}.criteria-cell strong{font-size:12px}.criteria-standard,.criteria-expected,.measurement-label{display:block;color:#53606d;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.criteria-expected{color:#344054}.measurement-cell code{display:inline-block;margin-top:2px}.badge{display:inline-block;border-radius:999px;padding:4px 9px;font-size:10.5px;font-weight:900;text-transform:uppercase;white-space:nowrap;background:#eee}.badge-fail,.badge-error,.badge-critical{background:#ffe1e5;color:#a00018}.badge-warning,.badge-review{background:#fff0c2;color:#7a4b00}.badge-info,.badge-not_applicable,.badge-manual_review{background:#e7f0ff;color:#0d4f9b}.badge-pass{background:#dff5e7;color:#087a2e}.payload-status{display:grid;gap:4px;justify-items:center;margin-top:4px}.payload-status>span{color:#53606d;font-size:10px;font-weight:800;text-transform:uppercase}.payload-status .payload-evidence{display:none}
+.validation-table th:nth-child(1),.validation-table td:nth-child(1){width:38%}.validation-table th:nth-child(2),.validation-table td:nth-child(2){width:44%}.validation-table th:last-child,.validation-table td:last-child{width:120px;text-align:center;vertical-align:top}.validation-table.has-payload-column th:nth-child(1),.validation-table.has-payload-column td:nth-child(1){width:34%}.validation-table.has-payload-column th:nth-child(2),.validation-table.has-payload-column td:nth-child(2){width:30%}.validation-table.has-payload-column th:nth-child(3),.validation-table.has-payload-column td:nth-child(3){width:22%}.validation-table.has-payload-column th:last-child,.validation-table.has-payload-column td:last-child{width:140px}.criteria-cell,.measurement-cell,.status-stack{display:grid;gap:6px;align-content:start}.criteria-cell strong{font-size:12px}.criteria-standard,.criteria-expected{display:block;color:#53606d;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0}.criteria-expected{color:#344054}.measurement-label{display:block;color:#53606d;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.measurement-cell code{display:inline-block;margin-top:2px}.badge{display:inline-block;border-radius:999px;padding:4px 9px;font-size:10.5px;font-weight:900;text-transform:uppercase;white-space:nowrap;background:#eee}.badge-fail,.badge-error,.badge-critical{background:#ffe1e5;color:#a00018}.badge-warning,.badge-review{background:#fff0c2;color:#7a4b00}.badge-info,.badge-not_applicable,.badge-manual_review{background:#e7f0ff;color:#0d4f9b}.badge-pass{background:#dff5e7;color:#087a2e}.payload-status{display:grid;gap:4px;justify-items:center;margin-top:4px}.payload-status>span{color:#53606d;font-size:10px;font-weight:800;text-transform:uppercase}.payload-status .payload-evidence{display:none}
 `;
 
 
@@ -1214,15 +1258,17 @@ function textContentItemsToLines(items) {
 async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
   const found = [];
   const categoryFormats = target.formats || ['Code128', 'DataMatrix'];
+  const variants = selectScanVariants(target.canvas, target.kind);
 
   // Try the native detector first because it is cheap, then run the more expensive
   // ZXing passes that provide stronger coverage for production label files.
   if (detector) {
     const browserHits = await detectWithBrowserBarcodeDetector(target.canvas, detector, pageNumber, target.label);
     found.push(...browserHits.map(hit => mapBarcodeToPage(hit, target, 'original')));
+    if (shouldStopTargetScan(target, found)) return found;
   }
 
-  for (const variant of makeScanVariants(target.canvas, target.kind)) {
+  for (const variant of variants) {
     // ZXing-C++ WASM is the primary scanner for accuracy-sensitive barcode reads.
     const wasmHits = await wasmDecodeCanvas(
       variant.canvas,
@@ -1234,28 +1280,34 @@ async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
       variant.options || {}
     );
     found.push(...wasmHits.map(hit => mapBarcodeToPage(hit, target, variant.label)));
+    if (shouldStopTargetScan(target, found)) return found;
 
-    // The pure-JS reader is slower/less capable, but sometimes succeeds on images
-    // where the WASM binarizer fails.
-    const jsHits = zxingDecodeCanvas(
-      variant.canvas,
-      pageNumber,
-      target.label,
-      categoryFormats,
-      target.kind,
-      variant.label
-    );
-    found.push(...jsHits.map(hit => mapBarcodeToPage(hit, target, variant.label)));
+    // The pure-JS reader is slower, so keep it as a fallback for variants where
+    // the WASM reader did not return anything.
+    if (!wasmHits.length) {
+      const jsHits = zxingDecodeCanvas(
+        variant.canvas,
+        pageNumber,
+        target.label,
+        categoryFormats,
+        target.kind,
+        variant.label
+      );
+      found.push(...jsHits.map(hit => mapBarcodeToPage(hit, target, variant.label)));
+      if (shouldStopTargetScan(target, found)) return found;
+    }
+  }
 
-    // Linear barcode orientation is not consistent across every label template. Rotated
-    // reads count for decoded content, but not for placement evidence.
-    if (target.kind === FORMAT_KIND.linear) {
+  // Linear barcode orientation is not consistent across every label template.
+  // Rotated reads are expensive, so only try a small WASM pass when the normal
+  // variants failed to decode the target.
+  if (target.kind === FORMAT_KIND.linear && !found.length) {
+    for (const variant of variants.slice(0, 2)) {
       for (const degrees of [90, 270]) {
         const rotated = rotateCanvas(variant.canvas, degrees);
         const rotWasmHits = await wasmDecodeCanvas(rotated, pageNumber, target.label, categoryFormats, target.kind, `${variant.label} rotated ${degrees}`, variant.options || {});
         found.push(...rotWasmHits.map(hit => mapBarcodeToPage(hit, target, `${variant.label} rotated ${degrees}`)));
-        const rotJsHits = zxingDecodeCanvas(rotated, pageNumber, target.label, categoryFormats, target.kind, `${variant.label} rotated ${degrees}`);
-        found.push(...rotJsHits.map(hit => mapBarcodeToPage(hit, target, `${variant.label} rotated ${degrees}`)));
+        if (shouldStopTargetScan(target, found)) return found;
       }
     }
   }
@@ -1263,14 +1315,34 @@ async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
   return found;
 }
 
-async function detectOnCanvas(canvas, detector, pageNumber = 1) {
+async function detectOnCanvas(canvas, detector, pageNumber = 1, onDebug = null, labelFamily = 'eparcel') {
   const found = [];
   const scanDiagnostics = [];
-  const targets = buildCategorizedScanTargets(canvas);
+  const targets = buildCategorizedScanTargets(canvas, labelFamily);
 
   for (const target of targets) {
-    const before = found.length;
+    if (target.kind === FORMAT_KIND.mixed && shouldSkipFullPageSafetyScan(found, labelFamily)) {
+      const decodedCount = dedupeBarcodes(found).length;
+      const skipped = {
+        pageNumber,
+        kind: target.kind,
+        label: target.label,
+        formats: target.formats,
+        decodedCount: 0,
+        width: target.canvas.width,
+        height: target.canvas.height,
+        decodedValues: [],
+        durationMs: 0,
+        skipped: true
+      };
+      scanDiagnostics.push(skipped);
+      onDebug?.(`Skipped ${target.label}; targeted scans already found ${decodedCount} barcode candidate(s)`, 0);
+      continue;
+    }
+
+    const scanStart = performance.now();
     const decoded = await scanTargetWithAllEngines(target, detector, pageNumber);
+    const durationMs = performance.now() - scanStart;
     found.push(...decoded);
     scanDiagnostics.push({
       pageNumber,
@@ -1280,8 +1352,18 @@ async function detectOnCanvas(canvas, detector, pageNumber = 1) {
       decodedCount: decoded.length,
       width: target.canvas.width,
       height: target.canvas.height,
-      decodedValues: decoded.map(d => d.rawValue)
+      decodedValues: decoded.map(d => d.rawValue),
+      decodedSources: decoded.map(d => ({
+        source: d.source || 'Unknown detector',
+        format: d.format || d.symbology || 'unknown format',
+        variantLabel: d.variantLabel || '',
+        rawValue: d.rawValue || ''
+      })),
+      durationMs
     });
+    if (decoded.length || durationMs >= 1000) {
+      onDebug?.(`Scan target "${target.label}" found ${decoded.length} candidate${decoded.length === 1 ? '' : 's'}: ${detectorResultSummary(decoded)}`, durationMs);
+    }
     if (decoded.length && target.kind !== FORMAT_KIND.mixed) {
       console.info(`Decoded ${decoded.length} barcode(s) from ${target.label}`);
     }
@@ -1292,23 +1374,39 @@ async function detectOnCanvas(canvas, detector, pageNumber = 1) {
   return { barcodes, scanDiagnostics };
 }
 
-async function processImage(file, detector) {
+async function processImage(file, detector, onDebug = null, labelFamily = 'eparcel') {
+  const fileStart = performance.now();
+  const mark = (message, startedAt = fileStart) => onDebug?.(message, performance.now() - startedAt);
   const imgUrl = URL.createObjectURL(file);
   const img = new Image();
   img.decoding = 'async';
   img.src = imgUrl;
+  const decodeStart = performance.now();
   await img.decode();
+  mark(`Decoded image ${file.name} (${img.naturalWidth}x${img.naturalHeight}px)`, decodeStart);
 
   const canvas = document.createElement('canvas');
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const drawStart = performance.now();
   ctx.drawImage(img, 0, 0);
+  mark('Rendered image to canvas', drawStart);
+  await yieldToBrowser();
+  const visualStart = performance.now();
   const visualEvidence = detectVisualBarcodeEvidence(canvas);
-  const scanResult = await detectOnCanvas(canvas, detector, 1);
+  mark('Checked visual barcode evidence', visualStart);
+  await yieldToBrowser();
+  const scanStart = performance.now();
+  const scanResult = await detectOnCanvas(canvas, detector, 1, mark, labelFamily);
   const detected = scanResult.barcodes;
+  mark(`Decoded barcode candidates (${detected.length})`, scanStart);
+  await yieldToBrowser();
+  const imageStart = performance.now();
   const labelImages = createLabelImages(canvas, detected);
+  mark('Generated label preview and barcode crops', imageStart);
   URL.revokeObjectURL(imgUrl);
+  mark(`Completed image ${file.name}`, fileStart);
 
   return {
     fileInfo: {
@@ -1328,21 +1426,33 @@ async function processImage(file, detector) {
   };
 }
 
-async function processPdfLabels(file, detector) {
+async function processPdfLabels(file, detector, onDebug = null, labelFamily = 'eparcel') {
+  const fileStart = performance.now();
+  const mark = (message, startedAt = fileStart) => onDebug?.(message, performance.now() - startedAt);
+  const bufferStart = performance.now();
   const data = new Uint8Array(await file.arrayBuffer());
+  mark(`Loaded PDF bytes for ${file.name} (${Math.round(file.size / 1024)} KB)`, bufferStart);
+  const documentStart = performance.now();
   const pdf = await pdfjsLib.getDocument({ data }).promise;
+  mark(`Opened PDF document (${pdf.numPages} page${pdf.numPages === 1 ? '' : 's'})`, documentStart);
   const labels = [];
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const pageStart = performance.now();
+    mark(`Started page ${pageNumber} of ${pdf.numPages}`, pageStart);
+    const getPageStart = performance.now();
     const page = await pdf.getPage(pageNumber);
+    mark(`Loaded PDF page ${pageNumber}`, getPageStart);
     const viewport72 = page.getViewport({ scale: 1 });
     const pageMm = {
       widthMm: viewport72.width * 25.4 / 72,
       heightMm: viewport72.height * 25.4 / 72
     };
 
+    const textStart = performance.now();
     const textContent = await page.getTextContent().catch(() => ({ items: [] }));
     const pageLines = textContentItemsToLines(textContent.items || []);
+    mark(`Extracted text from page ${pageNumber} (${pageLines.length} line${pageLines.length === 1 ? '' : 's'})`, textStart);
 
     // PDF pages are rendered at high scale so small barcode modules survive rasterization.
     // Raising this improves decode odds but increases memory and CPU cost.
@@ -1351,12 +1461,23 @@ async function processPdfLabels(file, detector) {
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const renderStart = performance.now();
     await page.render({ canvasContext: ctx, viewport }).promise;
+    mark(`Rendered page ${pageNumber} to canvas (${canvas.width}x${canvas.height}px)`, renderStart);
 
+    await yieldToBrowser();
+    const visualStart = performance.now();
     const visualEvidence = detectVisualBarcodeEvidence(canvas);
-    const pageScan = await detectOnCanvas(canvas, detector, pageNumber);
+    mark(`Checked visual barcode evidence on page ${pageNumber}`, visualStart);
+    await yieldToBrowser();
+    const scanStart = performance.now();
+    const pageScan = await detectOnCanvas(canvas, detector, pageNumber, mark, labelFamily);
     const detected = dedupeBarcodes(pageScan.barcodes || []);
+    mark(`Decoded page ${pageNumber} barcode candidates (${detected.length})`, scanStart);
+    await yieldToBrowser();
+    const imageStart = performance.now();
     const labelImages = createLabelImages(canvas, detected);
+    mark(`Generated page ${pageNumber} label preview and barcode crops`, imageStart);
 
     labels.push({
       fileInfo: {
@@ -1378,13 +1499,16 @@ async function processPdfLabels(file, detector) {
       scanDiagnostics: pageScan.scanDiagnostics || [],
       extractedText: pageLines.join('\n')
     });
+    mark(`Completed page ${pageNumber} of ${pdf.numPages}`, pageStart);
+    await yieldToBrowser();
   }
 
+  mark(`Completed PDF ${file.name}`, fileStart);
   return labels;
 }
 
-async function processPdf(file, detector) {
-  const labels = await processPdfLabels(file, detector);
+async function processPdf(file, detector, onDebug = null) {
+  const labels = await processPdfLabels(file, detector, onDebug);
   return labels[0];
 }
 
@@ -2349,11 +2473,11 @@ function App() {
   // Optional Get Shipments payload pasted by the user. It is never sent anywhere; it is
   // parsed locally and compared only after the label identity appears to match.
   const [manifestJson, setManifestJson] = useState('');
+  const [ssccCompanyPrefix, setSsccCompanyPrefix] = useState('');
   // Locks upload controls while the local render -> scan -> audit pipeline is active.
   const [processing, setProcessing] = useState(false);
-  // User-visible progress for multi-file and multi-page audits.
-  const [scanProgress, setScanProgress] = useState({ percent: 0, phase: 'Idle' });
-  // Short status/error text shown outside the progress panel.
+  const [scanDebugLines, setScanDebugLines] = useState([]);
+  // Short status/error text shown above the timing log and report.
   const [message, setMessage] = useState('');
   // Raw rendered label data is kept so payload comparison can be refreshed without
   // rescanning PDFs/images.
@@ -2387,13 +2511,17 @@ function App() {
     await auditSelectedFiles(selected, labelFamily);
   }
 
-  /** Moves the progress bar forward while preventing noisy backwards jumps between pages. */
-  function updateScanProgress(percent, phase) {
-    setScanProgress(prev => ({
-      percent: Math.max(prev.percent || 0, Math.min(100, Math.round(percent))),
-      phase: phase || prev.phase || 'Processing labels'
-    }));
+  function appendScanDebug(message, durationMs = null) {
+    const now = new Date();
+    const time = now.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const duration = Number.isFinite(durationMs) ? ` +${formatDurationMs(durationMs)}` : '';
+    setScanDebugLines(prev => [{
+      text: `[${time}]${duration} ${message}`,
+      durationMs: Number.isFinite(durationMs) ? durationMs : null
+    }, ...prev].slice(0, 220));
   }
+
+  const scanDebugText = scanDebugLines.map(line => line.text).join('\n');
 
   /** Main UI pipeline: render each file/page, decode barcodes, run carrier rules, then display results. */
   async function auditSelectedFiles(files, labelFamily = 'eparcel') {
@@ -2403,14 +2531,17 @@ function App() {
       return;
     }
     setProcessing(true);
-    setScanProgress({ percent: 4, phase: 'Preparing scanner' });
+    setScanDebugLines([]);
     setMessage('Preparing barcode scanner…');
     setAudits([]);
     setScanDatas([]);
     setActiveIndex(0);
     try {
+      const auditStart = performance.now();
+      appendScanDebug(`Started audit batch (${batches.length} file${batches.length === 1 ? '' : 's'})`);
+      const scannerStart = performance.now();
       const detector = await createDetector();
-      updateScanProgress(12, 'Scanner ready');
+      appendScanDebug(detector ? 'Native BarcodeDetector ready' : 'Native BarcodeDetector unavailable; using ZXing-WASM/JS scanning', performance.now() - scannerStart);
       if (!detector) {
         console.info('Native BarcodeDetector unavailable; using ZXing-C++ WASM crop scanning.');
       }
@@ -2419,21 +2550,23 @@ function App() {
       const nextScanDatas = [];
       for (let i = 0; i < batches.length; i += 1) {
         const { file: currentFile, labelFamily } = batches[i];
-        const fileStartPercent = 12 + (i / Math.max(1, batches.length)) * 72;
-        const fileEndPercent = 12 + ((i + 1) / Math.max(1, batches.length)) * 72;
         const carrierLabel = labelFamilyName(labelFamily);
-        updateScanProgress(fileStartPercent, `${carrierLabel} file ${i + 1} of ${batches.length}`);
+        const fileDebugPrefix = `${carrierLabel} file ${i + 1}/${batches.length}: ${currentFile.name}`;
+        const fileTimer = performance.now();
+        const fileDebug = (message, durationMs = null) => appendScanDebug(`${fileDebugPrefix} - ${message}`, durationMs);
         setMessage(`Scanning ${carrierLabel} file ${i + 1} of ${batches.length}: ${currentFile.name}`);
         const dataItems = currentFile.type === 'application/pdf' || currentFile.name.toLowerCase().endsWith('.pdf')
-          ? await processPdfLabels(currentFile, detector)
-          : [await processImage(currentFile, detector)];
-        updateScanProgress(fileStartPercent + (fileEndPercent - fileStartPercent) * 0.72, `Decoded ${dataItems.length} label image${dataItems.length === 1 ? '' : 's'}`);
+          ? await processPdfLabels(currentFile, detector, fileDebug, labelFamily)
+          : [await processImage(currentFile, detector, fileDebug, labelFamily)];
+        appendScanDebug(`${fileDebugPrefix} - finished render/scan phase`, performance.now() - fileTimer);
 
         for (let pageIndex = 0; pageIndex < dataItems.length; pageIndex += 1) {
           const data = { ...dataItems[pageIndex], labelFamily, fileInfo: { ...(dataItems[pageIndex].fileInfo || {}), labelFamily } };
           const itemLabel = data.fileInfo?.sourcePdfPage ? `page ${data.fileInfo.sourcePdfPage}` : 'image';
           setMessage(`Auditing ${currentFile.name} — ${itemLabel}`);
-          const nextAudit = auditLabel({ ...data, manifestJson, labelFamily });
+          const auditRuleStart = performance.now();
+          const nextAudit = auditLabel({ ...data, manifestJson, ssccCompanyPrefix, labelFamily });
+          appendScanDebug(`${fileDebugPrefix} - ran audit rules for ${itemLabel}`, performance.now() - auditRuleStart);
           nextAudit.labelImages = data.labelImages || {};
           nextAudit.extractedText = data.extractedText || '';
           nextAudit.scanDiagnostics = data.scanDiagnostics || [];
@@ -2446,35 +2579,30 @@ function App() {
           setAudits([...nextAudits]);
           setScanDatas([...nextScanDatas]);
           setActiveIndex(nextAudits.length - 1);
-          updateScanProgress(
-            fileStartPercent + (fileEndPercent - fileStartPercent) * (0.72 + 0.28 * ((pageIndex + 1) / Math.max(1, dataItems.length))),
-            `Audited label ${nextAudits.length}`
-          );
+          await yieldToBrowser();
         }
       }
       setActiveIndex(0);
-      updateScanProgress(96, 'Finalising report view');
-      const totalDecoded = nextAudits.reduce((sum, audit) => sum + (audit.detectedBarcodes?.length || 0), 0);
-      setScanProgress({ percent: 100, phase: 'Complete' });
-      setMessage(`Audit complete. ${nextAudits.length} label(s) processed with ${totalDecoded} decoded barcode string(s).`);
+      appendScanDebug('Completed audit batch', performance.now() - auditStart);
+      setMessage('');
       setTimeout(() => document.getElementById('audit-result')?.scrollIntoView({ block: 'start' }), 0);
     } catch (error) {
       console.error(error);
-      setScanProgress({ percent: 100, phase: 'Stopped' });
+      appendScanDebug(`Stopped with error: ${error.message || String(error)}`);
       setMessage(`Error: ${error.message || String(error)}`);
     } finally {
       setProcessing(false);
     }
   }
 
-  /** Re-runs validation with the current payload without re-rendering or re-decoding labels. */
-  function rerunAuditWithPayload() {
+  /** Re-runs validation with current optional inputs without re-rendering or re-decoding labels. */
+  function rerunAuditWithOptionalInputs() {
     if (!scanDatas.length) {
       setMessage('No scanned file data is available yet. Upload and audit one or more labels first.');
       return;
     }
     const refreshed = scanDatas.map((base, idx) => {
-      const nextAudit = auditLabel({ ...base, manifestJson, labelFamily: base.labelFamily || base.fileInfo?.labelFamily || 'eparcel' });
+      const nextAudit = auditLabel({ ...base, manifestJson, ssccCompanyPrefix, labelFamily: base.labelFamily || base.fileInfo?.labelFamily || 'eparcel' });
       nextAudit.labelImages = base.labelImages || {};
       nextAudit.extractedText = base.extractedText || '';
       nextAudit.scanDiagnostics = base.scanDiagnostics || [];
@@ -2482,7 +2610,7 @@ function App() {
       return nextAudit;
     });
     setAudits(refreshed);
-    setMessage('Get Shipments payload comparison refreshed for all uploaded labels.');
+    setMessage('Optional payload and SSCC prefix checks refreshed for all uploaded labels.');
   }
 
   return (
@@ -2527,13 +2655,14 @@ function App() {
             <span className="dropzone-subtitle">Light blue StarTrack audit path with QR, routing, freight item and SSCC checks</span>
           </label>
         </div>
-        <details className="payload-input-panel">
-          <summary>Get Shipments API payload comparison</summary>
-          <p className="muted small">Optional: paste a Get Shipments response before upload, or apply it to the current report.</p>
-          <textarea
-            className="api-payload-textarea"
-            rows="8"
-            placeholder={`Paste Get Shipments payload here, for example:
+        <div className="optional-input-grid">
+          <section className="payload-input-panel" aria-labelledby="payload-input-title">
+            <h2 id="payload-input-title">Get Shipments API payload comparison</h2>
+            <p className="muted small">Optional: paste a Get Shipments response before upload, or apply it to the current report.</p>
+            <textarea
+              className="api-payload-textarea"
+              rows="8"
+              placeholder={`Paste Get Shipments payload here, for example:
 {
   "shipments": [{
     "shipment_id": "...",
@@ -2543,11 +2672,27 @@ function App() {
     "safe_drop_enabled": false
   }]
 }`}
-            value={manifestJson}
-            onChange={e => setManifestJson(e.target.value)}
-          />
-          {scanDatas.length > 0 && <button className="secondary" onClick={rerunAuditWithPayload}>Apply payload comparison to current results</button>}
-        </details>
+              value={manifestJson}
+              onChange={e => setManifestJson(e.target.value)}
+            />
+          </section>
+          <section className="sscc-prefix-panel" aria-labelledby="sscc-prefix-title">
+            <h2 id="sscc-prefix-title">SSCC GS1 Company Prefix</h2>
+            <p className="muted small">Optional. When supplied, eParcel and StarTrack labels are assessed as SSCC labels and the decoded AI 00 barcode must match this prefix.</p>
+            <label className="field-label" htmlFor="sscc-company-prefix">Company prefix</label>
+            <input
+              id="sscc-company-prefix"
+              className="sscc-prefix-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="(00) 3 93 15345"
+              value={ssccCompanyPrefix}
+              onChange={e => setSsccCompanyPrefix(e.target.value)}
+            />
+            <p className="muted small">Example: (00) 3 93 15345 000000070 0 uses company prefix 9315345. Enter the leading AI 00, extension digit and GS1 Company Prefix, for example (00) 3 93 15345, up to but not including the serial reference and check digit.</p>
+          </section>
+          {scanDatas.length > 0 && <button className="secondary optional-input-apply" onClick={rerunAuditWithOptionalInputs}>Apply optional checks to current results</button>}
+        </div>
       </section>
 
       {processing && (
@@ -2555,33 +2700,20 @@ function App() {
           <div className="scan-progress-head">
             <div>
               <strong>Scanning labels</strong>
-              <span>{scanProgress.phase || 'Processing labels'}</span>
+              <span>{message || 'Processing labels'}</span>
             </div>
-            <span className="progress-percent">{scanProgress.percent || 0}%</span>
           </div>
-          <div className="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={scanProgress.percent || 0}>
-            <div style={{ width: `${scanProgress.percent || 0}%` }} />
-          </div>
-          <p className="progress-detail">{message || 'Processing PDF/image, barcode crops, and audit rules…'}</p>
         </section>
       )}
 
-      {!processing && message && <section className="message">{message}</section>}
+      {!processing && message && <section className="message" aria-live="polite">{message}</section>}
 
       {audits.length > 0 && (
         <section className="results">
-          <div className="summary card compact-card consolidated-summary">
+          <div className={`summary card compact-card consolidated-summary summary-${batchSummary.overallStatus.toLowerCase()}`}>
             <div>
               <SectionTitle id="audit-result">Audit result</SectionTitle>
               <p className={`overall overall-${batchSummary.overallStatus.toLowerCase()}`}>{batchSummary.overallStatus}</p>
-              <p className="muted small">Consolidated result across {batchSummary.labelCount} uploaded label(s).</p>
-            </div>
-            <div className="summary-grid compact-summary">
-              <span>Labels: {batchSummary.labelCount}</span>
-              <span>Passed checks: {batchSummary.passed}</span>
-              <span>Failed checks: {batchSummary.failed}</span>
-              <span>Review checks: {batchSummary.manualReview}</span>
-              <span>Decoded barcodes: {batchSummary.decoded}</span>
             </div>
           </div>
 
@@ -2649,6 +2781,25 @@ function App() {
               </section>
             );
           })()}
+        </section>
+      )}
+
+      {scanDebugLines.length > 0 && (
+        <section className="card scan-debug-card">
+          <details open={processing}>
+            <summary>
+              Debug timing log
+            </summary>
+            <label className="scan-debug-label" htmlFor="scan-debug-log">Full timing log</label>
+            <textarea
+              id="scan-debug-log"
+              className="scan-debug-log"
+              rows="8"
+              readOnly
+              value={scanDebugText}
+              placeholder="Timing events will appear here while files are processed."
+            />
+          </details>
         </section>
       )}
       <ImageZoomModal image={zoomImage} onClose={() => setZoomImage(null)} />
