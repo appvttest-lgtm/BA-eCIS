@@ -793,7 +793,7 @@ function createLabelImages(canvas, detectedBarcodes = []) {
 }
 
 const STANDARD_EXAMPLES = {
-  A6_SIZE: 'Sample label size: A6 / 15 cm × 10 cm style label. This MVP accepts approximately 105 × 148 mm or 100 × 150 mm PDF pages.',
+  A6_SIZE: 'eParcel labels should be supplied as an A6-style PDF page. The audit accepts either true A6 sizing (105mm x 148mm) or common thermal-label sizing (100mm x 150mm), in portrait or landscape, with tolerance for PDF rounding.',
   TEXT_EXTRACTED: 'Digital PDF/image should expose or render label content such as DELIVER TO, SENDER/FROM, AP Article ID and barcode zones.',
   LABEL_TYPE: 'Parcel Post / Express Post branding may be image-only. Product family is verified primarily from decoded product code when text extraction cannot expose the header.',
   VISIBLE_ARTICLE_ID: 'AP Article ID: 2JD569514501000910903',
@@ -822,7 +822,7 @@ const STANDARD_EXAMPLES = {
   DM_DPID: 'AI 92 DPID is optional; if present it must be 8 digits and not 00000000. If unavailable, omit AI 92 and its separator.',
   DM_SEPARATORS: 'GS1 FNC1/group separators must be encoded as control characters, not literal text such as FNC1, _1 or $.',
   SSCC: 'SSCC uses AI 00 and is treated differently from standard eParcel article IDs.',
-  ST_LABEL_SIZE: 'StarTrack Despatch label: 10cm x 15cm; optional 10cm x 20cm; Controlled Returns/Transfer label: 15cm x 10cm.',
+  ST_LABEL_SIZE: 'StarTrack despatch labels are normally 100mm x 150mm. Optional extended despatch labels may be 100mm x 200mm. Controlled Returns/Transfer labels may be 150mm x 100mm. The audit allows tolerance for PDF rounding.',
   ST_TEXT_EXTRACTED: 'Digital PDF/image should expose or render StarTrack label content such as CONNOTE, receiver, sender, routing and barcode zones.',
   ST_LOGO_HEADER: 'The P-StarTrack logo must appear in the label header.',
   ST_LABEL_CODE_VISIBLE: 'A 3-character StarTrack label code such as EXP, PRM, ARL, RET, RE2, APT or TSE should appear in the header.',
@@ -898,7 +898,7 @@ function selectedProductCodes(audit) {
 
 function auditHasSsccOnly(audit) {
   const articles = audit?.articles || [];
-  return articles.some(a => a?.type === 'sscc') && !articles.some(a => a?.type === 'eparcel-standard');
+  return Boolean(audit?.expectedSscc?.provided) || (articles.some(a => a?.type === 'sscc') && !articles.some(a => a?.type === 'eparcel-standard'));
 }
 
 function isSsccArticle(article) {
@@ -1078,7 +1078,7 @@ function rawBarcodeListHtml(items, esc) {
 }
 
 const VALIDATION_TABLE_REPORT_CSS = `
-.validation-table th:nth-child(1),.validation-table td:nth-child(1){width:38%}.validation-table th:nth-child(2),.validation-table td:nth-child(2){width:44%}.validation-table th:last-child,.validation-table td:last-child{width:120px;text-align:center;vertical-align:top}.validation-table.has-payload-column th:nth-child(1),.validation-table.has-payload-column td:nth-child(1){width:34%}.validation-table.has-payload-column th:nth-child(2),.validation-table.has-payload-column td:nth-child(2){width:30%}.validation-table.has-payload-column th:nth-child(3),.validation-table.has-payload-column td:nth-child(3){width:22%}.validation-table.has-payload-column th:last-child,.validation-table.has-payload-column td:last-child{width:140px}.criteria-cell,.measurement-cell,.status-stack{display:grid;gap:6px;align-content:start}.criteria-cell strong{font-size:12px}.criteria-standard,.criteria-expected,.measurement-label{display:block;color:#53606d;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.criteria-expected{color:#344054}.measurement-cell code{display:inline-block;margin-top:2px}.badge{display:inline-block;border-radius:999px;padding:4px 9px;font-size:10.5px;font-weight:900;text-transform:uppercase;white-space:nowrap;background:#eee}.badge-fail,.badge-error,.badge-critical{background:#ffe1e5;color:#a00018}.badge-warning,.badge-review{background:#fff0c2;color:#7a4b00}.badge-info,.badge-not_applicable,.badge-manual_review{background:#e7f0ff;color:#0d4f9b}.badge-pass{background:#dff5e7;color:#087a2e}.payload-status{display:grid;gap:4px;justify-items:center;margin-top:4px}.payload-status>span{color:#53606d;font-size:10px;font-weight:800;text-transform:uppercase}.payload-status .payload-evidence{display:none}
+.validation-table th:nth-child(1),.validation-table td:nth-child(1){width:38%}.validation-table th:nth-child(2),.validation-table td:nth-child(2){width:44%}.validation-table th:last-child,.validation-table td:last-child{width:120px;text-align:center;vertical-align:top}.validation-table.has-payload-column th:nth-child(1),.validation-table.has-payload-column td:nth-child(1){width:34%}.validation-table.has-payload-column th:nth-child(2),.validation-table.has-payload-column td:nth-child(2){width:30%}.validation-table.has-payload-column th:nth-child(3),.validation-table.has-payload-column td:nth-child(3){width:22%}.validation-table.has-payload-column th:last-child,.validation-table.has-payload-column td:last-child{width:140px}.criteria-cell,.measurement-cell,.status-stack{display:grid;gap:6px;align-content:start}.criteria-cell strong{font-size:12px}.criteria-standard,.criteria-expected{display:block;color:#53606d;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0}.criteria-expected{color:#344054}.measurement-label{display:block;color:#53606d;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.measurement-cell code{display:inline-block;margin-top:2px}.badge{display:inline-block;border-radius:999px;padding:4px 9px;font-size:10.5px;font-weight:900;text-transform:uppercase;white-space:nowrap;background:#eee}.badge-fail,.badge-error,.badge-critical{background:#ffe1e5;color:#a00018}.badge-warning,.badge-review{background:#fff0c2;color:#7a4b00}.badge-info,.badge-not_applicable,.badge-manual_review{background:#e7f0ff;color:#0d4f9b}.badge-pass{background:#dff5e7;color:#087a2e}.payload-status{display:grid;gap:4px;justify-items:center;margin-top:4px}.payload-status>span{color:#53606d;font-size:10px;font-weight:800;text-transform:uppercase}.payload-status .payload-evidence{display:none}
 `;
 
 
@@ -2349,6 +2349,7 @@ function App() {
   // Optional Get Shipments payload pasted by the user. It is never sent anywhere; it is
   // parsed locally and compared only after the label identity appears to match.
   const [manifestJson, setManifestJson] = useState('');
+  const [ssccCompanyPrefix, setSsccCompanyPrefix] = useState('');
   // Locks upload controls while the local render -> scan -> audit pipeline is active.
   const [processing, setProcessing] = useState(false);
   // User-visible progress for multi-file and multi-page audits.
@@ -2433,7 +2434,7 @@ function App() {
           const data = { ...dataItems[pageIndex], labelFamily, fileInfo: { ...(dataItems[pageIndex].fileInfo || {}), labelFamily } };
           const itemLabel = data.fileInfo?.sourcePdfPage ? `page ${data.fileInfo.sourcePdfPage}` : 'image';
           setMessage(`Auditing ${currentFile.name} — ${itemLabel}`);
-          const nextAudit = auditLabel({ ...data, manifestJson, labelFamily });
+          const nextAudit = auditLabel({ ...data, manifestJson, ssccCompanyPrefix, labelFamily });
           nextAudit.labelImages = data.labelImages || {};
           nextAudit.extractedText = data.extractedText || '';
           nextAudit.scanDiagnostics = data.scanDiagnostics || [];
@@ -2467,14 +2468,14 @@ function App() {
     }
   }
 
-  /** Re-runs validation with the current payload without re-rendering or re-decoding labels. */
-  function rerunAuditWithPayload() {
+  /** Re-runs validation with current optional inputs without re-rendering or re-decoding labels. */
+  function rerunAuditWithOptionalInputs() {
     if (!scanDatas.length) {
       setMessage('No scanned file data is available yet. Upload and audit one or more labels first.');
       return;
     }
     const refreshed = scanDatas.map((base, idx) => {
-      const nextAudit = auditLabel({ ...base, manifestJson, labelFamily: base.labelFamily || base.fileInfo?.labelFamily || 'eparcel' });
+      const nextAudit = auditLabel({ ...base, manifestJson, ssccCompanyPrefix, labelFamily: base.labelFamily || base.fileInfo?.labelFamily || 'eparcel' });
       nextAudit.labelImages = base.labelImages || {};
       nextAudit.extractedText = base.extractedText || '';
       nextAudit.scanDiagnostics = base.scanDiagnostics || [];
@@ -2482,7 +2483,7 @@ function App() {
       return nextAudit;
     });
     setAudits(refreshed);
-    setMessage('Get Shipments payload comparison refreshed for all uploaded labels.');
+    setMessage('Optional payload and SSCC prefix checks refreshed for all uploaded labels.');
   }
 
   return (
@@ -2527,13 +2528,14 @@ function App() {
             <span className="dropzone-subtitle">Light blue StarTrack audit path with QR, routing, freight item and SSCC checks</span>
           </label>
         </div>
-        <details className="payload-input-panel">
-          <summary>Get Shipments API payload comparison</summary>
-          <p className="muted small">Optional: paste a Get Shipments response before upload, or apply it to the current report.</p>
-          <textarea
-            className="api-payload-textarea"
-            rows="8"
-            placeholder={`Paste Get Shipments payload here, for example:
+        <div className="optional-input-grid">
+          <details className="payload-input-panel">
+            <summary>Get Shipments API payload comparison</summary>
+            <p className="muted small">Optional: paste a Get Shipments response before upload, or apply it to the current report.</p>
+            <textarea
+              className="api-payload-textarea"
+              rows="8"
+              placeholder={`Paste Get Shipments payload here, for example:
 {
   "shipments": [{
     "shipment_id": "...",
@@ -2543,11 +2545,27 @@ function App() {
     "safe_drop_enabled": false
   }]
 }`}
-            value={manifestJson}
-            onChange={e => setManifestJson(e.target.value)}
-          />
-          {scanDatas.length > 0 && <button className="secondary" onClick={rerunAuditWithPayload}>Apply payload comparison to current results</button>}
-        </details>
+              value={manifestJson}
+              onChange={e => setManifestJson(e.target.value)}
+            />
+          </details>
+          <section className="sscc-prefix-panel" aria-labelledby="sscc-prefix-title">
+            <h2 id="sscc-prefix-title">SSCC GS1 Company Prefix</h2>
+            <p className="muted small">Optional. When supplied, eParcel and StarTrack labels are assessed as SSCC labels and the decoded AI 00 barcode must match this prefix.</p>
+            <label className="field-label" htmlFor="sscc-company-prefix">Company prefix</label>
+            <input
+              id="sscc-company-prefix"
+              className="sscc-prefix-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="(00) 3 93 15345"
+              value={ssccCompanyPrefix}
+              onChange={e => setSsccCompanyPrefix(e.target.value)}
+            />
+            <p className="muted small">Example: (00) 3 93 15345 000000070 0 uses company prefix 9315345. Enter the leading AI 00, extension digit and GS1 Company Prefix, for example (00) 3 93 15345, up to but not including the serial reference and check digit.</p>
+          </section>
+          {scanDatas.length > 0 && <button className="secondary optional-input-apply" onClick={rerunAuditWithOptionalInputs}>Apply optional checks to current results</button>}
+        </div>
       </section>
 
       {processing && (

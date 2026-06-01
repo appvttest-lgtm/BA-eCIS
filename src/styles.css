@@ -1,10 +1,32 @@
 :root {
-  font-family: Inter, 'Segoe UI', Arial, Helvetica, sans-serif;
-  color: #17202a;
+  --font-body: Inter, 'Segoe UI', Arial, Helvetica, sans-serif;
+  --font-code: Consolas, 'Courier New', monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-body: 14px;
+  --text-heading: 20px;
+  --text-title: 34px;
+  --line-body: 1.45;
+  --weight-regular: 400;
+  --weight-semibold: 700;
+  --weight-bold: 800;
+  --color-text: #17202a;
+  --color-muted: #53606d;
+  --color-subtle: #687385;
+  --color-code-bg: #f2f4f7;
+  font-family: var(--font-body);
+  color: var(--color-text);
   background: #f6f7f9;
 }
 * { box-sizing: border-box; }
-body { margin: 0; line-height: 1.45; }
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--line-body);
+  color: var(--color-text);
+}
 .app { max-width: 1180px; margin: 0 auto; padding: 24px; }
 .hero {
   display: flex;
@@ -16,7 +38,12 @@ body { margin: 0; line-height: 1.45; }
   border-radius: 18px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
 }
-.hero h1 { margin: 0 0 4px; font-size: 34px; }
+.hero h1 {
+  margin: 0 0 4px;
+  font-size: var(--text-title);
+  line-height: 1.15;
+  font-weight: 800;
+}
 .hero p { margin: 0; opacity: 0.94; }
 .ap-mark {
   width: 180px;
@@ -48,8 +75,27 @@ body { margin: 0; line-height: 1.45; }
   grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
-h2 { margin-top: 0; font-size: 20px; }
+h2 {
+  margin-top: 0;
+  font-size: var(--text-heading);
+  line-height: 1.25;
+  font-weight: 800;
+}
+h3 {
+  font-size: 15px;
+  line-height: 1.3;
+  font-weight: 800;
+}
 textarea, input.file {
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  background: white;
+}
+input[type="text"] {
   width: 100%;
   border: 1px solid #ccc;
   border-radius: 12px;
@@ -71,8 +117,8 @@ button {
 button:disabled { opacity: 0.55; cursor: not-allowed; }
 .primary { background: #d4001a; color: white; }
 .secondary { background: #1e1e1e; color: white; }
-.muted { color: #666; }
-.small { font-size: 13px; }
+.muted { color: var(--color-muted); }
+.small { font-size: var(--text-sm); }
 .facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -80,15 +126,26 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 }
 .barcode-list { padding-left: 18px; }
 code, pre {
-  font-family: Consolas, 'Courier New', monospace;
-  background: #f2f2f2;
+  font-family: var(--font-code);
+  background: var(--color-code-bg);
   border-radius: 6px;
   padding: 2px 5px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: normal;
 }
-pre { padding: 10px; max-height: 260px; overflow: auto; white-space: pre-wrap; }
+code {
+  color: #111827;
+  font-size: 0.92em;
+}
+pre {
+  padding: 10px;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.45;
+}
 .raw-code { font-size: 12px; line-height: 1.35; }
 .summary {
   display: flex;
@@ -119,7 +176,7 @@ pre { padding: 10px; max-height: 260px; overflow: auto; white-space: pre-wrap; }
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--text-sm);
   table-layout: fixed;
 }
 th, td {
@@ -129,7 +186,10 @@ th, td {
   vertical-align: top;
   text-align: left;
 }
-th { background: #f5f5f5; }
+th {
+  background: #f5f5f5;
+  font-weight: 800;
+}
 .badge {
   display: inline-block;
   border-radius: 999px;
@@ -557,11 +617,11 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
 .dropzone-title {
   font-weight: 800;
   font-size: 15px;
-  color: #17202a;
+  color: var(--color-text);
 }
 .dropzone-subtitle {
-  color: #687385;
-  font-size: 12px;
+  color: var(--color-subtle);
+  font-size: var(--text-sm);
 }
 
 /* Carrier-specific upload zones and StarTrack visual treatment. */
@@ -623,19 +683,54 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
 @media (max-width: 780px) {
   .upload-split { grid-template-columns: 1fr; }
   .upload-actions { grid-column: auto; }
+  .optional-input-grid { grid-template-columns: 1fr; }
 }
 
 /* Optional Get Shipments payload input and match/mismatch badges. */
 .payload-input-panel {
+  min-width: 0;
+}
+.optional-input-grid {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: 18px;
   border-top: 1px solid #eef1f5;
   padding-top: 14px;
 }
 .api-payload-textarea {
   min-height: 210px;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: var(--font-code);
   font-size: 13px;
   line-height: 1.45;
+}
+.sscc-prefix-panel {
+  border: 1px solid #d8e6f2;
+  background: #f8fbff;
+  border-radius: 12px;
+  padding: 14px;
+}
+.sscc-prefix-panel h2 {
+  margin-bottom: 8px;
+}
+.field-label {
+  display: block;
+  margin: 10px 0 6px;
+  color: #344054;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.sscc-prefix-input {
+  font-family: var(--font-code);
+  letter-spacing: 0;
+}
+.optional-input-apply {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+@media (max-width: 780px) {
+  .optional-input-grid { grid-template-columns: 1fr; }
 }
 .payload-match {
   display: inline-block;
@@ -859,6 +954,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
 }
 .compact-table.validation-table {
   min-width: 980px;
+  font-size: 12.5px;
 }
 .compact-table.validation-table th:nth-child(1),
 .compact-table.validation-table td:nth-child(1) {
@@ -901,20 +997,34 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   align-content: start;
 }
 .criteria-cell strong {
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.3;
+  font-weight: 800;
 }
 .criteria-standard,
-.criteria-expected,
+.criteria-expected {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  font-weight: var(--weight-regular);
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.42;
+}
 .measurement-label {
   display: block;
-  color: #53606d;
-  font-size: 10.5px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .02em;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
 }
 .criteria-expected {
   color: #344054;
+}
+.measurement-cell {
+  font-size: 12.5px;
+  line-height: 1.42;
 }
 .measurement-cell code {
   display: inline-block;
