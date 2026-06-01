@@ -101,13 +101,12 @@ The local HTTP server is used so browser modules, PDF workers, WebAssembly asset
 - Uploaded labels and generated reports can contain customer names, addresses, article IDs, SSCC values, account references and barcode data, so reports should be handled as internal/customer data.
 
 ## Dependency Vulnerability Assessment
-Package	Version	Vulnerability Status	Critical Notes
-pdfjs-dist	4.10.38	No known direct vulnerabilities	Version is well above the patched threshold for the critical CVE-2024-4367 arbitrary code execution vulnerability.
-@zxing/library	0.21.3	No known direct vulnerabilities	The project is in maintenance mode, but the specific version has no reported CVEs.
-react / react-dom	18.3.1	No known direct vulnerabilities	Unaffected by the critical CVE-2025-55182 ("React2Shell") as the app does not use React Server Components.
-vite	5.4.21	Mitigated (Patched)	The version successfully patches an important security advisory (CVE-2025-62522) related to directory traversal bypass.
-typescript	5.6.3	No known direct vulnerabilities	The dependency is pinned to an exact version, which is a secure practice.
-zxing-wasm	3.0.3	No known direct vulnerabilities	No issues found in the direct dependency or Snyk database for this version.
+- pdfjs-dist version 4.10.38 has no known direct vulnerabilities and is well above the patched threshold for the critical CVE-2024-4367 arbitrary code execution vulnerability.
+- @zxing/library version 0.21.3 has no known direct vulnerabilities; the project is in maintenance mode, but this specific version has no reported CVEs.
+- react and react-dom version 18.3.1 have no known direct vulnerabilities and are unaffected by the critical CVE-2025-55182 ("React2Shell") because the application does not use React Server Components.
+- vite version 5.4.21 is mitigated (patched) and successfully fixes the important security advisory CVE-2025-62522 related to directory traversal bypass.
+- typescript version 5.6.3 has no known direct vulnerabilities and is pinned to an exact version, which is a secure practice.
+- zxing-wasm version 3.0.3 has no known direct vulnerabilities, with no issues found in the direct dependency or Snyk database for this version.
 
 ## Project Files
 
