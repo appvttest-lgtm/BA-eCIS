@@ -455,11 +455,12 @@ function cleanAddressLine(line) {
     .replace(/\band clearing procedures\b.*$/i, '')
     .replace(/\bthe article does not contain\b.*$/i, '')
     .replace(/\bprohibited goods\b.*$/i, '')
+    .replace(/\s+Declaration$/i, '')
     .trim();
 }
 
 function isDgText(line) {
-  return /Aviation\s+Security|Dangerous\s+Goods|sender acknowledges|carried by air|clearing procedures|does not contain|prohibited goods|explosive|incendiary|criminal offence/i.test(String(line || ''));
+  return /Aviation\s+Security|Dangerous\s+Goods|Declaration|sender acknowledges|sender declares|carried by air|clearing procedures|does not contain|not contain|prohibited goods|explosive|incendiary|criminal offence/i.test(String(line || ''));
 }
 
 function isOperationalLine(line) {
@@ -474,6 +475,7 @@ function extractToBlock(lines) {
     if (!inBlock && /^\s*(To|Deliver\s*To)\b:?/i.test(line)) {
       inBlock = true;
       line = line.replace(/^\s*(To|Deliver\s*To)\b:?/i, '').trim();
+      if (/^PHONE\b/i.test(line)) continue;
       line = line.replace(/^PHONE\b:?\s*/i, '').trim();
       if (line && !isOperationalLine(line)) out.push(cleanAddressLine(line));
       continue;
@@ -517,7 +519,7 @@ function extractDgBlock(lines) {
   let inBlock = false;
   for (const rawLine of lines) {
     let line = String(rawLine || '').trim();
-    if (!inBlock && /Aviation\s+Security.*Dangerous\s+Goods\s+Declaration/i.test(line)) {
+    if (!inBlock && /Aviation\s+Security.*Dangerous\s+Goods/i.test(line)) {
       inBlock = true;
       const idx = line.search(/Aviation\s+Security/i);
       out.push(line.slice(idx).trim());

@@ -2045,7 +2045,7 @@ function StarTrackQrSection({ audit, items, scanData }) {
           {images.qrBarcodeCrop ? <figure className="category-crop"><img src={images.qrBarcodeCrop} alt="StarTrack QR barcode crop" /><figcaption>{imageBoxCaption(images, FORMAT_KIND.qr)}</figcaption></figure> : <p className="muted">No QR barcode crop captured.</p>}
         </div>
         <div>
-          <p className="muted">This section focuses on the mandatory StarTrack 2D QR barcode. The uploaded label must decode from the rendered file.</p>
+          <p className="muted">Checks the required StarTrack QR payload.</p>
           <StandardLine>StarTrack QR fields are fixed width and include receiver suburb/postcode, connote, freight item number, product code, quantity, weight, despatch date, unit type, destination depot, DG indicator and movement type.</StandardLine>
           <div className="decoded-panel"><h3>Raw decoded QR string</h3>{qrBarcodes.length ? <ul className="barcode-list decoded-list">{qrBarcodes.map((b, idx) => <li key={idx}><div className="barcode-meta"><strong>QR</strong> page {b.pageNumber || ''}</div><code className="raw-code raw-code-block">{b.rawValue}</code><div className="muted small">{b.pageBoundingBox ? 'Barcode location verified on this label.' : 'Barcode decoded; exact location not mapped.'}</div></li>)}</ul> : <p className="muted">No StarTrack QR value decoded from the uploaded file.</p>}</div>
           {qrs.length > 0 && qrs.map((qr, idx) => <div key={idx} className="fact-cards fact-cards-wide"><div><span>product_code</span><strong>{qr.productCode} — {qr.productName}</strong></div><div><span>consignment_id</span><strong>{qr.fields.connoteNumber}</strong></div><div><span>article_id</span><strong>{qr.fields.freightItemNumber}</strong></div><div><span>weight / cubic_volume</span><strong>{qr.fields.consignmentWeight || '-'}kg / {qr.fields.consignmentCube || '-'}</strong></div><div><span>dangerous_goods / movement_type</span><strong>{qr.fields.dangerousGoodsIndicator || '-'} / {qr.fields.movementTypeIndicator || '-'}</strong></div></div>)}
@@ -2143,7 +2143,6 @@ function DataMatrixSection({ audit, items, scanData }) {
           {(images.dataMatrixFocusedCrop || images.dataMatrixCrop) ? <figure className="category-crop"><img src={images.dataMatrixFocusedCrop || images.dataMatrixCrop} alt="GS1 DataMatrix crop" /><figcaption>{imageBoxCaption(images, FORMAT_KIND.datamatrix)}</figcaption></figure> : <p className="muted">No GS1 DataMatrix crop captured.</p>}
         </div>
         <div>
-          <p className="muted">This section focuses only on the 2D GS1 DataMatrix barcode. The barcode must decode from the uploaded document.</p>
           {auditHasSsccOnly(audit) ? (
             <StandardLine>SSCC labels use AI 00. eParcel AI 91/product/service evaluation is not applicable to an SSCC barcode.</StandardLine>
           ) : (
@@ -2454,7 +2453,7 @@ function App() {
         <img className="ap-mark" src={australiaPostLogoUrl} alt="Australia Post" />
         <div>
           <h1>{APP_TITLE}</h1>
-          <p>Audit Australia Post eParcel and StarTrack digital labels from PDF or image files, including barcode reads, article details, SSCC handling and visible label content.</p>
+          <p>Upload a PDF or image in the correct carrier box. Review barcode, label text and payload checks after scanning.</p>
         </div>
         <a
           className="feedback-button"
