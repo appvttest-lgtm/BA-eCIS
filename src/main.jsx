@@ -2472,10 +2472,6 @@ function App() {
               <span>Review checks: {batchSummary.manualReview}</span>
               <span>Decoded barcodes: {batchSummary.decoded}</span>
             </div>
-            <div className="button-stack">
-              <button className="primary" onClick={() => downloadConsolidatedHtmlReport(audits)}>Download consolidated auditor report</button>
-              {activeAudit && <button className="secondary" onClick={() => downloadHtmlReport(activeAudit)}>Download selected auditor report</button>}
-            </div>
           </div>
 
           <section className="card compact-card label-tabs-card">
