@@ -68,10 +68,10 @@ Users can optionally paste a Get Shipments API response or relevant JSON/plain-t
 
 ## Local Runtime
 
-Normal users can start the packaged app with:
+Normal users can start the packaged app without using a batch file by installing Node.js from the company portal, opening Command Prompt or PowerShell in the extracted release folder, and running:
 
-```bat
-start-auditer.bat
+```bash
+node server.mjs
 ```
 
 The local app is served at:

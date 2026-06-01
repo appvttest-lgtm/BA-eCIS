@@ -6,7 +6,7 @@ set APP_URL=http://127.0.0.1:3000
 set HEALTH_URL=http://127.0.0.1:3000/healthz
 
 echo ===============================================
-echo Australia Post - eCommerce Integration Label Auditor v1.6.5
+echo Australia Post - eCommerce Integration Label Auditor v1.6.6
 echo ===============================================
 echo This app runs locally at %APP_URL%
 echo.
@@ -14,7 +14,7 @@ echo.
 where node >nul 2>nul
 if errorlevel 1 (
   echo ERROR: Node.js was not found on this computer.
-  echo Please install Node.js LTS for the current Windows user, or use a portable Node runtime.
+  echo Please install Node.js LTS from the company portal for the current Windows user.
   echo No administrator rights are required for a per-user install.
   pause
   exit /b 1

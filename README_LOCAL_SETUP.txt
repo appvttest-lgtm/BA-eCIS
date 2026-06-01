@@ -1,4 +1,4 @@
-Australia Post - eCommerce Integration Label Auditor v1.6.5
+Australia Post - eCommerce Integration Label Auditor v1.6.6
 ======================
 
 Purpose
@@ -15,7 +15,7 @@ Use the light-blue StarTrack upload box for StarTrack labels.
 
 The separate upload boxes intentionally avoid guessing which specification applies to the label. The selected upload path determines which audit rule set is used.
 
-Important behaviour in v1.6.5
+Important behaviour in v1.6.6
 -----------------------------
 This version adds a StarTrack audit path while keeping the existing eParcel audit path.
 
@@ -60,25 +60,31 @@ Security / UAC Design
 - Uses port 3000 by default.
 - Processes files locally.
 
-How to Run
-----------
+How to Run Without a BAT File
+-----------------------------
 1. Extract this ZIP into a normal user-writable folder, such as:
    C:\Users\<you>\Documents\eParcelAuditorLocal
 
-2. Double-click:
-   start-auditer.bat
+2. Install Node.js from the company portal if it is not already installed.
 
-3. Browser opens at:
+3. Open Command Prompt or PowerShell in the extracted folder.
+
+4. Start the local server:
+   node server.mjs
+
+5. Open this address in Microsoft Edge or Chrome:
    http://127.0.0.1:3000
+
+6. Keep the command window open while using the app. Close the command window to stop the local server.
 
 Requirements
 ------------
-- Node.js LTS installed for the user.
+- Node.js LTS installed for the user from the company portal.
 - Microsoft Edge or Chrome recommended.
 
 First-run / npm note
 --------------------
-Normal users do not need to run npm install. The ZIP includes the prebuilt dist folder, and start-auditer.bat launches a dependency-free local Node server.
+Normal users do not need to run npm install. The ZIP includes the prebuilt dist folder, and node server.mjs launches a dependency-free local Node server.
 
 If a developer changes the React source code, they can run build-dev-only.bat to install npm packages and rebuild the frontend.
 
