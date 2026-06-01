@@ -1,4 +1,5 @@
-// Australia Post eParcel product codes surfaced in decoded article identifiers.
+// Core reference data used by the audit rules. Keep these maps close to the parser
+// code because decoded barcode fields are resolved directly against them.
 export const PRODUCT_CODE_MAP = {
   '00091': 'Parcel Post (Non-Signature)',
   '00093': 'Parcel Post + Signature',
@@ -8,7 +9,8 @@ export const PRODUCT_CODE_MAP = {
   '00068': 'Express Post Return'
 };
 
-// eParcel service-code definitions and the delivery flags expected in API payloads.
+// eParcel service codes also define the delivery flags we expect to see in a matching
+// Get Shipments payload.
 export const SERVICE_CODE_MAP = {
   '03': {
     name: 'Signature Required',
@@ -91,7 +93,8 @@ export const SERVICE_CODE_MAP = {
   }
 };
 
-// Allowed service/product combinations for standard eParcel article identifiers.
+// Standard eParcel article IDs encode both service and product. This matrix rejects
+// combinations that can decode successfully but are not valid together.
 export const SERVICE_TO_PRODUCT_MAP = {
   '03': ['00093', '00096', '00065', '00068'],
   '08': ['00093', '00096', '00065', '00068'],
@@ -106,7 +109,7 @@ export const SERVICE_TO_PRODUCT_MAP = {
   '83': ['00093']
 };
 
-// StarTrack freight product codes, grouped with the routing label code they should use.
+// StarTrack freight product codes and the routing label code each product should use.
 export const STARTRACK_PRODUCT_CODE_MAP = {
   TSE: { name: 'Tradeshow Express', group: 'Special Services', labelCode: 'TSE' },
   RET: { name: 'Express Tail-Lift', group: 'Special Services', labelCode: 'RET' },
@@ -119,14 +122,15 @@ export const STARTRACK_PRODUCT_CODE_MAP = {
   EXP: { name: 'Express', group: 'Express services', labelCode: 'EXP' }
 };
 
-// Reverse lookup from StarTrack routing label code to supported product code(s).
+// Reverse lookup used when the routing barcode is decoded before the freight/QR data.
 export const STARTRACK_LABEL_CODE_MAP = Object.entries(STARTRACK_PRODUCT_CODE_MAP).reduce((acc, [code, meta]) => {
   if (!acc[meta.labelCode]) acc[meta.labelCode] = [];
   acc[meta.labelCode].push(code);
   return acc;
 }, {});
 
-// Unit types accepted for each StarTrack product family when a QR payload includes unit data.
+// Unit types accepted for each StarTrack product family when the fixed-width QR payload
+// includes unit data.
 export const STARTRACK_UNIT_TYPE_MAP = {
   BAG: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
   CTN: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
@@ -140,28 +144,28 @@ export const STARTRACK_UNIT_TYPE_MAP = {
 const STATE_REGEX = '(?:ACT|NSW|NT|QLD|SA|TAS|VIC|WA)';
 const POSTCODE_LINE_REGEX = new RegExp(`\\b([A-Z][A-Z\\s'-]+?\\s+${STATE_REGEX}\\s+\\d{4})\\b`, 'i');
 
-/** Returns a human-readable eParcel product description for a decoded product code. */
+/** Resolves an eParcel product code for report display; unknown values stay explicit. */
 export function getProductCodeDescription(code) {
   return PRODUCT_CODE_MAP[code] || 'Unknown product code';
 }
 
-/** Returns the service-code description shown in reports and validation messages. */
+/** Resolves an eParcel service code into the report wording used by validation rows. */
 export function getServiceCodeDescription(code) {
   const service = SERVICE_CODE_MAP[code];
   return service ? `${service.name} - ${service.description}` : 'Unknown service code';
 }
 
-/** Returns the raw service-code rule object used for payload flag comparison. */
+/** Returns the service rule object used by payload comparison and service-matrix UI. */
 export function getServiceCodeRules(code) {
   return SERVICE_CODE_MAP[code] || null;
 }
 
-/** Creates a normalized validation result row for the UI and HTML reports. */
+/** Creates one normalized validation row consumed by both the React UI and exported HTML. */
 function result(id, title, severity, category, status, message, extra = {}) {
   return { id, title, severity, category, status, message, ...extra };
 }
 
-/** Normalizes scanner output so GS1 AI strings can be parsed consistently. */
+/** Normalizes scanner output before parsing GS1 application identifiers and separators. */
 export function normalizeBarcode(raw) {
   return String(raw || '')
     .trim()
@@ -182,13 +186,13 @@ export function normalizeBarcode(raw) {
     .replace(/\r?\n/g, '|');
 }
 
-/** Converts an eParcel alpha character to the digit used by the article check-digit algorithm. */
+/** Converts eParcel alpha characters to the digits used by the article check-digit algorithm. */
 export function alphaToAsciiLastDigit(ch) {
   if (/^[A-Z]$/.test(ch)) return String(ch.charCodeAt(0)).slice(-1);
   return ch;
 }
 
-/** Calculates the eParcel article check digit and returns audit-friendly working details. */
+/** Calculates the eParcel article check digit and returns the working steps for report evidence. */
 export function calculateEparcelCheckDigit(articleWithoutCheckDigit) {
   const input = String(articleWithoutCheckDigit || '').toUpperCase();
   const converted = input.split('').map(alphaToAsciiLastDigit).join('');
@@ -222,7 +226,7 @@ export function calculateEparcelCheckDigit(articleWithoutCheckDigit) {
   };
 }
 
-/** Parses a cleaned eParcel article or SSCC candidate when it matches a supported structure. */
+/** Parses a cleaned eParcel article or SSCC candidate once its outer structure is plausible. */
 function parseValidArticleId(cleaned) {
   if (/^00\d{18}$/.test(cleaned)) {
     return { type: 'sscc', articleId: cleaned, sscc: cleaned, valid: true };
@@ -265,7 +269,7 @@ function parseValidArticleId(cleaned) {
   return null;
 }
 
-/** Validates an article candidate and explains why unsupported structures fail. */
+/** Validates an article-like string and returns a reviewer-friendly failure reason when invalid. */
 export function analyzeArticleCandidate(candidate) {
   const cleaned = String(candidate || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!cleaned) return null;
@@ -281,11 +285,11 @@ export function analyzeArticleCandidate(candidate) {
   return { valid: false, article: null, candidate: cleaned, reason };
 }
 
-/** Keeps the valid article prefix when scanner output includes trailing GS1 data. */
+/** Keeps the valid article prefix when scanner output has extra trailing GS1 data. */
 function trimArticleCandidate(candidate) {
   const cleaned = String(candidate || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!cleaned) return null;
-  // Standard eParcel article IDs are 21 chars (3-char MLID) or 23 chars (5-char MLID).
+  // Standard eParcel article IDs are 21 chars with a 3-char MLID or 23 chars with a 5-char MLID.
   for (const len of [21, 23]) {
     const slice = cleaned.slice(0, len);
     if (analyzeArticleCandidate(slice)?.valid) return slice;
@@ -293,7 +297,7 @@ function trimArticleCandidate(candidate) {
   return cleaned;
 }
 
-/** Extracts the eParcel article component from normalized GS1 AI 91 data. */
+/** Extracts the eParcel article component from normalized GS1 AI 91 content. */
 function extractArticleCandidateFromGs1Normalized(normalized, compact) {
   const n = String(normalized || '');
   const c = String(compact || '');
@@ -305,7 +309,8 @@ function extractArticleCandidateFromGs1Normalized(normalized, compact) {
   const normalizedAi91 = n.match(/(?:^|\|)91([A-Z0-9]{21,23})(?:\||$)/i);
   if (normalizedAi91) return trimArticleCandidate(normalizedAi91[1]);
 
-  // Looser fallback for scanners that return GS1 data without group separators.
+  // Some scanners drop GS1 group separators. Keep this fallback narrow so random text
+  // is not promoted into a valid article candidate.
   const ai91Index = c.indexOf('91', 14);
   if (c.startsWith('01') && ai91Index >= 14) return trimArticleCandidate(c.slice(ai91Index + 2));
   return null;
@@ -406,13 +411,13 @@ export function parseGs1DataMatrix(raw) {
   };
 }
 
-/** Heuristic used when scanner metadata is ambiguous but the payload has DataMatrix-like AIs. */
+/** Identifies likely DataMatrix content when a scanner returns incomplete symbology metadata. */
 function looksLikeDataMatrix(raw, format = '') {
   const n = normalizeBarcode(raw);
   return /data[_\s-]?matrix/i.test(format) || n.includes('420') || n.includes('8008') || n.includes('|92') || n.includes('|420');
 }
 
-/** Splits extracted PDF text into normalized non-empty lines for visible-content checks. */
+/** Splits selectable PDF text into normalized non-empty lines for visible-content checks. */
 function textLines(extractedText) {
   return String(extractedText || '')
     .replace(/\u00a0/g, ' ')
@@ -528,7 +533,8 @@ function extractDgBlock(lines) {
     if (inBlock) {
       if (/^AP\s*Article|^DELIVER\s+TO|^TO\b|^SENDER\b|^FROM\b/i.test(line) && !isDgText(line)) break;
       let dgLine = line;
-      // When left-side FROM address text is merged with right-side DG text, remove the left address part.
+      // PDF text extraction can merge the left sender address with the right DG declaration.
+      // Remove the address prefix so DG evidence stays in the declaration block only.
       dgLine = dgLine.replace(/^Australia Postal Corporation\s+/i, '');
       dgLine = dgLine.replace(/^Level\s+[^\t]{1,40}?\s{2,}/i, '');
       dgLine = dgLine.replace(/^[A-Z][A-Z\s'-]+\s+(?:ACT|NSW|NT|QLD|SA|TAS|VIC|WA)\s+\d{4}\s{2,}/i, '');
@@ -560,7 +566,7 @@ function extractArticleIdsFromLines(lines) {
   return [...new Set(ids)];
 }
 
-/** Extracts visible eParcel label facts such as address blocks, article IDs, weight, and DG text. */
+/** Extracts visible eParcel label facts: address blocks, article IDs, weight, and DG text. */
 export function extractLabelFacts(extractedText) {
   const lines = textLines(extractedText);
   const joined = lines.join('\n');
@@ -606,7 +612,7 @@ export function extractLabelFacts(extractedText) {
   };
 }
 
-/** Pulls barcode-looking strings from visible text as diagnostic evidence only. */
+/** Pulls barcode-looking strings from visible text as diagnostic evidence only, not as barcode proof. */
 export function extractTextBarcodeCandidates(extractedText) {
   const facts = extractLabelFacts(extractedText);
   return facts.articleIds;
@@ -691,7 +697,7 @@ function validateLabelFacts(facts) {
 
 
 
-/** Parses JSON or plain-text Get Shipments payload snippets into comparable evidence. */
+/** Parses JSON or plain-text Get Shipments snippets into local evidence for comparison. */
 function parseApiPayloadText(payloadText) {
   const rawText = String(payloadText || '').trim();
   if (!rawText) return { provided: false, rawText: '', parsed: null, parseError: null, flat: [], normalizedText: '' };
@@ -895,7 +901,7 @@ function auditIdentityValues(audit) {
   ]).filter(v => normalizePayloadText(v).length >= 6);
 }
 
-/** Ensures payload comparisons only run when the payload appears to describe the uploaded label. */
+/** Gates payload comparisons so fields are compared only when the payload matches this label. */
 function applyPayloadIdentityGate(audit, apiPayload) {
   const identityValues = auditIdentityValues(audit);
   const identityMatchesLabel = identityValues.length ? payloadContainsAny(apiPayload, identityValues) === true : null;
@@ -912,7 +918,7 @@ function payloadIdentityRule(id) {
   return /ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|GS1_PREFIX|DATAMATRIX_PRESENT|GS1_128_PRESENT|ST_FREIGHT_BARCODE_PRESENT|ST_SSCC|CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE/i.test(String(id || ''));
 }
 
-/** Compares one validation row against matched Get Shipments payload evidence where possible. */
+/** Compares one validation row against matched Get Shipments evidence where a field mapping exists. */
 function compareValidationToApiPayload(v, audit, ctx) {
   if (!ctx?.provided) return undefined;
   const id = String(v?.id || '');
@@ -1034,7 +1040,7 @@ function compareValidationToApiPayload(v, audit, ctx) {
   return withField(null);
 }
 
-/** Adds payload-comparison metadata to every validation row in an audit result. */
+/** Adds payload-comparison metadata to validation rows without changing the original scan evidence. */
 function attachApiPayloadComparison(audit, payloadText) {
   const parsedPayload = parseApiPayloadText(payloadText);
   if (!parsedPayload.provided) return { ...audit, apiPayload: parsedPayload };
@@ -1051,7 +1057,7 @@ function attachApiPayloadComparison(audit, payloadText) {
 function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null }) {
   const validations = [];
   const facts = extractLabelFacts(extractedText);
-  const manualValues = String(manualBarcodes || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean); // diagnostic only
+  const manualValues = String(manualBarcodes || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean); // Optional diagnostic input; never treated as decoded proof.
   const decodedValues = decodedRawValues(detectedBarcodes);
   const allRawBarcodes = [...decodedValues];
 
@@ -1212,7 +1218,7 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
 }
 
 
-/** Calculates the GS1 mod-10 check digit used by SSCC validation. */
+/** Calculates the GS1 mod-10 check digit used by SSCC barcodes. */
 function gs1Mod10CheckDigit(numberWithoutCheckDigit) {
   const digits = String(numberWithoutCheckDigit || '').replace(/\D/g, '');
   if (!digits) return null;
@@ -1235,7 +1241,7 @@ function stripAiDecorations(raw) {
     .toUpperCase();
 }
 
-/** Parses a GS1 AI 00 SSCC barcode and validates its check digit. */
+/** Parses a GS1 AI 00 SSCC barcode and validates the embedded check digit. */
 export function parseSsccBarcode(raw) {
   const compact = stripAiDecorations(raw).replace(/\(00\)/g, '00');
   const match = compact.match(/(?:^|[^0-9])?00(\d{18})(?:$|[^0-9])?/);
@@ -1259,7 +1265,7 @@ export function parseSsccBarcode(raw) {
   };
 }
 
-/** Parses a standard 20-character StarTrack freight item barcode. */
+/** Parses a standard StarTrack freight item barcode into connote, product, and item parts. */
 export function parseStarTrackFreightItemBarcode(raw) {
   const compact = stripAiDecorations(raw).replace(/[()]/g, '');
   if (!/^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(compact)) {
@@ -1288,7 +1294,7 @@ export function parseStarTrackFreightItemBarcode(raw) {
   };
 }
 
-/** Parses StarTrack routing barcodes, including supported GS1 routing forms. */
+/** Parses StarTrack routing barcodes, including the supported GS1 routing form for SSCC labels. */
 export function parseStarTrackRoutingBarcode(raw) {
   const compact = stripAiDecorations(raw).replace(/[()]/g, '');
   const gs1Route = compact.match(/421(036)(\d{4})403([A-Z0-9]{3})/);
@@ -1325,7 +1331,7 @@ export function parseStarTrackRoutingBarcode(raw) {
   };
 }
 
-/** Parses the optional StarTrack Authority To Leave barcode. */
+/** Parses the optional StarTrack Authority To Leave barcode used when ATL is requested. */
 export function parseStarTrackAtlBarcode(raw) {
   const compact = stripAiDecorations(raw).replace(/[()]/g, '');
   const match = compact.match(/^C(\d{9})$/);
@@ -1338,7 +1344,7 @@ function fixed(raw, start, length) {
   return String(raw || '').slice(start - 1, start - 1 + length);
 }
 
-/** Parses StarTrack fixed-width QR payloads into named shipment fields. */
+/** Parses the StarTrack fixed-width QR payload into named fields used by validation and reports. */
 export function parseStarTrackQrBarcode(raw) {
   const text = String(raw || '').replace(/^\]Q[0-9]/, '');
   if (text.length < 290) return { valid: false, raw, length: text.length, reason: 'Not a StarTrack fixed-width QR payload.' };
@@ -1382,7 +1388,7 @@ export function parseStarTrackQrBarcode(raw) {
   };
 }
 
-/** Extracts visible StarTrack label facts from selectable PDF text. */
+/** Extracts visible StarTrack facts from selectable PDF text before decoded data backfills gaps. */
 function extractStarTrackFacts(extractedText) {
   const lines = String(extractedText || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const joined = lines.join('\n');
@@ -1457,7 +1463,7 @@ function normalizeQrCube(value) {
   return String(Number(numeric));
 }
 
-/** Backfills visible-fact fields with decoded barcode data when the text layer is sparse. */
+/** Backfills visible-fact fields from decoded barcode data when the PDF text layer is sparse. */
 function enrichStarTrackFactsFromDecodedData(facts, { qrParses = [], freightParses = [], routingParses = [], validSsccs = [] } = {}) {
   const qrFields = qrParses[0]?.fields || {};
   const firstFreight = freightParses[0] || null;
@@ -1501,7 +1507,7 @@ function enrichStarTrackFactsFromDecodedData(facts, { qrParses = [], freightPars
   };
 }
 
-/** Validates StarTrack visible-content facts that can be checked without barcode parsing. */
+/** Validates StarTrack visible-content facts before the barcode-specific checks are added. */
 function validateStarTrackTextFacts(facts) {
   const validations = [];
   validations.push(facts.extractedLineCount > 0
@@ -1703,7 +1709,7 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
   };
 }
 
-/** Dispatches one label/page to the carrier-specific audit engine and attaches payload comparison. */
+/** Entry point for one rendered label/page; dispatches to carrier rules and attaches payload comparison. */
 export function auditLabel(input = {}) {
   const baseAudit = (input.labelFamily === 'startrack' || input.carrier === 'startrack')
     ? auditStarTrackLabel(input)
@@ -1711,7 +1717,7 @@ export function auditLabel(input = {}) {
   return attachApiPayloadComparison(baseAudit, input.manifestJson || input.apiPayloadText || '');
 }
 
-/** Groups raw validation rows into the report sections rendered by the React UI. */
+/** Groups raw validation rows into the report sections rendered by both UI and exported HTML. */
 export function groupValidations(validations) {
   const displayCategory = (category) => {
     if (category === 'gs1-128' || category === 'barcode-structure' || category === 'check-digit') return 'linear barcode analysis';

@@ -24,17 +24,21 @@ prepareZXingModule({
   }
 });
 
-// Formats requested from the browser-native BarcodeDetector API when it is available.
+// The scan pipeline tries several decoders. Native BarcodeDetector is fast when the
+// browser supports it, while ZXing-WASM and ZXing JS provide broader Code128/DataMatrix
+// coverage for the label types this app audits.
 const barcodeFormats = ['code_128', 'data_matrix', 'qr_code', 'pdf417', 'ean_13', 'ean_8'];
 
-// Internal scan-region categories used to tune crop transforms and route evidence in the report.
+// These internal categories let the scanner choose barcode-specific crop and transform
+// strategies, then route the resulting evidence into the correct report section.
 const FORMAT_KIND = { linear: 'linear', datamatrix: 'datamatrix', qr: 'qr', mixed: 'mixed' };
 const APP_TITLE = 'Australia Post - eCommerce Integration Label Auditor';
 const ACCEPTED_LABEL_FILE_TYPES = 'application/pdf,image/png,image/jpeg,image/webp,image/bmp';
 const LABEL_FAMILY_NAMES = { eparcel: 'eParcel', startrack: 'StarTrack' };
 const BARCODE_BOX_MARGIN_PX = 36;
 
-// Converts ZXing's enum values into the same string labels used by browser-native scans.
+// ZXing and native browser scans use different format names. Normalizing them here
+// keeps the audit engine and report renderer independent of the decoder that succeeded.
 const zxingFormatMap = new Map([
   [BarcodeFormat.CODE_128, 'code_128'],
   [BarcodeFormat.DATA_MATRIX, 'data_matrix'],
@@ -48,17 +52,17 @@ const zxingFormatMap = new Map([
   [BarcodeFormat.CODE_93, 'code_93']
 ]);
 
-/** Returns the display name for a carrier-specific upload/audit path. */
+/** Returns the display name shown for a carrier-specific upload/audit path. */
 function labelFamilyName(labelFamily) {
   return LABEL_FAMILY_NAMES[labelFamily] || LABEL_FAMILY_NAMES.eparcel;
 }
 
-/** Returns whether the current browser exposes the native BarcodeDetector API. */
+/** Checks whether the current browser exposes the optional native BarcodeDetector API. */
 function canUseBarcodeDetector() {
   return 'BarcodeDetector' in window;
 }
 
-/** Creates a best-effort native barcode detector, falling back to null when unsupported. */
+/** Creates a native detector when available; callers should continue with ZXing when this returns null. */
 async function createDetector() {
   if (!canUseBarcodeDetector()) return null;
   try {
@@ -77,7 +81,7 @@ async function createDetector() {
   }
 }
 
-/** Merges duplicate barcode reads while keeping the instance with the best location evidence. */
+/** Collapses duplicate barcode values while preserving the best available page-location evidence. */
 function dedupeBarcodes(items) {
   const map = new Map();
   for (const item of items) {
@@ -90,15 +94,15 @@ function dedupeBarcodes(items) {
       continue;
     }
     const existing = map.get(key);
-    // Keep the richest instance for UI evidence. A later decode may have a page-level
-    // bounding box even if the first decode was from a transformed crop variant.
+    // A value can decode several times from different crops. Prefer the copy that can
+    // prove where it came from on the original page, because that drives crop evidence.
     map.set(key, {
       ...existing,
       ...(!existing.pageBoundingBox && clean.pageBoundingBox ? { pageBoundingBox: clean.pageBoundingBox } : {}),
       ...(!existing.boundingBox && clean.boundingBox ? { boundingBox: clean.boundingBox } : {}),
       ...(!existing.locationQuality && clean.locationQuality ? { locationQuality: clean.locationQuality } : {}),
       ...(!existing.targetBox && clean.targetBox ? { targetBox: clean.targetBox } : {}),
-      // Prefer user-readable source/region details from the successful page-location read.
+      // Keep the source label that explains the successful location read in the UI.
       ...(clean.pageBoundingBox && !existing.pageBoundingBox ? {
         source: clean.source,
         regionLabel: clean.regionLabel,
@@ -109,7 +113,7 @@ function dedupeBarcodes(items) {
   return [...map.values()];
 }
 
-/** Reads barcodes from a canvas through the native browser BarcodeDetector. */
+/** Runs the native browser decoder against one rendered canvas region. */
 async function detectWithBrowserBarcodeDetector(canvas, detector, pageNumber = 1, regionLabel = 'full-page') {
   if (!detector) return [];
   try {
@@ -134,7 +138,7 @@ async function detectWithBrowserBarcodeDetector(canvas, detector, pageNumber = 1
   }
 }
 
-/** Builds a configured ZXing JS reader for the requested symbologies. */
+/** Builds the pure-JS ZXing fallback reader for the requested symbologies. */
 function makeZxingReader(formats = ['Code128', 'DataMatrix']) {
   const formatMap = {
     Code128: BarcodeFormat.CODE_128,
@@ -156,7 +160,7 @@ function makeZxingReader(formats = ['Code128', 'DataMatrix']) {
   return reader;
 }
 
-/** Attempts one ZXing JS decode on a canvas and returns the app's normalized barcode shape. */
+/** Attempts one pure-JS ZXing decode and returns the same barcode shape used by other decoders. */
 function zxingDecodeCanvas(canvas, pageNumber = 1, regionLabel = 'full-page', formats = ['Code128', 'DataMatrix'], kind = FORMAT_KIND.mixed, variantLabel = 'original') {
   try {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -183,7 +187,7 @@ function zxingDecodeCanvas(canvas, pageNumber = 1, regionLabel = 'full-page', fo
   }
 }
 
-/** Runs the stronger ZXing-WASM scanner over a canvas, including rotation/inversion/downscale attempts. */
+/** Runs ZXing-WASM, the primary decoder for reliable Code128/DataMatrix reads in local browsers. */
 async function wasmDecodeCanvas(canvas, pageNumber = 1, regionLabel = 'full-page', formats = ['Code128', 'DataMatrix'], kind = FORMAT_KIND.mixed, variantLabel = 'original', options = {}) {
   try {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -229,7 +233,7 @@ async function wasmDecodeCanvas(canvas, pageNumber = 1, regionLabel = 'full-page
   }
 }
 
-/** Converts ZXing result points into a rectangular crop/evidence box. */
+/** Converts ZXing result points into the rectangular evidence box used by crops and overlays. */
 function pointsToBox(points) {
   const xs = points.map(p => p.getX());
   const ys = points.map(p => p.getY());
@@ -245,7 +249,7 @@ function pointsToBox(points) {
   };
 }
 
-/** Keeps a crop box inside the source canvas boundaries. */
+/** Clamps an evidence/crop box so image extraction never reads outside the source canvas. */
 function clampBox(box, width, height) {
   if (!box) return null;
   const x = Math.max(0, Math.min(width - 1, Math.round(box.x || 0)));
@@ -255,7 +259,7 @@ function clampBox(box, width, height) {
   return { x, y, width: right - x, height: bottom - y };
 }
 
-/** Adds a fixed visual/crop margin around a detected barcode box without exceeding the page. */
+/** Adds a consistent visual margin around barcode boxes so report crops are readable and comparable. */
 function expandBox(box, canvasWidth, canvasHeight, marginPx = BARCODE_BOX_MARGIN_PX) {
   if (!box) return null;
   const pad = Math.max(0, Math.round(marginPx));
@@ -267,7 +271,7 @@ function expandBox(box, canvasWidth, canvasHeight, marginPx = BARCODE_BOX_MARGIN
   }, canvasWidth, canvasHeight);
 }
 
-/** Returns the user-facing barcode type label used in captions and reports. */
+/** Returns the user-facing barcode type label used in captions and report sections. */
 function barcodeKindLabel(b) {
   if (isDataMatrixBarcode(b)) return 'GS1 DataMatrix';
   if (isQrBarcode(b)) return 'QR Barcode';
@@ -275,7 +279,7 @@ function barcodeKindLabel(b) {
   return b?.format || 'Barcode';
 }
 
-/** Maps a barcode read from a crop back into page-level coordinates. */
+/** Maps a crop-local barcode box back to page coordinates when the crop was not transformed. */
 function mapBarcodeToPage(barcode, target, variantLabel = '') {
   const base = { ...barcode };
   const targetBox = {
@@ -286,9 +290,8 @@ function mapBarcodeToPage(barcode, target, variantLabel = '') {
   };
   base.targetBox = targetBox;
 
-  // Only untransformed target reads are used for barcode-location evidence. Scaled,
-  // bordered, thresholded or rotated variants are valid for decoding but not for
-  // proving final label placement.
+  // Transformed crops are useful for decoding, but their coordinates are not reliable
+  // evidence of final label placement. Only untransformed reads can prove location.
   const isUntransformed = !variantLabel || variantLabel === 'original';
   if (base.boundingBox && isUntransformed) {
     base.pageBoundingBox = clampBox({
@@ -586,9 +589,9 @@ function detectVisualBarcodeEvidence(canvas) {
   const w = canvas.width;
   const h = canvas.height;
 
-  // Australia Post A6 labels generally place the DataMatrix in the upper-right area.
-  // A large crop can dilute the black/white transitions with surrounding whitespace,
-  // so use both a broad crop and a sliding-window score inside that crop.
+  // Visual evidence is a backup when a symbol appears on the label but does not decode.
+  // These heuristics are not pass/fail barcode verification; they help explain likely
+  // scanner misses in the report so a reviewer knows where to look.
   const dataMatrixBroadRegion = cropCanvas(canvas, w * 0.55, h * 0.02, w * 0.43, h * 0.30);
   const dataMatrixExactRegion = cropCanvas(canvas, w * 0.74, h * 0.09, w * 0.23, h * 0.17);
   const rightStripeRegion = cropCanvas(canvas, w * 0.70, h * 0.25, w * 0.28, h * 0.62);
@@ -684,7 +687,8 @@ function canvasToDataUrlWithBarcodeBoxes(sourceCanvas, barcodes = [], maxWidth =
 function cropForDecodedBarcode(canvas, barcodes, kind) {
   const list = barcodes.filter(b => b.pageBoundingBox && (kind === FORMAT_KIND.datamatrix ? isDataMatrixBarcode(b) : kind === FORMAT_KIND.qr ? isQrBarcode(b) : isLinearBarcode(b) && !isDataMatrixBarcode(b) && !isQrBarcode(b)));
   if (!list.length) return null;
-  // Prefer a read that produced page-level coordinates on the original page/crop.
+  // Use the read with page coordinates because this crop is shown as evidence, not
+  // just as a convenience image.
   const chosen = list.find(b => b.locationQuality === 'decoded-symbol-bounding-box') || list[0];
   const box = expandBox(chosen.pageBoundingBox, canvas.width, canvas.height, BARCODE_BOX_MARGIN_PX);
   if (!box) return null;
@@ -751,8 +755,8 @@ function createLabelImages(canvas, detectedBarcodes = []) {
     b => isLinearBarcode(b) && !isQrBarcode(b) && !isDataMatrixBarcode(b) && isStarTrackFreightItemValue(b.rawValue)
   );
 
-  // Fixed heuristic crops are kept only as fallback images when no decodable symbol
-  // returned page coordinates. They are not treated as final location evidence.
+  // Fixed template crops are fallback evidence only. If a barcode decoded with a real
+  // page box, prefer that because label layouts can shift between products/customers.
   const dmCrop = cropCanvas(canvas, w * 0.55, h * 0.02, w * 0.43, h * 0.31);
   const dmFocusedCrop = cropCanvas(canvas, w * 0.72, h * 0.07, w * 0.26, h * 0.22);
   const qrCrop = cropCanvas(canvas, w * 0.35, h * 0.10, w * 0.60, h * 0.55);
@@ -1211,14 +1215,15 @@ async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
   const found = [];
   const categoryFormats = target.formats || ['Code128', 'DataMatrix'];
 
-  // Native detector first; fast when supported by Chromium/Edge.
+  // Try the native detector first because it is cheap, then run the more expensive
+  // ZXing passes that provide stronger coverage for production label files.
   if (detector) {
     const browserHits = await detectWithBrowserBarcodeDetector(target.canvas, detector, pageNumber, target.label);
     found.push(...browserHits.map(hit => mapBarcodeToPage(hit, target, 'original')));
   }
 
   for (const variant of makeScanVariants(target.canvas, target.kind)) {
-    // ZXing-C++ WASM is the primary scanner because it supports Code128 and DataMatrix reliably.
+    // ZXing-C++ WASM is the primary scanner for accuracy-sensitive barcode reads.
     const wasmHits = await wasmDecodeCanvas(
       variant.canvas,
       pageNumber,
@@ -1230,7 +1235,8 @@ async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
     );
     found.push(...wasmHits.map(hit => mapBarcodeToPage(hit, target, variant.label)));
 
-    // Keep the older pure-JS ZXing fallback as a backup.
+    // The pure-JS reader is slower/less capable, but sometimes succeeds on images
+    // where the WASM binarizer fails.
     const jsHits = zxingDecodeCanvas(
       variant.canvas,
       pageNumber,
@@ -1241,9 +1247,8 @@ async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
     );
     found.push(...jsHits.map(hit => mapBarcodeToPage(hit, target, variant.label)));
 
-    // Linear labels may be vertical in contemporary AusPost templates, so rotate the variants too.
-    // Rotated reads are accepted for decoding, but not used as final placement evidence because
-    // their coordinates cannot be mapped back to the original page without distortion risk.
+    // Linear barcode orientation is not consistent across every label template. Rotated
+    // reads count for decoded content, but not for placement evidence.
     if (target.kind === FORMAT_KIND.linear) {
       for (const degrees of [90, 270]) {
         const rotated = rotateCanvas(variant.canvas, degrees);
@@ -1339,7 +1344,8 @@ async function processPdfLabels(file, detector) {
     const textContent = await page.getTextContent().catch(() => ({ items: [] }));
     const pageLines = textContentItemsToLines(textContent.items || []);
 
-    // Render high enough for Code128 and DataMatrix modules while still staying practical for local laptops.
+    // PDF pages are rendered at high scale so small barcode modules survive rasterization.
+    // Raising this improves decode odds but increases memory and CPU cost.
     const viewport = page.getViewport({ scale: 4.0 });
     const canvas = document.createElement('canvas');
     canvas.width = Math.floor(viewport.width);
@@ -2340,19 +2346,21 @@ function TextContentSection({ audit, items, otherItems }) {
 
 
 function App() {
-  // Optional Get Shipments payload pasted by the user; applied during audit or refreshed later.
+  // Optional Get Shipments payload pasted by the user. It is never sent anywhere; it is
+  // parsed locally and compared only after the label identity appears to match.
   const [manifestJson, setManifestJson] = useState('');
-  // True while PDF/image rendering, barcode scanning, and validation are running.
+  // Locks upload controls while the local render -> scan -> audit pipeline is active.
   const [processing, setProcessing] = useState(false);
-  // User-visible progress state for the current batch scan.
+  // User-visible progress for multi-file and multi-page audits.
   const [scanProgress, setScanProgress] = useState({ percent: 0, phase: 'Idle' });
-  // Status/error text shown outside the progress panel.
+  // Short status/error text shown outside the progress panel.
   const [message, setMessage] = useState('');
-  // Raw rendered label data retained so payload comparison can be re-run without rescanning files.
+  // Raw rendered label data is kept so payload comparison can be refreshed without
+  // rescanning PDFs/images.
   const [scanDatas, setScanDatas] = useState([]);
   // Completed audit objects rendered by the report UI.
   const [audits, setAudits] = useState([]);
-  // Index of the audit currently selected in the tabbed report view.
+  // Index of the label currently selected in the tabbed report view.
   const [activeIndex, setActiveIndex] = useState(0);
   const [zoomImage, setZoomImage] = useState(null);
 
@@ -2360,7 +2368,7 @@ function App() {
   const activeScanData = scanDatas[activeIndex] || null;
   const batchSummary = useMemo(() => combinedAuditSummary(audits), [audits]);
 
-  /** Filters a FileList down to the PDF/image formats supported by the audit pipeline. */
+  /** Filters browser-selected files to the PDF/image formats the scanner can render locally. */
   function normaliseSelectedFiles(selectedFiles) {
     return Array.from(selectedFiles || []).filter(file => {
       const name = String(file.name || '').toLowerCase();
@@ -2369,7 +2377,7 @@ function App() {
     });
   }
 
-  /** Starts the full audit flow as soon as files are dropped or chosen. */
+  /** Starts the full audit immediately after a user drops or chooses files. */
   async function acceptSelectedFiles(selectedFiles, labelFamily = 'eparcel') {
     const selected = normaliseSelectedFiles(selectedFiles);
     if (!selected.length) {
@@ -2379,7 +2387,7 @@ function App() {
     await auditSelectedFiles(selected, labelFamily);
   }
 
-  /** Moves the progress bar forward without allowing it to move backwards. */
+  /** Moves the progress bar forward while preventing noisy backwards jumps between pages. */
   function updateScanProgress(percent, phase) {
     setScanProgress(prev => ({
       percent: Math.max(prev.percent || 0, Math.min(100, Math.round(percent))),
@@ -2387,7 +2395,7 @@ function App() {
     }));
   }
 
-  /** Renders, scans, audits, and displays all labels in the selected carrier upload batch. */
+  /** Main UI pipeline: render each file/page, decode barcodes, run carrier rules, then display results. */
   async function auditSelectedFiles(files, labelFamily = 'eparcel') {
     const batches = files.map(file => ({ file, labelFamily }));
     if (!batches.length) {
@@ -2459,7 +2467,7 @@ function App() {
     }
   }
 
-  /** Re-applies the current Get Shipments payload to already-scanned labels. */
+  /** Re-runs validation with the current payload without re-rendering or re-decoding labels. */
   function rerunAuditWithPayload() {
     if (!scanDatas.length) {
       setMessage('No scanned file data is available yet. Upload and audit one or more labels first.');
@@ -2479,7 +2487,7 @@ function App() {
 
   return (
     <main className="app">
-      {/* Local security mode: bind only to 127.0.0.1, run as a normal user, and avoid admin rights, Docker, WSL, registry changes, Windows services, or privileged ports. */}
+      {/* The app is intentionally local-only: static assets and all label data stay in the browser session. */}
       <header className="hero hero-compact">
         <img className="ap-mark" src={australiaPostLogoUrl} alt="Australia Post" />
         <div>

@@ -9,9 +9,8 @@ const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '127.0.0.1';
 const distDir = path.join(__dirname, 'dist');
 
-// Local security mode: this server is dependency-free, binds to 127.0.0.1 by default,
-// uses the normal Windows user account, and does not require admin rights, Docker, WSL,
-// registry changes, Windows services, or a local npm install when the prebuilt dist folder exists.
+// This is only a static-file server for the built React app. It deliberately binds
+// to localhost by default and does not store, upload, or process label data server-side.
 
 const mimeTypes = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -91,7 +90,7 @@ const server = http.createServer((req, res) => {
     return sendFile(res, absolutePath);
   }
 
-  // Single-page app fallback.
+  // React owns client-side routing, so unknown static paths fall back to the app shell.
   return sendFile(res, path.join(distDir, 'index.html'));
 });
 

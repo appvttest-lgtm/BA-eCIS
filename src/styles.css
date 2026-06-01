@@ -152,7 +152,7 @@ details summary { cursor: pointer; color: #0d4f9b; margin-top: 6px; }
   .hero h1 { font-size: 26px; }
 }
 
-/* v0.9 UX consolidation */
+/* Report navigation, section headings, preview images, and repeated fact-card layouts. */
 .hero-compact { padding: 18px 22px; }
 .upload-card textarea + textarea { margin-top: 10px; }
 .nav-card { position: sticky; top: 8px; z-index: 5; }
@@ -260,7 +260,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   .nav-card { position: static; }
 }
 
-/* v0.9.2 decoded DataMatrix visibility */
+/* Decoded barcode value panels shown beside barcode crop evidence. */
 .decoded-panel {
   border: 1px solid #e4e9ef;
   background: #fbfcfe;
@@ -286,7 +286,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
 @media (max-width: 780px) { .dm-ai-cards { grid-template-columns: 1fr; } }
 
 
-/* v1.6.2 smoother determinate scanning progress UX */
+/* Batch scanning progress UI used while files/pages are being rendered and decoded. */
 .scan-progress {
   display: grid;
   gap: 10px;
@@ -354,7 +354,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   .progress-percent { text-align: left; }
 }
 
-/* v0.9.4 Australia Post service/product matrix */
+/* eParcel service/product reference matrix with selected decoded combinations highlighted. */
 .service-matrix-card { padding: 14px; }
 .service-matrix-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid #111; }
 .service-matrix-table {
@@ -424,7 +424,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   .service-matrix-card { padding: 10px; }
 }
 
-/* v1.0.0 multi-label upload and consolidated report UX */
+/* Multi-label results: consolidated summary, per-label tabs, and selected-label header. */
 .file-list {
   margin-top: 10px;
   padding: 10px 12px;
@@ -564,7 +564,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   font-size: 12px;
 }
 
-/* v1.5.0 dual-carrier upload and StarTrack theme */
+/* Carrier-specific upload zones and StarTrack visual treatment. */
 .upload-split {
   grid-template-columns: 1fr 1fr;
   align-items: start;
@@ -625,7 +625,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   .upload-actions { grid-column: auto; }
 }
 
-/* v1.6.0 API payload comparison UX */
+/* Optional Get Shipments payload input and match/mismatch badges. */
 .payload-input-panel {
   grid-column: 1 / -1;
   border-top: 1px solid #eef1f5;
@@ -658,7 +658,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
 .compact-table.has-payload-column th:nth-child(6), .compact-table.has-payload-column td:nth-child(6) { width: 22%; }
 
 
-/* v1.6.2 table and API comparison polish */
+/* Wide service-matrix and payload-comparison alignment overrides. */
 .service-matrix-wrap {
   max-width: 100%;
   overflow-x: auto;
@@ -716,7 +716,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   text-align: center;
 }
 
-/* v1.6.3 wider desktop UI and cleaner payload comparison alignment */
+/* Desktop report layout: wider app shell, two-column audit sections, and compact tables. */
 .app {
   width: min(1760px, calc(100vw - 32px));
   max-width: 1760px;
@@ -802,7 +802,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   .card { margin-left: 0; margin-right: 0; }
 }
 
-/* v1.6.4 JSON evidence dropdowns and feedback button */
+/* Header feedback button, payload JSON evidence drawers, validation tables, and image zoom. */
 .hero-compact {
   display: grid;
   grid-template-columns: auto 1fr auto;
