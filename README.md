@@ -100,7 +100,7 @@ The local HTTP server is used so browser modules, PDF workers, WebAssembly asset
 - No admin rights, Windows service, Docker, WSL or registry changes are required.
 - Uploaded labels and generated reports can contain customer names, addresses, article IDs, SSCC values, account references and barcode data, so reports should be handled as internal/customer data.
 
-- ummary of Dependency Vulnerability Assessment
+## Dependency Vulnerability Assessment
 Package	Version	Vulnerability Status	Critical Notes
 pdfjs-dist	4.10.38	No known direct vulnerabilities	Version is well above the patched threshold for the critical CVE-2024-4367 arbitrary code execution vulnerability.
 @zxing/library	0.21.3	No known direct vulnerabilities	The project is in maintenance mode, but the specific version has no reported CVEs.
