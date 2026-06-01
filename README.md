@@ -1,4 +1,4 @@
-# Australia Post - eCommerce Integration Label Auditor
+# eCommerce Integration S Label Auditor
 
 A local-only web application for auditing Australia Post eParcel and StarTrack digital label output. It is intended for integration, QA, and implementation teams who need to check that generated labels contain the expected barcode data, visible text, service indicators, article or freight identifiers, routing details, and optional Get Shipments payload alignment.
 
