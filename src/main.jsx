@@ -1073,11 +1073,16 @@ function rawBarcodeListHtml(items, esc) {
   return (items || []).map(b => `<li><strong>${esc(barcodeDisplayName(b))}</strong> page ${esc(b.pageNumber || '')}: <code class="raw-code">${esc(b.rawValue || '')}</code></li>`).join('');
 }
 
+const VALIDATION_TABLE_REPORT_CSS = `
+.validation-table th:nth-child(1),.validation-table td:nth-child(1){width:38%}.validation-table th:nth-child(2),.validation-table td:nth-child(2){width:44%}.validation-table th:last-child,.validation-table td:last-child{width:120px;text-align:center;vertical-align:top}.validation-table.has-payload-column th:nth-child(1),.validation-table.has-payload-column td:nth-child(1){width:34%}.validation-table.has-payload-column th:nth-child(2),.validation-table.has-payload-column td:nth-child(2){width:30%}.validation-table.has-payload-column th:nth-child(3),.validation-table.has-payload-column td:nth-child(3){width:22%}.validation-table.has-payload-column th:last-child,.validation-table.has-payload-column td:last-child{width:140px}.criteria-cell,.measurement-cell,.status-stack{display:grid;gap:6px;align-content:start}.criteria-cell strong{font-size:12px}.criteria-standard,.criteria-expected,.measurement-label{display:block;color:#53606d;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.criteria-expected{color:#344054}.measurement-cell code{display:inline-block;margin-top:2px}.badge{display:inline-block;border-radius:999px;padding:4px 9px;font-size:10.5px;font-weight:900;text-transform:uppercase;white-space:nowrap;background:#eee}.badge-fail,.badge-error,.badge-critical{background:#ffe1e5;color:#a00018}.badge-warning,.badge-review{background:#fff0c2;color:#7a4b00}.badge-info,.badge-not_applicable,.badge-manual_review{background:#e7f0ff;color:#0d4f9b}.badge-pass{background:#dff5e7;color:#087a2e}.payload-status{display:grid;gap:4px;justify-items:center;margin-top:4px}.payload-status>span{color:#53606d;font-size:10px;font-weight:800;text-transform:uppercase}.payload-status .payload-evidence{display:none}
+`;
+
 
 const REPORT_CSS = `
 body{font-family:Inter,Segoe UI,Arial,sans-serif;margin:18px;color:#17202a;background:#f6f7f9;font-size:13px;line-height:1.45}.wrap{max-width:1220px;margin:0 auto}.hero,.card,.section,.toc{background:white;border:1px solid #e3e8ef;border-radius:16px;margin:12px 0;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.035)}h1{margin:0;color:#c40018}.hero-startrack h1{color:#007dbb}h2{margin:0 0 12px}.status{font-size:24px;font-weight:900}.status-inline{font-weight:900}.FAIL{color:#b00020}.PASS{color:#147a2e}.REVIEW{color:#9a5a00}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.nav a{background:#f0f4f8;border:1px solid #dce4ee;border-radius:999px;padding:7px 10px}table{border-collapse:collapse;width:100%;font-size:11.5px;table-layout:fixed}td,th{border:1px solid #dce2e8;padding:7px;vertical-align:top;text-align:left;overflow-wrap:anywhere}th{background:#f2f5f8}.row-fail{background:#fff0f2}.row-review{background:#fff8e6}.row-pass{background:#f1fbf4}.selected{background:#e8f3ff!important}.startrack-report .selected{background:#dff3ff!important}.pill{display:inline-block;border-radius:99px;background:#e8f3ff;color:#124a7a;padding:2px 7px;font-size:10px;font-weight:800;text-transform:uppercase}.preview{max-width:460px;border:1px solid #ccd3dc;border-radius:10px}.crop img{max-width:420px;border:1px solid #ccd3dc;border-radius:10px;background:white}.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.facts>div{background:#f8fafc;border:1px solid #e3e8ef;border-radius:12px;padding:9px}.two-col{display:grid;grid-template-columns:minmax(320px,.9fr) 1.1fr;gap:16px}.metric{display:inline-block;background:#f5f7fa;border:1px solid #e5e9ef;border-radius:12px;padding:8px 10px;margin:4px 5px 4px 0}.raw-code,code{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;font-size:12px}pre{background:#f7f9fb;border:1px solid #e3e8ef;border-radius:10px;padding:10px;overflow:auto;max-height:280px;white-space:pre-wrap}.muted{color:#666}a{color:#0b5cad;text-decoration:none}a:hover{text-decoration:underline}.service-matrix-wrap{overflow-x:auto;border-radius:12px;border:1px solid #111}.service-matrix-table{min-width:980px;border-collapse:collapse;table-layout:fixed;font-size:11px;background:#d9d9d9}.service-matrix-table th{background:#c40000;color:white;border:1px solid #111;text-align:center;vertical-align:middle;padding:7px 5px;font-weight:800}.service-matrix-table td{background:#d9d9d9;border:1px solid #111;color:#000;vertical-align:middle;padding:6px;overflow-wrap:anywhere}.startrack-matrix th{background:#dff3ff;color:#063c5a}.flag-cell{font-weight:900;font-size:14px;text-align:center}.payload-cell pre{margin:0;padding:0;border:0;background:transparent;font-size:10.5px;max-height:none;white-space:pre-wrap;overflow:visible}.service-selected-row td,.service-selected-row .payload-cell pre{background:#fff7c2!important}.selected-combination-row td,.product-selected-cell{background:#dff5e7!important}@media(max-width:800px){.two-col,.facts{grid-template-columns:1fr}.preview{max-width:100%}}
 .service-matrix-table{min-width:1280px;font-size:11px;line-height:1.25}.service-matrix-table th,.service-matrix-table td{padding:7px 6px;vertical-align:middle}.service-matrix-table th{line-height:1.15;overflow-wrap:normal;word-break:normal}.service-matrix-table th:nth-child(1),.service-matrix-table td:nth-child(1){width:64px;text-align:center}.service-matrix-table th:nth-child(2),.service-matrix-table td:nth-child(2){width:58px;text-align:center}.service-matrix-table th:nth-child(3),.service-matrix-table td:nth-child(3){width:82px;text-align:center}.service-matrix-table th:nth-child(4),.service-matrix-table td:nth-child(4){width:76px;text-align:center}.service-matrix-table th:nth-child(5),.service-matrix-table td:nth-child(5){width:76px;text-align:center}.service-matrix-table th:nth-child(6),.service-matrix-table td:nth-child(6){width:88px;text-align:center}.service-matrix-table th:nth-child(7),.service-matrix-table td:nth-child(7){width:220px}.service-matrix-table th:nth-child(8),.service-matrix-table td:nth-child(8){width:82px;text-align:center}.service-matrix-table th:nth-child(9),.service-matrix-table td:nth-child(9){width:145px}.service-matrix-table th:nth-child(10),.service-matrix-table td:nth-child(10){width:145px;text-align:center}.flag-cell{font-size:14px;text-align:center;vertical-align:middle}.service-code-cell{vertical-align:middle;text-align:center}.payload-cell pre{font-size:10.5px;line-height:1.3}.payload-match{font-size:10px;letter-spacing:.02em;padding:3px 7px}.payload-match-na{background:#eef1f5;color:#53606d;border:1px solid #d7dde5}
 .payload-match-cell{display:grid;gap:6px;justify-items:center;align-content:start}.payload-evidence{width:100%;text-align:left;font-size:11px}.payload-evidence summary{cursor:pointer;color:#475467;font-weight:700;text-align:center}.payload-evidence pre{margin:6px 0 0;max-height:180px;font-size:11px;line-height:1.35;white-space:pre-wrap;overflow-wrap:anywhere}@media print{body{background:white}.card,.section,.toc{break-inside:avoid}}
+${VALIDATION_TABLE_REPORT_CSS}
 `;
 
 
@@ -1381,14 +1386,12 @@ function renderReportValidationTable(items, esc) {
   if (!items || !items.length) return '<p class="muted">No checks in this section.</p>';
   const showPayloadColumn = hasApiPayloadComparison(items);
   const rows = items.map(v => `<tr class="${esc(validationTone(v))}" id="rule-${esc(v.id)}">
-    <td>${esc(v.status)}</td>
-    <td>${esc(v.title)}</td>
-    <td>${esc(v.message)}${v.evidence ? `<details><summary>Evidence</summary><pre>${esc(v.evidence)}</pre></details>` : ''}</td>
-    <td>${esc(standardForValidation(v))}</td>
-    <td>${esc(v.actual || '')}</td>
-    ${showPayloadColumn ? `<td>${apiPayloadMatchHtml(v.apiPayloadMatch, esc)}</td>` : ''}
+    <td>${validationCriteriaHtml(v, esc)}</td>
+    <td>${labelMeasurementHtml(v, esc)}</td>
+    ${showPayloadColumn ? `<td>${apiPayloadEvidenceHtml(v.apiPayloadMatch, esc)}</td>` : ''}
+    <td>${validationStatusHtml(v, showPayloadColumn, esc)}</td>
   </tr>`).join('');
-  return `<table><thead><tr><th>Status</th><th>Rule</th><th>Assessment</th><th>Correct standard / example</th><th>Actual</th>${showPayloadColumn ? '<th>Get Shipments match</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>`;
+  return `<table class="validation-table ${showPayloadColumn ? 'has-payload-column' : ''}"><thead><tr><th>Assessment criteria</th><th>Label measurement</th>${showPayloadColumn ? '<th>Get Shipments measurement</th>' : ''}<th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function buildReportHtml(audit) {
@@ -1433,6 +1436,7 @@ function buildReportHtml(audit) {
 <html><head><meta charset="utf-8"><title>Australia Post - eCommerce Integration Label Auditor Report</title>
 <style>
 body{font-family:Inter,Segoe UI,Arial,sans-serif;margin:18px;color:#17202a;background:#f6f7f9;font-size:13px;line-height:1.45}.wrap{max-width:1180px;margin:0 auto}.hero,.card,.section,.toc{background:white;border:1px solid #e3e8ef;border-radius:16px;margin:12px 0;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.035)}h1{margin:0;color:#c40018}h2{margin:0 0 12px}.status{font-size:24px;font-weight:900}.FAIL{color:#b00020}.PASS{color:#147a2e}.REVIEW{color:#9a5a00}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.nav a{background:#f0f4f8;border:1px solid #dce4ee;border-radius:999px;padding:7px 10px}table{border-collapse:collapse;width:100%;font-size:11.5px;table-layout:fixed}td,th{border:1px solid #dce2e8;padding:7px;vertical-align:top;text-align:left;overflow-wrap:anywhere}th{background:#f2f5f8}.row-fail{background:#fff0f2}.row-review{background:#fff8e6}.row-pass{background:#f1fbf4}.selected{background:#e8f3ff!important}.pill{display:inline-block;border-radius:99px;background:#e8f3ff;color:#124a7a;padding:2px 7px;font-size:10px;font-weight:800;text-transform:uppercase}.preview{max-width:460px;border:1px solid #ccd3dc;border-radius:10px}.crop img{max-width:420px;border:1px solid #ccd3dc;border-radius:10px;background:white}.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.facts>div{background:#f8fafc;border:1px solid #e3e8ef;border-radius:12px;padding:9px}.two-col{display:grid;grid-template-columns:minmax(320px,.9fr) 1.1fr;gap:16px}.metric{display:inline-block;background:#f5f7fa;border:1px solid #e5e9ef;border-radius:12px;padding:8px 10px;margin:4px 5px 4px 0}.raw-code,code{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;font-size:12px}pre{background:#f7f9fb;border:1px solid #e3e8ef;border-radius:10px;padding:10px;overflow:auto;max-height:280px;white-space:pre-wrap}.muted{color:#666}a{color:#0b5cad;text-decoration:none}a:hover{text-decoration:underline}@media(max-width:800px){.two-col,.facts{grid-template-columns:1fr}.preview{max-width:100%}}.service-matrix-wrap{overflow-x:auto;border-radius:12px;border:1px solid #111}.service-matrix-table{min-width:980px;border-collapse:collapse;table-layout:fixed;font-size:11px;background:#d9d9d9}.service-matrix-table th{background:#c40000;color:white;border:1px solid #111;text-align:center;vertical-align:middle;padding:7px 5px;font-weight:800}.service-matrix-table td{background:#d9d9d9;border:1px solid #111;color:#000;vertical-align:middle;padding:6px;overflow-wrap:anywhere}.service-matrix-table th:nth-child(1),.service-matrix-table td:nth-child(1){width:58px;text-align:center}.service-matrix-table th:nth-child(2),.service-matrix-table td:nth-child(2){width:55px;text-align:center}.service-matrix-table th:nth-child(3),.service-matrix-table td:nth-child(3){width:70px;text-align:center}.service-matrix-table th:nth-child(4),.service-matrix-table td:nth-child(4){width:70px;text-align:center}.service-matrix-table th:nth-child(5),.service-matrix-table td:nth-child(5){width:64px;text-align:center}.service-matrix-table th:nth-child(6),.service-matrix-table td:nth-child(6){width:92px;text-align:center}.service-matrix-table th:nth-child(7),.service-matrix-table td:nth-child(7){width:170px}.service-matrix-table th:nth-child(8),.service-matrix-table td:nth-child(8){width:74px;text-align:center}.service-matrix-table th:nth-child(9),.service-matrix-table td:nth-child(9){width:116px}.flag-cell{font-weight:900;font-size:14px;text-align:center}.payload-cell pre{margin:0;padding:0;border:0;background:transparent;font-size:10.5px;max-height:none;white-space:pre-wrap;overflow:visible}.service-selected-row td,.service-selected-row .payload-cell pre{background:#fff7c2!important}.selected-combination-row td,.product-selected-cell{background:#dff5e7!important}@media print{body{background:white}.card,.section,.toc{break-inside:avoid}}
+${VALIDATION_TABLE_REPORT_CSS}
 </style>
 </head><body><div class="wrap">
 <section class="hero"><h1>Australia Post - eCommerce Integration Label Auditor Report</h1><p><strong>Generated:</strong> ${esc(audit.generatedAt)} | <strong>File:</strong> ${esc(audit.fileInfo?.filename)}${audit.fileInfo?.sourcePdfPage ? ` — page ${esc(audit.fileInfo.sourcePdfPage)} of ${esc(audit.fileInfo.sourcePdfPageCount || '?')}` : ''}</p><p class="status ${esc(audit.summary.overallStatus)}">Overall: ${esc(audit.summary.overallStatus)}</p><div><span class="metric">Passed ${audit.summary.passed}</span><span class="metric">Failed ${audit.summary.failed}</span><span class="metric">Review ${audit.summary.manualReview}</span><span class="metric">Total ${audit.summary.total}</span></div><nav class="nav">${navLinks}</nav></section>
@@ -1541,9 +1545,9 @@ function buildConsolidatedReportHtml(audits = []) {
       <td><a href="#label-${idx + 1}"><code>${esc(h.articleNumber)}</code></a></td>
       <td>${esc(h.product)}${h.productCode ? `<br><small>${esc(h.productCode)} — ${esc(h.productName)}</small>` : ''}</td>
       <td>${esc(h.serviceCode || 'not parsed')}${h.serviceName ? `<br><small>${esc(h.serviceName)}</small>` : ''}</td>
-      <td><strong>${esc(audit.summary?.overallStatus || 'UNKNOWN')}</strong></td>
       <td>${esc(audit.detectedBarcodes?.length || 0)}</td>
       <td>${esc(h.displayFile || h.filename)}</td>
+      <td><strong>${esc(audit.summary?.overallStatus || 'UNKNOWN')}</strong></td>
     </tr>`;
   }).join('');
 
@@ -1596,7 +1600,8 @@ function buildConsolidatedReportHtml(audits = []) {
 body{font-family:Inter,Segoe UI,Arial,sans-serif;margin:18px;color:#17202a;background:#f6f7f9;font-size:13px;line-height:1.45}.wrap{max-width:1220px;margin:0 auto}.hero,.section,.toc{background:white;border:1px solid #e3e8ef;border-radius:16px;margin:12px 0;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.035)}h1{margin:0;color:#c40018}h2{margin:0 0 12px}.status{font-size:24px;font-weight:900}.status-inline{font-weight:900}.FAIL{color:#b00020}.PASS{color:#147a2e}.REVIEW{color:#9a5a00}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.nav a{background:#f0f4f8;border:1px solid #dce4ee;border-radius:999px;padding:7px 10px}table{border-collapse:collapse;width:100%;font-size:11.5px;table-layout:fixed}td,th{border:1px solid #dce2e8;padding:7px;vertical-align:top;text-align:left;overflow-wrap:anywhere}th{background:#f2f5f8}.row-fail{background:#fff0f2}.row-review{background:#fff8e6}.row-pass{background:#f1fbf4}.preview{max-width:460px;border:1px solid #ccd3dc;border-radius:10px}.crop img{max-width:420px;border:1px solid #ccd3dc;border-radius:10px;background:white}.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.facts>div{background:#f8fafc;border:1px solid #e3e8ef;border-radius:12px;padding:9px}.two-col{display:grid;grid-template-columns:minmax(320px,.8fr) 1.2fr;gap:16px}.metric{display:inline-block;background:#f5f7fa;border:1px solid #e5e9ef;border-radius:12px;padding:8px 10px;margin:4px 5px 4px 0}.raw-code,code{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;font-size:12px}pre{background:#f7f9fb;border:1px solid #e3e8ef;border-radius:10px;padding:10px;overflow:auto;max-height:280px;white-space:pre-wrap}.pill{display:inline-block;border-radius:99px;background:#e8f3ff;color:#124a7a;padding:2px 7px;font-size:10px;font-weight:800;text-transform:uppercase}.service-matrix-wrap{overflow-x:auto;border-radius:12px;border:1px solid #111}.service-matrix-table{min-width:980px;border-collapse:collapse;table-layout:fixed;font-size:11px;background:#d9d9d9}.service-matrix-table th{background:#c40000;color:white;border:1px solid #111;text-align:center;vertical-align:middle;padding:7px 5px;font-weight:800}.service-matrix-table td{background:#d9d9d9;border:1px solid #111;color:#000;vertical-align:middle;padding:6px;overflow-wrap:anywhere}.flag-cell{font-weight:900;font-size:14px;text-align:center}.payload-cell pre{margin:0;padding:0;border:0;background:transparent;font-size:10.5px;max-height:none;white-space:pre-wrap;overflow:visible}.service-selected-row td,.service-selected-row .payload-cell pre{background:#fff7c2!important}.selected-combination-row td,.product-selected-cell{background:#dff5e7!important}@media(max-width:800px){.two-col,.facts{grid-template-columns:1fr}.preview{max-width:100%}}
 .service-matrix-table{min-width:1280px;font-size:11px;line-height:1.25}.service-matrix-table th,.service-matrix-table td{padding:7px 6px;vertical-align:middle}.service-matrix-table th{line-height:1.15;overflow-wrap:normal;word-break:normal}.service-matrix-table th:nth-child(1),.service-matrix-table td:nth-child(1){width:64px;text-align:center}.service-matrix-table th:nth-child(2),.service-matrix-table td:nth-child(2){width:58px;text-align:center}.service-matrix-table th:nth-child(3),.service-matrix-table td:nth-child(3){width:82px;text-align:center}.service-matrix-table th:nth-child(4),.service-matrix-table td:nth-child(4){width:76px;text-align:center}.service-matrix-table th:nth-child(5),.service-matrix-table td:nth-child(5){width:76px;text-align:center}.service-matrix-table th:nth-child(6),.service-matrix-table td:nth-child(6){width:88px;text-align:center}.service-matrix-table th:nth-child(7),.service-matrix-table td:nth-child(7){width:220px}.service-matrix-table th:nth-child(8),.service-matrix-table td:nth-child(8){width:82px;text-align:center}.service-matrix-table th:nth-child(9),.service-matrix-table td:nth-child(9){width:145px}.service-matrix-table th:nth-child(10),.service-matrix-table td:nth-child(10){width:145px;text-align:center}.flag-cell{font-size:14px;text-align:center;vertical-align:middle}.service-code-cell{vertical-align:middle;text-align:center}.payload-cell pre{font-size:10.5px;line-height:1.3}.payload-match{font-size:10px;letter-spacing:.02em;padding:3px 7px}.payload-match-na{background:#eef1f5;color:#53606d;border:1px solid #d7dde5}
 @media print{body{background:white}.section,.hero,.toc{break-inside:avoid}}
-</style></head><body><div class="wrap"><section class="hero"><h1>Australia Post - eCommerce Integration Label Auditor — Consolidated Report</h1><p><strong>Generated:</strong> ${esc(new Date().toISOString())} | <strong>Labels audited:</strong> ${summary.labelCount}</p><p class="status ${esc(summary.overallStatus)}">Overall: ${esc(summary.overallStatus)}</p><div><span class="metric">Labels ${summary.labelCount}</span><span class="metric">Passed checks ${summary.passed}</span><span class="metric">Failed checks ${summary.failed}</span><span class="metric">Review checks ${summary.manualReview}</span><span class="metric">Decoded barcodes ${summary.decoded}</span></div><nav class="nav">${navLinks}</nav></section><section class="toc"><h2>Consolidated label summary</h2><table><thead><tr><th>#</th><th>Article Number</th><th>Product</th><th>Service Code</th><th>Status</th><th>Decoded Barcodes</th><th>File</th></tr></thead><tbody>${summaryRows}</tbody></table></section>${labelSections}</div></body></html>`;
+${VALIDATION_TABLE_REPORT_CSS}
+</style></head><body><div class="wrap"><section class="hero"><h1>Australia Post - eCommerce Integration Label Auditor — Consolidated Report</h1><p><strong>Generated:</strong> ${esc(new Date().toISOString())} | <strong>Labels audited:</strong> ${summary.labelCount}</p><p class="status ${esc(summary.overallStatus)}">Overall: ${esc(summary.overallStatus)}</p><div><span class="metric">Labels ${summary.labelCount}</span><span class="metric">Passed checks ${summary.passed}</span><span class="metric">Failed checks ${summary.failed}</span><span class="metric">Review checks ${summary.manualReview}</span><span class="metric">Decoded barcodes ${summary.decoded}</span></div><nav class="nav">${navLinks}</nav></section><section class="toc"><h2>Consolidated label summary</h2><table><thead><tr><th>#</th><th>Article Number</th><th>Product</th><th>Service Code</th><th>Decoded Barcodes</th><th>File</th><th>Status</th></tr></thead><tbody>${summaryRows}</tbody></table></section>${labelSections}</div></body></html>`;
 }
 
 function downloadHtmlReport(audit) {
@@ -1812,11 +1817,6 @@ function ApiPayloadMatchBadge({ match }) {
   );
 }
 
-function apiPayloadMatchText(match) {
-  if (!match) return '';
-  return match.label || 'N/A';
-}
-
 function apiPayloadMatchHtml(match, esc) {
   if (!match) return '';
   const status = match.status || 'na';
@@ -1869,10 +1869,85 @@ function canonicalFieldLabel(v) {
   return field;
 }
 
-function RuleCell({ validation }) {
+function CriteriaCell({ validation }) {
   const canonical = canonicalFieldLabel(validation);
-  if (!canonical) return <>{validation.title}</>;
-  return <div className="rule-cell"><code className="canonical-field">{canonical}</code><span>{validation.title}</span></div>;
+  const standard = standardForValidation(validation);
+  const showSpecificExpected = validation.expected && validation.expected !== standard;
+  return (
+    <div className="criteria-cell">
+      {canonical && <code className="canonical-field">{canonical}</code>}
+      <strong>{validation.title}</strong>
+      <span className="criteria-standard">{standard}</span>
+      {showSpecificExpected && <span className="criteria-expected">Expected: {validation.expected}</span>}
+    </div>
+  );
+}
+
+function LabelMeasurementCell({ validation }) {
+  return (
+    <div className="measurement-cell">
+      {validation.actual && <div><span className="measurement-label">Label value</span><code>{validation.actual}</code></div>}
+      <div><span className="measurement-label">Finding</span>{validation.message}</div>
+      {validation.evidence && (
+        <details>
+          <summary>Label evidence</summary>
+          <pre>{validation.evidence}</pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function ApiPayloadEvidenceCell({ match }) {
+  if (!match) return <span className="muted small">No payload comparison.</span>;
+  const evidence = formatApiPayloadEvidence(match);
+  return (
+    <div className="measurement-cell payload-measurement-cell">
+      {match.field && <div><span className="measurement-label">Payload field</span><code>{match.field}</code></div>}
+      {match.detail && <div><span className="measurement-label">Payload comparison</span>{match.detail}</div>}
+      {evidence && (
+        <details className="payload-evidence">
+          <summary>JSON evidence</summary>
+          <pre>{evidence}</pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function ValidationStatusCell({ validation, showPayloadColumn }) {
+  return (
+    <div className="status-stack">
+      <StatusBadge status={validation.status} />
+      {showPayloadColumn && validation.apiPayloadMatch && (
+        <div className="payload-status">
+          <span>Payload</span>
+          <ApiPayloadMatchBadge match={validation.apiPayloadMatch} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function validationCriteriaHtml(v, esc) {
+  const canonical = canonicalFieldLabel(v);
+  const standard = standardForValidation(v);
+  const showSpecificExpected = v?.expected && v.expected !== standard;
+  return `<div class="criteria-cell">${canonical ? `<code class="canonical-field">${esc(canonical)}</code>` : ''}<strong>${esc(v.title)}</strong><span class="criteria-standard">${esc(standard)}</span>${showSpecificExpected ? `<span class="criteria-expected">Expected: ${esc(v.expected)}</span>` : ''}</div>`;
+}
+
+function labelMeasurementHtml(v, esc) {
+  return `<div class="measurement-cell">${v.actual ? `<div><span class="measurement-label">Label value</span><code>${esc(v.actual)}</code></div>` : ''}<div><span class="measurement-label">Finding</span>${esc(v.message)}</div>${v.evidence ? `<details><summary>Label evidence</summary><pre>${esc(v.evidence)}</pre></details>` : ''}</div>`;
+}
+
+function apiPayloadEvidenceHtml(match, esc) {
+  if (!match) return '<span class="muted small">No payload comparison.</span>';
+  const evidence = formatApiPayloadEvidence(match);
+  return `<div class="measurement-cell payload-measurement-cell">${match.field ? `<div><span class="measurement-label">Payload field</span><code>${esc(match.field)}</code></div>` : ''}${match.detail ? `<div><span class="measurement-label">Payload comparison</span>${esc(match.detail)}</div>` : ''}${evidence ? `<details class="payload-evidence"><summary>JSON evidence</summary><pre>${esc(evidence)}</pre></details>` : ''}</div>`;
+}
+
+function validationStatusHtml(v, showPayloadColumn, esc) {
+  return `<div class="status-stack"><span class="badge badge-${esc(String(v.status).toLowerCase())}">${esc(v.status)}</span>${showPayloadColumn && v.apiPayloadMatch ? `<div class="payload-status"><span>Payload</span>${apiPayloadMatchHtml(v.apiPayloadMatch, esc)}</div>` : ''}</div>`;
 }
 
 function ValidationTable({ items }) {
@@ -1880,17 +1955,15 @@ function ValidationTable({ items }) {
   const showPayloadColumn = hasApiPayloadComparison(items);
   return (
     <div className="table-wrap">
-      <table className={`compact-table ${showPayloadColumn ? 'has-payload-column' : ''}`}>
-        <thead><tr><th>Status</th><th>Rule</th><th>Assessment</th><th>Correct standard / example</th><th>Actual</th>{showPayloadColumn && <th>Get Shipments match</th>}</tr></thead>
+      <table className={`compact-table validation-table ${showPayloadColumn ? 'has-payload-column' : ''}`}>
+        <thead><tr><th>Assessment criteria</th><th>Label measurement</th>{showPayloadColumn && <th>Get Shipments measurement</th>}<th>Status</th></tr></thead>
         <tbody>
           {items.map((v, idx) => (
             <tr key={idx} id={`rule-${v.id}`} className={validationTone(v)}>
-              <td><StatusBadge status={v.status} /></td>
-              <td><RuleCell validation={v} /></td>
-              <td>{v.message}{v.evidence && <details><summary>Evidence</summary><pre>{v.evidence}</pre></details>}</td>
-              <td>{standardForValidation(v)}</td>
-              <td>{v.actual || ''}</td>
-              {showPayloadColumn && <td><ApiPayloadMatchBadge match={v.apiPayloadMatch} /></td>}
+              <td><CriteriaCell validation={v} /></td>
+              <td><LabelMeasurementCell validation={v} /></td>
+              {showPayloadColumn && <td><ApiPayloadEvidenceCell match={v.apiPayloadMatch} /></td>}
+              <td><ValidationStatusCell validation={v} showPayloadColumn={showPayloadColumn} /></td>
             </tr>
           ))}
         </tbody>

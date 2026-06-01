@@ -842,6 +842,84 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   width: 190px;
   vertical-align: top;
 }
+.compact-table.validation-table {
+  min-width: 980px;
+}
+.compact-table.validation-table th:nth-child(1),
+.compact-table.validation-table td:nth-child(1) {
+  width: 38%;
+}
+.compact-table.validation-table th:nth-child(2),
+.compact-table.validation-table td:nth-child(2) {
+  width: 44%;
+}
+.compact-table.validation-table th:last-child,
+.compact-table.validation-table td:last-child {
+  width: 120px;
+  text-align: center;
+  vertical-align: top;
+}
+.compact-table.validation-table.has-payload-column {
+  min-width: 1180px;
+}
+.compact-table.validation-table.has-payload-column th:nth-child(1),
+.compact-table.validation-table.has-payload-column td:nth-child(1) {
+  width: 34%;
+}
+.compact-table.validation-table.has-payload-column th:nth-child(2),
+.compact-table.validation-table.has-payload-column td:nth-child(2) {
+  width: 30%;
+}
+.compact-table.validation-table.has-payload-column th:nth-child(3),
+.compact-table.validation-table.has-payload-column td:nth-child(3) {
+  width: 22%;
+}
+.compact-table.validation-table.has-payload-column th:last-child,
+.compact-table.validation-table.has-payload-column td:last-child {
+  width: 140px;
+}
+.criteria-cell,
+.measurement-cell,
+.status-stack {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+.criteria-cell strong {
+  font-size: 12px;
+}
+.criteria-standard,
+.criteria-expected,
+.measurement-label {
+  display: block;
+  color: #53606d;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.criteria-expected {
+  color: #344054;
+}
+.measurement-cell code {
+  display: inline-block;
+  margin-top: 2px;
+}
+.payload-status {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  margin-top: 4px;
+}
+.payload-status > span {
+  color: #53606d;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.payload-status .payload-evidence {
+  display: none;
+}
 @media (max-width: 760px) {
   .hero-compact { grid-template-columns: auto 1fr; }
   .feedback-button { grid-column: 1 / -1; justify-self: start; }
