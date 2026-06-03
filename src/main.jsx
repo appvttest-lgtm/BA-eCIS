@@ -33,6 +33,8 @@ const barcodeFormats = ['code_128', 'data_matrix', 'qr_code', 'pdf417', 'ean_13'
 // strategies, then route the resulting evidence into the correct report section.
 const FORMAT_KIND = { linear: 'linear', datamatrix: 'datamatrix', qr: 'qr', mixed: 'mixed' };
 const APP_TITLE = 'Australia Post - eCommerce Integration Label Auditor';
+const APP_VERSION = 'v1.6.9';
+const FEEDBACK_URL = 'https://github.com/appvttest-lgtm/BA-eCIS/issues/new/choose';
 const ACCEPTED_LABEL_FILE_TYPES = 'application/pdf,image/png,image/jpeg,image/webp,image/bmp';
 const LABEL_FAMILY_NAMES = { eparcel: 'eParcel', startrack: 'StarTrack' };
 const BARCODE_BOX_MARGIN_PX = 36;
@@ -2674,7 +2676,9 @@ function App() {
         </div>
         <a
           className="feedback-button"
-          href="mailto:christian.rajaratnam@auspost.com.au?subject=Australia%20Post%20-%20eCommerce%20Integration%20Label%20Auditor%20Feedback"
+          href={FEEDBACK_URL}
+          target="_blank"
+          rel="noreferrer"
         >
           Feedback
         </a>
@@ -2853,6 +2857,9 @@ function App() {
         </section>
       )}
       <ImageZoomModal image={zoomImage} onClose={() => setZoomImage(null)} />
+      <footer className="app-version" aria-label={`Application version ${APP_VERSION}`}>
+        {APP_TITLE} {APP_VERSION}
+      </footer>
     </main>
   );
 }

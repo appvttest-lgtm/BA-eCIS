@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-set "VERSION=1.6.8"
+set "VERSION=1.6.9"
 set "RELEASE_NAME=BarcodeAuditer-v%VERSION%-windows-x64-portable"
 set "RELEASE_ROOT=release\%RELEASE_NAME%"
 set "NODE_SOURCE=C:\Program Files\nodejs\node.exe"

@@ -6,7 +6,7 @@ set APP_URL=http://127.0.0.1:3000
 set HEALTH_URL=http://127.0.0.1:3000/healthz
 
 echo ===============================================
-echo Australia Post - eCommerce Integration Label Auditor v1.6.8
+echo Australia Post - eCommerce Integration Label Auditor v1.6.9
 echo ===============================================
 echo This app runs locally at %APP_URL%
 echo.
