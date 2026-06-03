@@ -36,6 +36,18 @@ const APP_TITLE = 'Australia Post - eCommerce Integration Label Auditor';
 const ACCEPTED_LABEL_FILE_TYPES = 'application/pdf,image/png,image/jpeg,image/webp,image/bmp';
 const LABEL_FAMILY_NAMES = { eparcel: 'eParcel', startrack: 'StarTrack' };
 const BARCODE_BOX_MARGIN_PX = 36;
+const MAX_FILES_PER_BATCH = 20;
+const MAX_LABEL_FILE_BYTES = 50 * 1024 * 1024;
+const MAX_PDF_PAGES = 40;
+const MAX_IMAGE_PIXELS = 50_000_000;
+const MAX_OPTIONAL_PAYLOAD_CHARS = 500_000;
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return 'unknown size';
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
 
 // ZXing and native browser scans use different format names. Normalizing them here
 // keeps the audit engine and report renderer independent of the decoder that succeeded.
@@ -1380,9 +1392,14 @@ async function processImage(file, detector, onDebug = null, labelFamily = 'eparc
   const imgUrl = URL.createObjectURL(file);
   const img = new Image();
   img.decoding = 'async';
+  img.addEventListener('load', () => URL.revokeObjectURL(imgUrl), { once: true });
+  img.addEventListener('error', () => URL.revokeObjectURL(imgUrl), { once: true });
   img.src = imgUrl;
   const decodeStart = performance.now();
   await img.decode();
+  if (img.naturalWidth * img.naturalHeight > MAX_IMAGE_PIXELS) {
+    throw new Error(`Image ${file.name} is too large to process safely (${img.naturalWidth}x${img.naturalHeight}px).`);
+  }
   mark(`Decoded image ${file.name} (${img.naturalWidth}x${img.naturalHeight}px)`, decodeStart);
 
   const canvas = document.createElement('canvas');
@@ -1405,7 +1422,6 @@ async function processImage(file, detector, onDebug = null, labelFamily = 'eparc
   const imageStart = performance.now();
   const labelImages = createLabelImages(canvas, detected);
   mark('Generated label preview and barcode crops', imageStart);
-  URL.revokeObjectURL(imgUrl);
   mark(`Completed image ${file.name}`, fileStart);
 
   return {
@@ -1434,6 +1450,9 @@ async function processPdfLabels(file, detector, onDebug = null, labelFamily = 'e
   mark(`Loaded PDF bytes for ${file.name} (${Math.round(file.size / 1024)} KB)`, bufferStart);
   const documentStart = performance.now();
   const pdf = await pdfjsLib.getDocument({ data }).promise;
+  if (pdf.numPages > MAX_PDF_PAGES) {
+    throw new Error(`PDF ${file.name} has ${pdf.numPages} pages; the safe limit is ${MAX_PDF_PAGES} pages per file.`);
+  }
   mark(`Opened PDF document (${pdf.numPages} page${pdf.numPages === 1 ? '' : 's'})`, documentStart);
   const labels = [];
 
@@ -2494,19 +2513,40 @@ function App() {
 
   /** Filters browser-selected files to the PDF/image formats the scanner can render locally. */
   function normaliseSelectedFiles(selectedFiles) {
-    return Array.from(selectedFiles || []).filter(file => {
+    const rejected = [];
+    const accepted = Array.from(selectedFiles || []).filter(file => {
       const name = String(file.name || '').toLowerCase();
       const type = String(file.type || '').toLowerCase();
-      return type === 'application/pdf' || type.startsWith('image/') || /\.(pdf|png|jpe?g|webp|bmp)$/.test(name);
+      const supported = type === 'application/pdf' || type.startsWith('image/') || /\.(pdf|png|jpe?g|webp|bmp)$/.test(name);
+      if (!supported) {
+        rejected.push(`${file.name || 'Unnamed file'} is not a supported PDF/image label.`);
+        return false;
+      }
+      if (file.size > MAX_LABEL_FILE_BYTES) {
+        rejected.push(`${file.name || 'Unnamed file'} is ${formatBytes(file.size)}; the limit is ${formatBytes(MAX_LABEL_FILE_BYTES)}.`);
+        return false;
+      }
+      return true;
     });
+    return { accepted, rejected };
   }
 
   /** Starts the full audit immediately after a user drops or chooses files. */
   async function acceptSelectedFiles(selectedFiles, labelFamily = 'eparcel') {
-    const selected = normaliseSelectedFiles(selectedFiles);
+    const { accepted, rejected } = normaliseSelectedFiles(selectedFiles);
+    const selected = accepted.slice(0, MAX_FILES_PER_BATCH);
+    const limitMessages = [
+      ...rejected,
+      ...(accepted.length > MAX_FILES_PER_BATCH
+        ? [`Only the first ${MAX_FILES_PER_BATCH} supported files were accepted for this batch.`]
+        : [])
+    ];
     if (!selected.length) {
-      setMessage('No supported PDF or image files were selected.');
+      setMessage(limitMessages[0] || 'No supported PDF or image files were selected.');
       return;
+    }
+    if (limitMessages.length) {
+      setMessage(limitMessages.join(' '));
     }
     await auditSelectedFiles(selected, labelFamily);
   }
@@ -2528,6 +2568,10 @@ function App() {
     const batches = files.map(file => ({ file, labelFamily }));
     if (!batches.length) {
       setMessage('Choose or drop one or more PDF/image label files first.');
+      return;
+    }
+    if (manifestJson.length > MAX_OPTIONAL_PAYLOAD_CHARS) {
+      setMessage(`Optional payload is ${formatBytes(manifestJson.length)} of text; the safe limit is ${formatBytes(MAX_OPTIONAL_PAYLOAD_CHARS)}.`);
       return;
     }
     setProcessing(true);
@@ -2599,6 +2643,10 @@ function App() {
   function rerunAuditWithOptionalInputs() {
     if (!scanDatas.length) {
       setMessage('No scanned file data is available yet. Upload and audit one or more labels first.');
+      return;
+    }
+    if (manifestJson.length > MAX_OPTIONAL_PAYLOAD_CHARS) {
+      setMessage(`Optional payload is ${formatBytes(manifestJson.length)} of text; the safe limit is ${formatBytes(MAX_OPTIONAL_PAYLOAD_CHARS)}.`);
       return;
     }
     const refreshed = scanDatas.map((base, idx) => {
