@@ -1,4 +1,4 @@
-Australia Post - eCommerce Integration Label Auditor v1.6.6
+Australia Post - eCommerce Integration Label Auditor v1.6.8
 ======================
 
 Purpose
