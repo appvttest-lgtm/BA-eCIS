@@ -645,8 +645,46 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
 
 /* Carrier-specific upload zones and StarTrack visual treatment. */
 .upload-split {
-  grid-template-columns: 1fr 1fr;
+  display: grid;
+  grid-template-columns: 1fr;
   align-items: start;
+  gap: 18px;
+}
+.audit-mode-panel {
+  display: grid;
+  gap: 14px;
+}
+.audit-mode-panel h2 {
+  margin-bottom: 0;
+}
+.mode-control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #d8e0ea;
+  border-radius: 14px;
+  background: #f6f8fb;
+}
+.segmented-control button {
+  margin: 0;
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #344054;
+  padding: 9px 10px;
+}
+.segmented-control button.active {
+  background: #ffffff;
+  border-color: #c8d3df;
+  color: #17202a;
+  box-shadow: 0 3px 10px rgba(16, 24, 40, .08);
 }
 .upload-actions {
   grid-column: 1 / -1;
@@ -701,6 +739,7 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
 }
 @media (max-width: 780px) {
   .upload-split { grid-template-columns: 1fr; }
+  .mode-control-grid { grid-template-columns: 1fr; }
   .upload-actions { grid-column: auto; }
   .optional-input-grid { grid-template-columns: 1fr; }
 }

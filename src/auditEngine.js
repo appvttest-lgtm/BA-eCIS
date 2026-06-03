@@ -165,30 +165,49 @@ function result(id, title, severity, category, status, message, extra = {}) {
   return { id, title, severity, category, status, message, ...extra };
 }
 
-function normalizeSsccCompanyPrefixInput(input) {
+function normalizeLabelFormat(value) {
+  return value === 'sscc' ? 'sscc' : 'standard';
+}
+
+function normalizeSsccExtensionDigitInput(input) {
   const raw = String(input || '').trim();
-  if (!raw) return { provided: false, raw: '', companyPrefix: '', reason: '' };
+  if (!raw) return { provided: false, raw: '', extensionDigit: '', reason: '' };
+  const digits = raw.replace(/\D/g, '');
+  const extensionDigit = digits.startsWith('00') ? digits.slice(2, 3) : digits.slice(0, 1);
+  if (!/^\d$/.test(extensionDigit)) {
+    return { provided: true, raw, extensionDigit: '', reason: 'Enter the SSCC extension digit, for example 3 or 003.' };
+  }
+  return { provided: true, raw, extensionDigit, reason: '' };
+}
+
+function normalizeSsccCompanyPrefixInput(input, extensionDigitInput = '') {
+  const raw = String(input || '').trim();
+  const extension = normalizeSsccExtensionDigitInput(extensionDigitInput);
+  if (!raw && !extension.provided) return { provided: false, raw: '', extensionDigit: '', companyPrefix: '', reason: '' };
   let digits = raw.replace(/\D/g, '');
   if (digits.startsWith('00')) {
     digits = digits.slice(2);
     if (digits.length > 0) digits = digits.slice(1);
   }
+  if (!raw) {
+    return { provided: extension.provided, raw, extensionDigit: extension.extensionDigit, companyPrefix: '', reason: extension.reason };
+  }
   if (!digits) {
     return { provided: true, raw, companyPrefix: '', reason: 'Enter the GS1 Company Prefix digits, for example 9315345.' };
   }
   if (digits.length < 4 || digits.length > 12) {
-    return { provided: true, raw, companyPrefix: digits, reason: 'GS1 Company Prefix should usually be 4 to 12 digits.' };
+    return { provided: true, raw, extensionDigit: extension.extensionDigit, companyPrefix: digits, reason: 'GS1 Company Prefix should usually be 4 to 12 digits.' };
   }
-  return { provided: true, raw, companyPrefix: digits, reason: '' };
+  return { provided: true, raw, extensionDigit: extension.extensionDigit, companyPrefix: digits, reason: extension.reason || '' };
 }
 
 function validateExpectedSsccPrefix({ expectedSscc, validSsccs = [], invalidSsccs = [], category = 'sscc', idPrefix = 'SSCC_EXPECTED' }) {
   if (!expectedSscc?.provided) return [];
   const validations = [];
-  if (!expectedSscc.companyPrefix) {
+  if (expectedSscc.reason) {
     validations.push(result(
       `${idPrefix}_PREFIX_INPUT`,
-      'SSCC GS1 Company Prefix input',
+      'SSCC extension / company prefix input',
       'ERROR',
       category,
       'fail',
@@ -200,15 +219,42 @@ function validateExpectedSsccPrefix({ expectedSscc, validSsccs = [], invalidSscc
 
   validations.push(validSsccs.length
     ? result(`${idPrefix}_DECODED`, 'AI 00 SSCC barcode decoded', 'CRITICAL', category, 'pass', `${validSsccs.length} valid AI 00 SSCC barcode(s) decoded.`, { actual: validSsccs.map(s => `00${s.sscc}`).join(', ') })
-    : result(`${idPrefix}_DECODED`, 'AI 00 SSCC barcode decoded', 'CRITICAL', category, 'fail', invalidSsccs.length ? invalidSsccs[0].reason : 'SSCC assessment was selected, but no valid AI 00 SSCC barcode was decoded.', { expected: `AI 00 SSCC with GS1 Company Prefix ${expectedSscc.companyPrefix}`, actual: invalidSsccs.map(s => s.raw).filter(Boolean).join(', ') || 'not decoded' }));
+    : result(`${idPrefix}_DECODED`, 'AI 00 SSCC barcode decoded', 'CRITICAL', category, 'fail', invalidSsccs.length ? invalidSsccs[0].reason : 'SSCC assessment was selected, but no valid AI 00 SSCC barcode was decoded.', { expected: expectedSscc.companyPrefix ? `AI 00 SSCC with GS1 Company Prefix ${expectedSscc.companyPrefix}` : 'AI 00 SSCC', actual: invalidSsccs.map(s => s.raw).filter(Boolean).join(', ') || 'not decoded' }));
 
-  if (validSsccs.length) {
+  if (validSsccs.length && expectedSscc.extensionDigit) {
+    const matches = validSsccs.filter(s => s.extensionDigit === expectedSscc.extensionDigit);
+    validations.push(matches.length
+      ? result(`${idPrefix}_EXTENSION_DIGIT`, 'SSCC extension digit', 'ERROR', category, 'pass', `Decoded SSCC extension digit matches ${expectedSscc.extensionDigit}.`, { expected: expectedSscc.extensionDigit, actual: matches.map(s => `00${s.sscc}`).join(', ') })
+      : result(`${idPrefix}_EXTENSION_DIGIT`, 'SSCC extension digit', 'ERROR', category, 'fail', `No decoded SSCC uses extension digit ${expectedSscc.extensionDigit}.`, { expected: expectedSscc.extensionDigit, actual: validSsccs.map(s => s.extensionDigit).join(', ') }));
+  }
+
+  if (validSsccs.length && expectedSscc.companyPrefix) {
     const matches = validSsccs.filter(s => String(s.companyPrefixAndSerial || '').startsWith(expectedSscc.companyPrefix) || String(s.sscc || '').startsWith(expectedSscc.companyPrefix));
     validations.push(matches.length
       ? result(`${idPrefix}_COMPANY_PREFIX`, 'SSCC GS1 Company Prefix', 'ERROR', category, 'pass', `Decoded SSCC company prefix matches ${expectedSscc.companyPrefix}.`, { expected: expectedSscc.companyPrefix, actual: matches.map(s => `00${s.sscc}`).join(', ') })
       : result(`${idPrefix}_COMPANY_PREFIX`, 'SSCC GS1 Company Prefix', 'ERROR', category, 'fail', `No decoded SSCC starts with GS1 Company Prefix ${expectedSscc.companyPrefix}.`, { expected: expectedSscc.companyPrefix, actual: validSsccs.map(s => s.sscc).join(', ') }));
   }
 
+  return validations;
+}
+
+function labelFormatName(format) {
+  return normalizeLabelFormat(format) === 'sscc' ? 'SSCC article identifier' : 'Standard article format';
+}
+
+function carrierName(carrier) {
+  if (carrier === 'unknown') return 'unknown';
+  return carrier === 'startrack' ? 'StarTrack' : 'eParcel';
+}
+
+function validateSelectedAuditMode({ selectedCarrier = 'eparcel', selectedFormat = 'standard', detectedCarrier = 'unknown', detectedFormat = 'unknown', evidence = '' }) {
+  const validations = [];
+  validations.push(detectedCarrier === selectedCarrier
+    ? result('AUDIT_MODE_CARRIER', 'Selected carrier matches label evidence', 'CRITICAL', 'audit-mode', 'pass', `${carrierName(selectedCarrier)} was selected and label evidence matches.`, { expected: carrierName(selectedCarrier), actual: carrierName(detectedCarrier), evidence })
+    : result('AUDIT_MODE_CARRIER', 'Selected carrier matches label evidence', 'CRITICAL', 'audit-mode', 'fail', `${carrierName(selectedCarrier)} was selected, but decoded/text evidence indicates ${carrierName(detectedCarrier)}.`, { expected: carrierName(selectedCarrier), actual: detectedCarrier === 'unknown' ? 'unknown' : carrierName(detectedCarrier), evidence }));
+  validations.push(detectedFormat === selectedFormat
+    ? result('AUDIT_MODE_FORMAT', 'Selected label format matches barcode evidence', 'CRITICAL', 'audit-mode', 'pass', `${labelFormatName(selectedFormat)} was selected and decoded barcode evidence matches.`, { expected: labelFormatName(selectedFormat), actual: labelFormatName(detectedFormat), evidence })
+    : result('AUDIT_MODE_FORMAT', 'Selected label format matches barcode evidence', 'CRITICAL', 'audit-mode', 'fail', `${labelFormatName(selectedFormat)} was selected, but decoded barcode evidence indicates ${detectedFormat === 'unknown' ? 'unknown format' : labelFormatName(detectedFormat)}.`, { expected: labelFormatName(selectedFormat), actual: detectedFormat === 'unknown' ? 'unknown' : labelFormatName(detectedFormat), evidence }));
   return validations;
 }
 
@@ -1102,9 +1148,13 @@ function attachApiPayloadComparison(audit, payloadText) {
 }
 
 /** Runs the full eParcel rule set against one rendered label/page. */
-function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '' }) {
+function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '', ssccExtensionDigit = '', labelFormat = 'standard' }) {
   const validations = [];
-  const expectedSscc = normalizeSsccCompanyPrefixInput(ssccCompanyPrefix);
+  const selectedFormat = normalizeLabelFormat(labelFormat);
+  const expectedSscc = {
+    ...normalizeSsccCompanyPrefixInput(ssccCompanyPrefix, ssccExtensionDigit),
+    provided: selectedFormat === 'sscc'
+  };
   const facts = extractLabelFacts(extractedText);
   const manualValues = String(manualBarcodes || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean); // Optional diagnostic input; never treated as decoded proof.
   const decodedValues = decodedRawValues(detectedBarcodes);
@@ -1147,26 +1197,41 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
   const ssccParses = allRawBarcodes.map(parseSsccBarcode).filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
   const validSsccs = ssccParses.filter(p => p.valid);
   const invalidSsccs = ssccParses.filter(p => !p.valid);
-  validations.push(...validateExpectedSsccPrefix({ expectedSscc, validSsccs, invalidSsccs, category: 'sscc', idPrefix: 'SSCC_EXPECTED' }));
   const articleMap = new Map();
   for (const article of parsed.map(p => p.article || p.base?.article).filter(Boolean)) {
     articleMap.set(article.articleId || article.sscc, article);
   }
   const allArticles = [...articleMap.values()];
-  const articles = expectedSscc.provided ? allArticles.filter(article => article.type === 'sscc') : allArticles;
+  const standardArticles = allArticles.filter(article => article.type === 'eparcel-standard');
+  const articles = selectedFormat === 'sscc' ? allArticles.filter(article => article.type === 'sscc') : standardArticles;
   const invalidMap = new Map();
   for (const invalid of parsed.map(p => p.articleAnalysis || p.base?.articleAnalysis).filter(a => a && !a.valid)) {
     invalidMap.set(invalid.candidate, invalid);
   }
   const invalidAnalyses = [...invalidMap.values()];
   const dmParses = parsed.filter(p => 'hasAi420' in p);
+  const detectedCarrier = standardArticles.length || dmParses.length || validSsccs.length ? 'eparcel' : 'unknown';
+  const detectedFormat = validSsccs.length && !standardArticles.length ? 'sscc' : standardArticles.length ? 'standard' : validSsccs.length ? 'sscc' : 'unknown';
+  const modeEvidence = [
+    standardArticles.length ? `standard eParcel article(s): ${standardArticles.map(a => a.articleId).join(', ')}` : '',
+    validSsccs.length ? `SSCC barcode(s): ${validSsccs.map(s => `00${s.sscc}`).join(', ')}` : '',
+    dmParses.length ? `GS1 DataMatrix parse(s): ${dmParses.length}` : ''
+  ].filter(Boolean).join('\n');
+  validations.unshift(...validateSelectedAuditMode({
+    selectedCarrier: 'eparcel',
+    selectedFormat,
+    detectedCarrier,
+    detectedFormat,
+    evidence: modeEvidence || decodedValues.join('\n')
+  }));
+  validations.push(...validateExpectedSsccPrefix({ expectedSscc, validSsccs, invalidSsccs, category: 'sscc', idPrefix: 'SSCC_EXPECTED' }));
 
   if (articles.length === 0 && invalidAnalyses.length === 0) {
-    validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'fail', expectedSscc.provided ? 'SSCC assessment was selected, but no SSCC article ID could be extracted from decoded barcode data.' : 'No standard eParcel article ID, SSCC article ID, or invalid article candidate could be extracted from decoded barcode data. Visible AP Article ID text is context only.'));
+    validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'fail', selectedFormat === 'sscc' ? 'SSCC assessment was selected, but no SSCC article ID could be extracted from decoded barcode data.' : 'Standard article format was selected, but no standard eParcel article ID could be extracted from decoded barcode data. Visible AP Article ID text is context only.'));
   } else if (articles.length === 0 && invalidAnalyses.length) {
     validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'fail', invalidAnalyses[0].reason, { expected: '21-char eParcel, 23-char eParcel, or 20-digit SSCC including AI 00', actual: invalidAnalyses.map(a => a.candidate).join(', ') }));
   } else {
-    validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'pass', expectedSscc.provided ? `${articles.length} valid SSCC article ID(s) parsed.` : `${articles.length} valid article ID(s) parsed.`, { actual: articles.map(a => a.articleId).join(', ') }));
+    validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'pass', selectedFormat === 'sscc' ? `${articles.length} valid SSCC article ID(s) parsed.` : `${articles.length} valid standard article ID(s) parsed.`, { actual: articles.map(a => a.articleId).join(', ') }));
   }
 
   for (const [i, p] of parsed.entries()) {
@@ -1264,6 +1329,7 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
     detectedBarcodes,
     manualBarcodeCount: manualValues.length,
     expectedSscc,
+    selectedAuditMode: { carrier: 'eparcel', labelFormat: selectedFormat },
     parsed,
     articles,
     invalidArticleCandidates: invalidAnalyses,
@@ -1591,9 +1657,13 @@ function validateStarTrackTextFacts(facts) {
 }
 
 /** Runs the full StarTrack rule set against one rendered label/page. */
-function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '' }) {
+function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '', ssccExtensionDigit = '', labelFormat = 'standard' }) {
   const validations = [];
-  const expectedSscc = normalizeSsccCompanyPrefixInput(ssccCompanyPrefix);
+  const selectedFormat = normalizeLabelFormat(labelFormat);
+  const expectedSscc = {
+    ...normalizeSsccCompanyPrefixInput(ssccCompanyPrefix, ssccExtensionDigit),
+    provided: selectedFormat === 'sscc'
+  };
   let facts = extractStarTrackFacts(extractedText);
   const manualValues = String(manualBarcodes || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   const decodedValues = decodedRawValues(detectedBarcodes);
@@ -1624,9 +1694,24 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
     ...qrParses.map(q => q.fields?.atlNumber).filter(Boolean)
   ]);
   const atlExpected = Boolean(facts.authorityToLeavePresent || expectedAtlNumbers.length);
-  const ssccOnly = expectedSscc.provided || (validSsccs.length > 0 && freightParses.length === 0);
+  const ssccOnly = selectedFormat === 'sscc' || (validSsccs.length > 0 && freightParses.length === 0);
+  const detectedCarrier = qrParses.length || freightParses.length || routingParses.length || atlParses.length || validSsccs.length || /STAR\s*TRACK|STARTRACK/i.test(extractedText || '') ? 'startrack' : 'unknown';
+  const detectedFormat = validSsccs.length && !freightParses.length ? 'sscc' : freightParses.length ? 'standard' : validSsccs.length ? 'sscc' : 'unknown';
+  const modeEvidence = [
+    qrParses.length ? `StarTrack QR payload(s): ${qrParses.length}` : '',
+    freightParses.length ? `freight item barcode(s): ${freightParses.map(f => f.freightItemId).join(', ')}` : '',
+    validSsccs.length ? `SSCC barcode(s): ${validSsccs.map(s => `00${s.sscc}`).join(', ')}` : '',
+    routingParses.length ? `routing barcode(s): ${routingParses.map(r => r.raw).join(', ')}` : ''
+  ].filter(Boolean).join('\n');
 
   facts = enrichStarTrackFactsFromDecodedData(facts, { qrParses, freightParses, routingParses, validSsccs });
+  validations.push(...validateSelectedAuditMode({
+    selectedCarrier: 'startrack',
+    selectedFormat,
+    detectedCarrier,
+    detectedFormat,
+    evidence: modeEvidence || decodedValues.join('\n')
+  }));
   validations.push(...validateStarTrackTextFacts(facts));
   validations.push(...validateExpectedSsccPrefix({ expectedSscc, validSsccs, invalidSsccs, category: 'startrack-sscc', idPrefix: 'ST_SSCC_EXPECTED' }));
 
@@ -1634,9 +1719,9 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
     ? result('ST_QR_PRESENT', 'StarTrack 2D QR barcode decoded', 'CRITICAL', 'startrack-qr', 'pass', `${qrParses.length} StarTrack QR payload(s) decoded from the uploaded file.`, { actual: `${qrParses.length}` })
     : result('ST_QR_PRESENT', 'StarTrack 2D QR barcode decoded', 'CRITICAL', 'startrack-qr', 'fail', 'StarTrack labels must contain a 2D QR barcode and it was not decoded from the uploaded file.'));
 
-  validations.push((expectedSscc.provided ? validSsccs.length : (freightParses.length || validSsccs.length))
-    ? result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'pass', expectedSscc.provided ? `${validSsccs.length} SSCC freight item barcode(s) decoded.` : freightParses.length ? `${freightParses.length} StarTrack Code 128 freight item barcode(s) decoded.` : `${validSsccs.length} SSCC freight item barcode(s) decoded.`, { actual: [...freightParses.map(f => f.freightItemId), ...validSsccs.map(s => `00${s.sscc}`)].join(', ') })
-    : result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'fail', expectedSscc.provided ? 'SSCC assessment was selected, but no valid AI 00 SSCC freight item barcode was decoded.' : 'No StarTrack 20-character freight item barcode or valid AI 00 SSCC barcode was decoded.', { expected: expectedSscc.provided ? `AI 00 SSCC with GS1 Company Prefix ${expectedSscc.companyPrefix || expectedSscc.raw}` : undefined }));
+  validations.push((selectedFormat === 'sscc' ? validSsccs.length : freightParses.length)
+    ? result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'pass', selectedFormat === 'sscc' ? `${validSsccs.length} SSCC freight item barcode(s) decoded.` : `${freightParses.length} StarTrack Code 128 freight item barcode(s) decoded.`, { actual: [...freightParses.map(f => f.freightItemId), ...validSsccs.map(s => `00${s.sscc}`)].join(', ') })
+    : result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'fail', selectedFormat === 'sscc' ? 'SSCC assessment was selected, but no valid AI 00 SSCC freight item barcode was decoded.' : 'Standard article format was selected, but no StarTrack 20-character freight item barcode was decoded.', { expected: selectedFormat === 'sscc' ? `AI 00 SSCC${expectedSscc.companyPrefix ? ` with GS1 Company Prefix ${expectedSscc.companyPrefix}` : ''}` : 'StarTrack 20-character Code 128 freight item barcode' }));
 
   validations.push(routingParses.length
     ? result('ST_ROUTING_BARCODE_PRESENT', 'Routing barcode decoded', 'CRITICAL', 'startrack-routing', 'pass', `${routingParses.length} routing barcode(s) decoded.`, { actual: routingParses.map(r => r.raw).join(', ') })
@@ -1759,6 +1844,7 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
     detectedBarcodes,
     manualBarcodeCount: manualValues.length,
     expectedSscc,
+    selectedAuditMode: { carrier: 'startrack', labelFormat: selectedFormat },
     parsed: [...qrParses, ...freightParses, ...routingParses, ...atlParses, ...validSsccs],
     startrack: { qrParses, freightParses, routingParses, ssccParses: validSsccs, atlParses, ssccOnly },
     articles,
@@ -1781,6 +1867,7 @@ export function groupValidations(validations) {
   const displayCategory = (category) => {
     if (category === 'gs1-128' || category === 'barcode-structure' || category === 'check-digit') return 'linear barcode analysis';
     if (category === 'datamatrix') return 'DataMatrix barcode analysis';
+    if (category === 'audit-mode') return 'audit-mode';
     if (category === 'startrack-qr') return 'StarTrack QR barcode';
     if (category === 'startrack-freight' || category === 'startrack-sscc') return 'StarTrack freight item barcode';
     if (category === 'startrack-routing') return 'StarTrack routing barcode';

@@ -37,6 +37,7 @@ const APP_VERSION = 'v1.6.9';
 const FEEDBACK_URL = 'https://github.com/appvttest-lgtm/BA-eCIS/issues/new/choose';
 const ACCEPTED_LABEL_FILE_TYPES = 'application/pdf,image/png,image/jpeg,image/webp,image/bmp';
 const LABEL_FAMILY_NAMES = { eparcel: 'eParcel', startrack: 'StarTrack' };
+const LABEL_FORMAT_NAMES = { standard: 'Standard article format', sscc: 'SSCC article identifier' };
 const BARCODE_BOX_MARGIN_PX = 36;
 const MAX_FILES_PER_BATCH = 20;
 const MAX_LABEL_FILE_BYTES = 50 * 1024 * 1024;
@@ -1544,7 +1545,7 @@ function renderReportValidationTable(items, esc) {
     ${showPayloadColumn ? `<td>${apiPayloadEvidenceHtml(v.apiPayloadMatch, esc)}</td>` : ''}
     <td>${validationStatusHtml(v, showPayloadColumn, esc)}</td>
   </tr>`).join('');
-  return `<table class="validation-table ${showPayloadColumn ? 'has-payload-column' : ''}"><thead><tr><th>Assessment criteria</th><th>Label measurement</th>${showPayloadColumn ? '<th>Get Shipments measurement</th>' : ''}<th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return `<table class="validation-table ${showPayloadColumn ? 'has-payload-column' : ''}"><thead><tr><th>Required</th><th>Decoded / label value</th>${showPayloadColumn ? '<th>Get Shipments value</th>' : ''}<th>Result</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function buildReportHtml(audit) {
@@ -1900,8 +1901,9 @@ function sectionItems(audit, displayCategory) {
 function getAuditSections(audit) {
   const grouped = audit ? groupValidations(audit.validations || []) : {};
   if (audit?.carrier === 'startrack') {
-    const used = new Set(['StarTrack QR barcode', 'StarTrack routing barcode', 'StarTrack ATL barcode', 'StarTrack freight item barcode', 'StarTrack product/article data', 'label-layout', 'address-format']);
+    const used = new Set(['audit-mode', 'StarTrack QR barcode', 'StarTrack routing barcode', 'StarTrack ATL barcode', 'StarTrack freight item barcode', 'StarTrack product/article data', 'label-layout', 'address-format']);
     return {
+      mode: grouped['audit-mode'] || [],
       label: grouped['label-layout'] || [],
       datamatrix: grouped['StarTrack QR barcode'] || [],
       routing: grouped['StarTrack routing barcode'] || [],
@@ -1913,8 +1915,9 @@ function getAuditSections(audit) {
       other: Object.entries(grouped).filter(([key]) => !used.has(key)).flatMap(([, items]) => items)
     };
   }
-  const used = new Set(['DataMatrix barcode analysis', 'linear barcode analysis', 'service-code', 'sscc', 'label-layout', 'address-format']);
+  const used = new Set(['audit-mode', 'DataMatrix barcode analysis', 'linear barcode analysis', 'service-code', 'sscc', 'label-layout', 'address-format']);
   return {
+    mode: grouped['audit-mode'] || [],
     label: grouped['label-layout'] || [],
     datamatrix: grouped['DataMatrix barcode analysis'] || [],
     linear: grouped['linear barcode analysis'] || [],
@@ -1934,6 +1937,66 @@ function sectionTone(items = []) {
 function SectionStatus({ items }) {
   const tone = sectionTone(items);
   return <span className={`section-status section-status-${tone}`}>{tone === 'neutral' ? 'no checks' : tone}</span>;
+}
+
+function AuditModeSection({ audit, items }) {
+  const mode = audit?.selectedAuditMode || { carrier: audit?.carrier || 'eparcel', labelFormat: auditHasSsccOnly(audit) ? 'sscc' : 'standard' };
+  return (
+    <section className="card audit-section mode-section" id="audit-mode-section">
+      <div className="section-heading"><SectionTitle id="audit-mode-section-title">Selected audit mode</SectionTitle><SectionStatus items={items} /></div>
+      <div className="fact-cards fact-cards-wide">
+        <div><span>carrier branch</span><strong>{LABEL_FAMILY_NAMES[mode.carrier] || mode.carrier}</strong></div>
+        <div><span>label format</span><strong>{LABEL_FORMAT_NAMES[mode.labelFormat] || mode.labelFormat}</strong></div>
+        <div><span>format rule</span><strong>{mode.labelFormat === 'sscc' ? 'AI 00 SSCC expected' : 'standard article barcode expected'}</strong></div>
+        <div><span>wrong toggle handling</span><strong>fails mode check; full report still runs</strong></div>
+      </div>
+      <ValidationTable items={items} />
+    </section>
+  );
+}
+
+function additionalBarcodeCandidates(audit) {
+  const all = audit?.detectedBarcodes || [];
+  if (!all.length) return [];
+  return all.filter(b => {
+    const raw = String(b.rawValue || '');
+    if (!raw) return false;
+    const compact = raw.replace(/\s+/g, '');
+    if (audit?.carrier === 'startrack') {
+      return isLinearBarcode(b)
+        && !isStarTrackRoutingValue(raw)
+        && !isStarTrackAtlValue(raw)
+        && !isStarTrackFreightItemValue(raw)
+        && !/^(\]C1)?\(?00\)?\d{18}$/.test(compact);
+    }
+    return isLinearBarcode(b)
+      && !isDataMatrixBarcode(b)
+      && !/^(\]C1)?\(?01\)?/.test(compact)
+      && !/^(\]C1)?\(?00\)?\d{18}$/.test(compact);
+  });
+}
+
+function AdditionalBarcodesSection({ audit }) {
+  const extras = additionalBarcodeCandidates(audit);
+  if (!extras.length) return null;
+  return (
+    <section className="card audit-section additional-barcodes-section" id="additional-barcodes-section">
+      <div className="section-heading">
+        <SectionTitle id="additional-barcodes-section-title">Additional detected barcodes</SectionTitle>
+        <span className="section-status section-status-neutral">not assessed</span>
+      </div>
+      <p className="muted small">These decoded barcodes do not match a required eParcel or StarTrack specification role for the selected audit mode. They are retained as evidence only and are not used to satisfy required barcode checks.</p>
+      <ul className="barcode-list decoded-list">
+        {extras.map((b, idx) => (
+          <li key={`${b.rawValue}-${idx}`}>
+            <div className="barcode-meta"><strong>{barcodeDisplayName(b)}</strong> page {b.pageNumber || ''}</div>
+            <code className="raw-code raw-code-block">{b.rawValue}</code>
+            <div className="muted small">{b.pageBoundingBox ? 'Barcode location was decoded on this label.' : 'Barcode decoded; exact location not mapped.'}</div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 
@@ -2109,7 +2172,7 @@ function ValidationTable({ items }) {
   return (
     <div className="table-wrap">
       <table className={`compact-table validation-table ${showPayloadColumn ? 'has-payload-column' : ''}`}>
-        <thead><tr><th>Assessment criteria</th><th>Label measurement</th>{showPayloadColumn && <th>Get Shipments measurement</th>}<th>Status</th></tr></thead>
+        <thead><tr><th>Required</th><th>Decoded / label value</th>{showPayloadColumn && <th>Get Shipments value</th>}<th>Result</th></tr></thead>
         <tbody>
           {items.map((v, idx) => (
             <tr key={idx} id={`rule-${v.id}`} className={validationTone(v)}>
@@ -2496,6 +2559,9 @@ function App() {
   // Optional Get Shipments payload pasted by the user. It is never sent anywhere; it is
   // parsed locally and compared only after the label identity appears to match.
   const [manifestJson, setManifestJson] = useState('');
+  const [selectedCarrier, setSelectedCarrier] = useState('eparcel');
+  const [selectedLabelFormat, setSelectedLabelFormat] = useState('standard');
+  const [ssccExtensionDigit, setSsccExtensionDigit] = useState('');
   const [ssccCompanyPrefix, setSsccCompanyPrefix] = useState('');
   // Locks upload controls while the local render -> scan -> audit pipeline is active.
   const [processing, setProcessing] = useState(false);
@@ -2536,7 +2602,7 @@ function App() {
   }
 
   /** Starts the full audit immediately after a user drops or chooses files. */
-  async function acceptSelectedFiles(selectedFiles, labelFamily = 'eparcel') {
+  async function acceptSelectedFiles(selectedFiles) {
     const { accepted, rejected } = normaliseSelectedFiles(selectedFiles);
     const selected = accepted.slice(0, MAX_FILES_PER_BATCH);
     const limitMessages = [
@@ -2552,7 +2618,7 @@ function App() {
     if (limitMessages.length) {
       setMessage(limitMessages.join(' '));
     }
-    await auditSelectedFiles(selected, labelFamily);
+    await auditSelectedFiles(selected, { carrier: selectedCarrier, labelFormat: selectedLabelFormat });
   }
 
   function appendScanDebug(message, durationMs = null) {
@@ -2568,8 +2634,10 @@ function App() {
   const scanDebugText = scanDebugLines.map(line => line.text).join('\n');
 
   /** Main UI pipeline: render each file/page, decode barcodes, run carrier rules, then display results. */
-  async function auditSelectedFiles(files, labelFamily = 'eparcel') {
-    const batches = files.map(file => ({ file, labelFamily }));
+  async function auditSelectedFiles(files, auditMode = { carrier: 'eparcel', labelFormat: 'standard' }) {
+    const labelFamily = auditMode.carrier || 'eparcel';
+    const labelFormat = auditMode.labelFormat || 'standard';
+    const batches = files.map(file => ({ file, labelFamily, labelFormat }));
     if (!batches.length) {
       setMessage('Choose or drop one or more PDF/image label files first.');
       return;
@@ -2597,23 +2665,24 @@ function App() {
       const nextAudits = [];
       const nextScanDatas = [];
       for (let i = 0; i < batches.length; i += 1) {
-        const { file: currentFile, labelFamily } = batches[i];
+        const { file: currentFile, labelFamily, labelFormat } = batches[i];
         const carrierLabel = labelFamilyName(labelFamily);
-        const fileDebugPrefix = `${carrierLabel} file ${i + 1}/${batches.length}: ${currentFile.name}`;
+        const formatLabel = LABEL_FORMAT_NAMES[labelFormat] || labelFormat;
+        const fileDebugPrefix = `${carrierLabel} ${formatLabel} file ${i + 1}/${batches.length}: ${currentFile.name}`;
         const fileTimer = performance.now();
         const fileDebug = (message, durationMs = null) => appendScanDebug(`${fileDebugPrefix} - ${message}`, durationMs);
-        setMessage(`Scanning ${carrierLabel} file ${i + 1} of ${batches.length}: ${currentFile.name}`);
+        setMessage(`Scanning ${carrierLabel} ${formatLabel} file ${i + 1} of ${batches.length}: ${currentFile.name}`);
         const dataItems = currentFile.type === 'application/pdf' || currentFile.name.toLowerCase().endsWith('.pdf')
           ? await processPdfLabels(currentFile, detector, fileDebug, labelFamily)
           : [await processImage(currentFile, detector, fileDebug, labelFamily)];
         appendScanDebug(`${fileDebugPrefix} - finished render/scan phase`, performance.now() - fileTimer);
 
         for (let pageIndex = 0; pageIndex < dataItems.length; pageIndex += 1) {
-          const data = { ...dataItems[pageIndex], labelFamily, fileInfo: { ...(dataItems[pageIndex].fileInfo || {}), labelFamily } };
+          const data = { ...dataItems[pageIndex], labelFamily, labelFormat, fileInfo: { ...(dataItems[pageIndex].fileInfo || {}), labelFamily, labelFormat } };
           const itemLabel = data.fileInfo?.sourcePdfPage ? `page ${data.fileInfo.sourcePdfPage}` : 'image';
           setMessage(`Auditing ${currentFile.name} — ${itemLabel}`);
           const auditRuleStart = performance.now();
-          const nextAudit = auditLabel({ ...data, manifestJson, ssccCompanyPrefix, labelFamily });
+          const nextAudit = auditLabel({ ...data, manifestJson, ssccCompanyPrefix, ssccExtensionDigit, labelFamily, labelFormat });
           appendScanDebug(`${fileDebugPrefix} - ran audit rules for ${itemLabel}`, performance.now() - auditRuleStart);
           nextAudit.labelImages = data.labelImages || {};
           nextAudit.extractedText = data.extractedText || '';
@@ -2621,6 +2690,7 @@ function App() {
           nextAudit.batchIndex = nextAudits.length;
           nextAudit.sourceFileIndex = i;
           nextAudit.labelFamily = labelFamily;
+          nextAudit.labelFormat = labelFormat;
           nextAudit.sourcePageIndex = pageIndex;
           nextAudits.push(nextAudit);
           nextScanDatas.push(data);
@@ -2654,7 +2724,14 @@ function App() {
       return;
     }
     const refreshed = scanDatas.map((base, idx) => {
-      const nextAudit = auditLabel({ ...base, manifestJson, ssccCompanyPrefix, labelFamily: base.labelFamily || base.fileInfo?.labelFamily || 'eparcel' });
+      const nextAudit = auditLabel({
+        ...base,
+        manifestJson,
+        ssccCompanyPrefix,
+        ssccExtensionDigit,
+        labelFamily: base.labelFamily || base.fileInfo?.labelFamily || 'eparcel',
+        labelFormat: base.labelFormat || base.fileInfo?.labelFormat || selectedLabelFormat
+      });
       nextAudit.labelImages = base.labelImages || {};
       nextAudit.extractedText = base.extractedText || '';
       nextAudit.scanDiagnostics = base.scanDiagnostics || [];
@@ -2672,7 +2749,7 @@ function App() {
         <img className="ap-mark" src={australiaPostLogoUrl} alt="Australia Post" />
         <div>
           <h1>{APP_TITLE}</h1>
-          <p>Upload a PDF or image in the correct carrier box. Review barcode, label text and payload checks after scanning.</p>
+          <p>Select the carrier and label format being tested, then upload the label. A wrong selection fails the audit-mode check while the full report still runs.</p>
         </div>
         <a
           className="feedback-button"
@@ -2684,31 +2761,41 @@ function App() {
         </a>
       </header>
 
-      <section className="card upload-card grid two upload-split">
-        <div>
-          <h2>eParcel upload</h2>
+      <section className="card upload-card upload-split">
+        <section className="audit-mode-panel" aria-labelledby="audit-mode-title">
+          <h2 id="audit-mode-title">Audit mode</h2>
+          <div className="mode-control-grid">
+            <div>
+              <span className="field-label">Carrier branch</span>
+              <div className="segmented-control" role="group" aria-label="Carrier branch">
+                {Object.entries(LABEL_FAMILY_NAMES).map(([value, label]) => (
+                  <button key={value} type="button" className={selectedCarrier === value ? 'active' : ''} disabled={processing} onClick={() => setSelectedCarrier(value)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <span className="field-label">Label format</span>
+              <div className="segmented-control" role="group" aria-label="Label format">
+                {Object.entries(LABEL_FORMAT_NAMES).map(([value, label]) => (
+                  <button key={value} type="button" className={selectedLabelFormat === value ? 'active' : ''} disabled={processing} onClick={() => setSelectedLabelFormat(value)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
           <label
-            className={`dropzone dropzone-eparcel ${processing ? 'dropzone-disabled' : ''}`}
+            className={`dropzone dropzone-${selectedCarrier} ${processing ? 'dropzone-disabled' : ''}`}
             onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
-            onDrop={e => { e.preventDefault(); if (!processing) acceptSelectedFiles(e.dataTransfer.files, 'eparcel'); }}
+            onDrop={e => { e.preventDefault(); if (!processing) acceptSelectedFiles(e.dataTransfer.files); }}
           >
-            <input className="file-input-hidden" type="file" multiple accept={ACCEPTED_LABEL_FILE_TYPES} disabled={processing} onChange={e => { acceptSelectedFiles(e.target.files, 'eparcel'); e.target.value = ''; }} />
-            <span className="dropzone-title">Drop eParcel Parcel Post / Express Post labels here</span>
+            <input className="file-input-hidden" type="file" multiple accept={ACCEPTED_LABEL_FILE_TYPES} disabled={processing} onChange={e => { acceptSelectedFiles(e.target.files); e.target.value = ''; }} />
+            <span className="dropzone-title">Drop {LABEL_FAMILY_NAMES[selectedCarrier]} {LABEL_FORMAT_NAMES[selectedLabelFormat]} labels here</span>
             <span className="dropzone-subtitle">PDF, PNG, JPG, WebP or BMP</span>
           </label>
-        </div>
-        <div>
-          <h2>StarTrack upload</h2>
-          <label
-            className={`dropzone dropzone-startrack ${processing ? 'dropzone-disabled' : ''}`}
-            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }}
-            onDrop={e => { e.preventDefault(); if (!processing) acceptSelectedFiles(e.dataTransfer.files, 'startrack'); }}
-          >
-            <input className="file-input-hidden" type="file" multiple accept={ACCEPTED_LABEL_FILE_TYPES} disabled={processing} onChange={e => { acceptSelectedFiles(e.target.files, 'startrack'); e.target.value = ''; }} />
-            <span className="dropzone-title">Drop StarTrack labels here</span>
-            <span className="dropzone-subtitle">Light blue StarTrack audit path with QR, routing, freight item and SSCC checks</span>
-          </label>
-        </div>
+        </section>
         <div className="optional-input-grid">
           <section className="payload-input-panel" aria-labelledby="payload-input-title">
             <h2 id="payload-input-title">Get Shipments API payload comparison</h2>
@@ -2731,19 +2818,29 @@ function App() {
             />
           </section>
           <section className="sscc-prefix-panel" aria-labelledby="sscc-prefix-title">
-            <h2 id="sscc-prefix-title">SSCC GS1 Company Prefix</h2>
-            <p className="muted small">Optional. When supplied, eParcel and StarTrack labels are assessed as SSCC labels and the decoded AI 00 barcode must match this prefix.</p>
+            <h2 id="sscc-prefix-title">SSCC extension and prefix</h2>
+            <p className="muted small">Used when SSCC article identifier is selected. The decoded AI 00 barcode is checked against the supplied extension digit and GS1 Company Prefix when provided.</p>
+            <label className="field-label" htmlFor="sscc-extension-digit">Extension digit</label>
+            <input
+              id="sscc-extension-digit"
+              className="sscc-prefix-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="003"
+              value={ssccExtensionDigit}
+              onChange={e => setSsccExtensionDigit(e.target.value)}
+            />
             <label className="field-label" htmlFor="sscc-company-prefix">Company prefix</label>
             <input
               id="sscc-company-prefix"
               className="sscc-prefix-input"
               type="text"
               inputMode="numeric"
-              placeholder="(00) 3 93 15345"
+              placeholder="9315345"
               value={ssccCompanyPrefix}
               onChange={e => setSsccCompanyPrefix(e.target.value)}
             />
-            <p className="muted small">Example: (00) 3 93 15345 000000070 0 uses company prefix 9315345. Enter the leading AI 00, extension digit and GS1 Company Prefix, for example (00) 3 93 15345, up to but not including the serial reference and check digit.</p>
+            <p className="muted small">Example: SSCC (00) 3 9315345 000000070 0 uses extension digit 3 and company prefix 9315345.</p>
           </section>
           {scanDatas.length > 0 && <button className="secondary optional-input-apply" onClick={rerunAuditWithOptionalInputs}>Apply optional checks to current results</button>}
         </div>
@@ -2803,6 +2900,7 @@ function App() {
                 <section className="card compact-card selected-label-header">
                   <h2>Article Number: <code>{h.articleNumber}</code></h2>
                   <div className="selected-label-meta">
+                    <span><strong>Mode:</strong> {LABEL_FAMILY_NAMES[activeAudit.selectedAuditMode?.carrier || activeAudit.carrier] || activeAudit.carrier} / {LABEL_FORMAT_NAMES[activeAudit.selectedAuditMode?.labelFormat || activeAudit.labelFormat] || activeAudit.labelFormat || 'standard'}</span>
                     <span><strong>Product:</strong> {h.productCode ? `${h.productCode} — ${h.productName}` : h.product}</span>
                     <span><strong>{activeAudit.carrier === 'startrack' ? 'Routing / service:' : 'Service Code:'}</strong> {h.serviceCode || 'not parsed'}{h.serviceName ? ` — ${h.serviceName}` : ''}</span>
                     <span><strong>File:</strong> {h.displayFile || h.filename}</span>
@@ -2810,6 +2908,7 @@ function App() {
                 </section>
 
                 <AuditBookmarks audit={activeAudit} sections={sections} />
+                <AuditModeSection audit={activeAudit} items={sections.mode} />
                 <FullLabelImageSection audit={activeAudit} items={sections.label} onZoomLabel={setZoomImage} />
                 {activeAudit.carrier === 'startrack' ? (
                   <>
@@ -2824,6 +2923,7 @@ function App() {
                     <LinearBarcodeSection audit={activeAudit} items={sections.linear} scanData={activeScanData || activeAudit} />
                   </>
                 )}
+                <AdditionalBarcodesSection audit={activeAudit} />
                 <ServiceArticleBreakdownSection audit={activeAudit} items={sections.service} />
                 {activeAudit.invalidArticleCandidates?.length > 0 && (
                   <section className="card audit-section" id="invalid-article-candidates">
