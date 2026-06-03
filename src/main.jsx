@@ -1087,7 +1087,8 @@ function isQrBarcode(b) {
 
 function isLinearBarcode(b) {
   const fmt = String(b?.format || b?.symbology || '').toLowerCase();
-  return fmt.includes('128') || fmt.includes('code') || b?.kind === FORMAT_KIND.linear;
+  if (isQrBarcode(b) || isDataMatrixBarcode(b)) return false;
+  return fmt.includes('128') || fmt.includes('code_128') || fmt.includes('code 128') || b?.kind === FORMAT_KIND.linear;
 }
 
 function decodedBarcodeList(audit, type) {
@@ -1958,9 +1959,12 @@ function AuditModeSection({ audit, items }) {
 function additionalBarcodeCandidates(audit) {
   const all = audit?.detectedBarcodes || [];
   if (!all.length) return [];
+  const expectedBarcodeCount = audit?.carrier === 'startrack' ? 3 : 2;
+  if (all.length <= expectedBarcodeCount) return [];
   return all.filter(b => {
     const raw = String(b.rawValue || '');
     if (!raw) return false;
+    if (isQrBarcode(b) || isDataMatrixBarcode(b)) return false;
     const compact = raw.replace(/\s+/g, '');
     if (audit?.carrier === 'startrack') {
       return isLinearBarcode(b)
