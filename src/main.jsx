@@ -1392,54 +1392,56 @@ async function processImage(file, detector, onDebug = null, labelFamily = 'eparc
   const imgUrl = URL.createObjectURL(file);
   const img = new Image();
   img.decoding = 'async';
-  img.addEventListener('load', () => URL.revokeObjectURL(imgUrl), { once: true });
-  img.addEventListener('error', () => URL.revokeObjectURL(imgUrl), { once: true });
-  img.src = imgUrl;
-  const decodeStart = performance.now();
-  await img.decode();
-  if (img.naturalWidth * img.naturalHeight > MAX_IMAGE_PIXELS) {
-    throw new Error(`Image ${file.name} is too large to process safely (${img.naturalWidth}x${img.naturalHeight}px).`);
+  try {
+    img.src = imgUrl;
+    const decodeStart = performance.now();
+    await img.decode();
+    if (img.naturalWidth * img.naturalHeight > MAX_IMAGE_PIXELS) {
+      throw new Error(`Image ${file.name} is too large to process safely (${img.naturalWidth}x${img.naturalHeight}px).`);
+    }
+    mark(`Decoded image ${file.name} (${img.naturalWidth}x${img.naturalHeight}px)`, decodeStart);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const drawStart = performance.now();
+    ctx.drawImage(img, 0, 0);
+    mark('Rendered image to canvas', drawStart);
+    await yieldToBrowser();
+    const visualStart = performance.now();
+    const visualEvidence = detectVisualBarcodeEvidence(canvas);
+    mark('Checked visual barcode evidence', visualStart);
+    await yieldToBrowser();
+    const scanStart = performance.now();
+    const scanResult = await detectOnCanvas(canvas, detector, 1, mark, labelFamily);
+    const detected = scanResult.barcodes;
+    mark(`Decoded barcode candidates (${detected.length})`, scanStart);
+    await yieldToBrowser();
+    const imageStart = performance.now();
+    const labelImages = createLabelImages(canvas, detected);
+    mark('Generated label preview and barcode crops', imageStart);
+    mark(`Completed image ${file.name}`, fileStart);
+
+    return {
+      fileInfo: {
+        filename: file.name,
+        fileType: file.type || 'image',
+        pageCount: 1,
+        pixelWidth: img.naturalWidth,
+        pixelHeight: img.naturalHeight,
+        widthMm: null,
+        heightMm: null,
+        note: 'Raster images do not reliably expose physical DPI. A6 dimensions are assumed for layout heuristics.'
+      },
+      detectedBarcodes: detected,
+      visualEvidence,
+      labelImages,
+      extractedText: ''
+    };
+  } finally {
+    URL.revokeObjectURL(imgUrl);
   }
-  mark(`Decoded image ${file.name} (${img.naturalWidth}x${img.naturalHeight}px)`, decodeStart);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const drawStart = performance.now();
-  ctx.drawImage(img, 0, 0);
-  mark('Rendered image to canvas', drawStart);
-  await yieldToBrowser();
-  const visualStart = performance.now();
-  const visualEvidence = detectVisualBarcodeEvidence(canvas);
-  mark('Checked visual barcode evidence', visualStart);
-  await yieldToBrowser();
-  const scanStart = performance.now();
-  const scanResult = await detectOnCanvas(canvas, detector, 1, mark, labelFamily);
-  const detected = scanResult.barcodes;
-  mark(`Decoded barcode candidates (${detected.length})`, scanStart);
-  await yieldToBrowser();
-  const imageStart = performance.now();
-  const labelImages = createLabelImages(canvas, detected);
-  mark('Generated label preview and barcode crops', imageStart);
-  mark(`Completed image ${file.name}`, fileStart);
-
-  return {
-    fileInfo: {
-      filename: file.name,
-      fileType: file.type || 'image',
-      pageCount: 1,
-      pixelWidth: img.naturalWidth,
-      pixelHeight: img.naturalHeight,
-      widthMm: null,
-      heightMm: null,
-      note: 'Raster images do not reliably expose physical DPI. A6 dimensions are assumed for layout heuristics.'
-    },
-    detectedBarcodes: detected,
-    visualEvidence,
-    labelImages,
-    extractedText: ''
-  };
 }
 
 async function processPdfLabels(file, detector, onDebug = null, labelFamily = 'eparcel') {
