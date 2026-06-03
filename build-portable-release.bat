@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-set "VERSION=1.6.9"
+set "VERSION=1.7.0"
 set "RELEASE_NAME=BarcodeAuditer-v%VERSION%-windows-x64-portable"
 set "RELEASE_ROOT=release\%RELEASE_NAME%"
 set "NODE_SOURCE=C:\Program Files\nodejs\node.exe"
@@ -34,6 +34,7 @@ xcopy /e /i /y dist "%RELEASE_ROOT%\dist" >nul
 copy /y server.mjs "%RELEASE_ROOT%\server.mjs" >nul
 copy /y README.md "%RELEASE_ROOT%\README.md" >nul
 copy /y README_LOCAL_SETUP.txt "%RELEASE_ROOT%\README_LOCAL_SETUP.txt" >nul
+copy /y release_notes.md "%RELEASE_ROOT%\release_notes.md" >nul
 copy /y "%NODE_SOURCE%" "%RELEASE_ROOT%\node\node.exe" >nul
 
 call "%VS_DEV_CMD%" -arch=x64 -host_arch=x64 >nul
