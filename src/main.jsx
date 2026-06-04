@@ -13,6 +13,8 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { readBarcodes as readWasmBarcodes, prepareZXingModule } from 'zxing-wasm/reader';
 import zxingReaderWasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
 import { auditLabel, groupValidations, SERVICE_CODE_MAP, SERVICE_TO_PRODUCT_MAP, PRODUCT_CODE_MAP, STARTRACK_PRODUCT_CODE_MAP, STARTRACK_LABEL_CODE_MAP } from './auditEngine.js';
+import { mergeExtractedText, recognizeCanvasText } from './ocrText.js';
+import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from './scanner/barcodeTypes.js';
 import australiaPostLogoUrl from '../Australia_Post_logo_logotype.png';
 import './styles.css';
 
@@ -24,26 +26,51 @@ prepareZXingModule({
   }
 });
 
-// The scan pipeline tries several decoders. Native BarcodeDetector is fast when the
-// browser supports it, while ZXing-WASM and ZXing JS provide broader Code128/DataMatrix
-// coverage for the label types this app audits.
+// Decoder order matters for performance: native BarcodeDetector is cheap when present,
+// ZXing-WASM is the primary cross-browser reader, and ZXing JS is kept as the last
+// fallback for hard-to-read crops.
 const barcodeFormats = ['code_128', 'data_matrix', 'qr_code', 'pdf417', 'ean_13', 'ean_8'];
 
-// These internal categories let the scanner choose barcode-specific crop and transform
-// strategies, then route the resulting evidence into the correct report section.
-const FORMAT_KIND = { linear: 'linear', datamatrix: 'datamatrix', qr: 'qr', mixed: 'mixed' };
 const APP_TITLE = 'Australia Post - eCommerce Integration Label Auditor';
-const APP_VERSION = 'v1.6.9';
+const APP_VERSION = 'v1.7.1';
 const FEEDBACK_URL = 'https://github.com/appvttest-lgtm/BA-eCIS/issues/new/choose';
 const ACCEPTED_LABEL_FILE_TYPES = 'application/pdf,image/png,image/jpeg,image/webp,image/bmp';
 const LABEL_FAMILY_NAMES = { eparcel: 'eParcel', startrack: 'StarTrack' };
 const LABEL_FORMAT_NAMES = { standard: 'Standard article format', sscc: 'SSCC article identifier' };
 const BARCODE_BOX_MARGIN_PX = 36;
+const PREVIEW_BARCODE_BOX_MARGIN_PX = 8;
 const MAX_FILES_PER_BATCH = 20;
 const MAX_LABEL_FILE_BYTES = 50 * 1024 * 1024;
 const MAX_PDF_PAGES = 40;
 const MAX_IMAGE_PIXELS = 50_000_000;
 const MAX_OPTIONAL_PAYLOAD_CHARS = 500_000;
+const PDF_TEXT_LAYER_MIN_USEFUL_CHARS = 80;
+const DECODER_SOURCE = {
+  browser: 'Browser BarcodeDetector',
+  wasm: 'ZXing-WASM crop scanner',
+  js: 'ZXing JS fallback'
+};
+const SCAN_VARIANT_LABELS = {
+  linear: ['original', 'trimmed + border', '2x nearest', '4x nearest', 'threshold 150', 'threshold 185'],
+  qr: ['original', 'trimmed + border', '2x nearest', 'square pure 2x'],
+  datamatrix: ['original', 'trimmed + border', '2x nearest', '4x nearest', 'threshold 150', 'square pure 2x'],
+  mixed: ['original', 'trimmed + border', '2x nearest']
+};
+const SCAN_TRIM_SETTINGS = {
+  datamatrix: { padding: 8, threshold: 220, borderRatio: 0.18 },
+  default: { padding: 18, threshold: 210, borderRatio: 0.08 }
+};
+const STARTRACK_LINEAR_TARGETS = {
+  atl: { x: 0.52, y: 0.02, w: 0.46, h: 0.16 },
+  routing: { x: 0.03, y: 0.36, w: 0.62, h: 0.25 },
+  freight: { x: 0.03, y: 0.74, w: 0.94, h: 0.20 },
+  sweep: { x: 0.02, y: 0.36, w: 0.96, h: 0.58 }
+};
+const STARTRACK_PREVIEW_BOXES = {
+  atl: { x: 0.56, y: 0.05, w: 0.38, h: 0.10, label: 'ATL zone' },
+  routing: { x: 0.04, y: 0.40, w: 0.60, h: 0.20, label: 'Routing zone' },
+  freight: { x: 0.07, y: 0.78, w: 0.86, h: 0.16, label: 'Freight zone' }
+};
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes)) return 'unknown size';
@@ -136,7 +163,7 @@ async function detectWithBrowserBarcodeDetector(canvas, detector, pageNumber = 1
     return results.map((r, index) => ({
       rawValue: r.rawValue,
       format: r.format || 'unknown',
-      source: 'Browser BarcodeDetector',
+      source: DECODER_SOURCE.browser,
       pageNumber,
       index,
       regionLabel,
@@ -190,7 +217,7 @@ function zxingDecodeCanvas(canvas, pageNumber = 1, regionLabel = 'full-page', fo
       rawValue: decoded.getText(),
       format,
       kind,
-      source: 'ZXing JS fallback',
+      source: DECODER_SOURCE.js,
       pageNumber,
       index: 0,
       regionLabel,
@@ -227,7 +254,7 @@ async function wasmDecodeCanvas(canvas, pageNumber = 1, regionLabel = 'full-page
         rawValue: r.text,
         format: r.format || r.symbology || 'unknown',
         symbology: r.symbology || '',
-        source: 'ZXing-WASM crop scanner',
+        source: DECODER_SOURCE.wasm,
         pageNumber,
         index,
         regionLabel,
@@ -472,8 +499,9 @@ function makeScanVariants(baseCanvas, kind, labels = null) {
   const add = (label, makeCanvas, options = {}) => {
     if (!allowed || allowed.has(label)) variants.push({ label, canvas: makeCanvas(), options });
   };
-  const trimmed = trimDarkBounds(baseCanvas, kind === FORMAT_KIND.datamatrix ? 8 : 18, kind === FORMAT_KIND.datamatrix ? 220 : 210);
-  const bordered = addWhiteBorder(trimmed, kind === FORMAT_KIND.datamatrix ? 0.18 : 0.08);
+  const trimSettings = kind === FORMAT_KIND.datamatrix ? SCAN_TRIM_SETTINGS.datamatrix : SCAN_TRIM_SETTINGS.default;
+  const trimmed = trimDarkBounds(baseCanvas, trimSettings.padding, trimSettings.threshold);
+  const bordered = addWhiteBorder(trimmed, trimSettings.borderRatio);
   let bordered2x = null;
   const getBordered2x = () => {
     if (!bordered2x) bordered2x = scaleCanvas(bordered, 2);
@@ -493,12 +521,7 @@ function makeScanVariants(baseCanvas, kind, labels = null) {
 }
 
 function selectScanVariants(baseCanvas, kind) {
-  const preferred = {
-    [FORMAT_KIND.linear]: ['original', 'trimmed + border', '2x nearest', 'threshold 150'],
-    [FORMAT_KIND.qr]: ['original', 'trimmed + border', '2x nearest', 'square pure 2x'],
-    [FORMAT_KIND.datamatrix]: ['original', 'trimmed + border', '2x nearest', '4x nearest', 'threshold 150', 'square pure 2x'],
-    [FORMAT_KIND.mixed]: ['original', 'trimmed + border', '2x nearest']
-  }[kind] || ['original', 'trimmed + border', '2x nearest'];
+  const preferred = SCAN_VARIANT_LABELS[kind] || SCAN_VARIANT_LABELS.mixed;
   return makeScanVariants(baseCanvas, kind, preferred);
 }
 
@@ -523,6 +546,31 @@ function detectorResultSummary(decoded) {
     const variant = barcode.variantLabel ? ` via ${barcode.variantLabel}` : '';
     return `${source} (${format}${variant}) "${shortenBarcodeValue(barcode.rawValue)}"`;
   }).join('; ');
+}
+
+function decodedSourceEvidence(decoded) {
+  return decoded.map(d => ({
+    source: d.source || 'Unknown detector',
+    format: d.format || d.symbology || 'unknown format',
+    variantLabel: d.variantLabel || '',
+    rawValue: d.rawValue || ''
+  }));
+}
+
+function scanDiagnostic(target, decoded, pageNumber, durationMs, extra = {}) {
+  return {
+    pageNumber,
+    kind: target.kind,
+    label: target.label,
+    formats: target.formats,
+    decodedCount: decoded.length,
+    width: target.canvas.width,
+    height: target.canvas.height,
+    decodedValues: decoded.map(d => d.rawValue),
+    decodedSources: decodedSourceEvidence(decoded),
+    durationMs,
+    ...extra
+  };
 }
 
 function makeTarget(sourceCanvas, kind, label, x, y, w, h, formats) {
@@ -553,11 +601,13 @@ function buildCategorizedScanTargets(canvas, labelFamily = 'eparcel') {
   const w = canvas.width;
   const h = canvas.height;
   if (labelFamily === 'startrack') {
+    const st = STARTRACK_LINEAR_TARGETS;
     return [
       makeTarget(canvas, FORMAT_KIND.qr, 'StarTrack QR full label scan', 0, 0, w, h, ['QRCode']),
-      makeTarget(canvas, FORMAT_KIND.linear, 'StarTrack routing barcode expected crop', w * 0.04, h * 0.23, w * 0.62, h * 0.22, ['Code128']),
-      makeTarget(canvas, FORMAT_KIND.linear, 'StarTrack freight item barcode expected crop', w * 0.04, h * 0.50, w * 0.92, h * 0.20, ['Code128']),
-      makeTarget(canvas, FORMAT_KIND.linear, 'Linear barcode lower horizontal crop', w * 0.03, h * 0.43, w * 0.94, h * 0.32, ['Code128']),
+      makeTarget(canvas, FORMAT_KIND.linear, 'StarTrack ATL barcode expected crop', w * st.atl.x, h * st.atl.y, w * st.atl.w, h * st.atl.h, ['Code128']),
+      makeTarget(canvas, FORMAT_KIND.linear, 'StarTrack routing barcode expected crop', w * st.routing.x, h * st.routing.y, w * st.routing.w, h * st.routing.h, ['Code128']),
+      makeTarget(canvas, FORMAT_KIND.linear, 'StarTrack freight item barcode expected crop', w * st.freight.x, h * st.freight.y, w * st.freight.w, h * st.freight.h, ['Code128']),
+      makeTarget(canvas, FORMAT_KIND.linear, 'StarTrack linear barcode sweep crop', w * st.sweep.x, h * st.sweep.y, w * st.sweep.w, h * st.sweep.h, ['Code128']),
       makeTarget(canvas, FORMAT_KIND.mixed, 'Full page safety scan', 0, 0, w, h, ['Code128', 'QRCode'])
     ];
   }
@@ -697,7 +747,32 @@ function canvasToDataUrl(sourceCanvas, maxWidth = 700, mime = 'image/jpeg', qual
   }
 }
 
-function canvasToDataUrlWithBarcodeBoxes(sourceCanvas, barcodes = [], maxWidth = 820) {
+function drawPreviewBarcodeBox(ctx, scale, outputWidth, box, label, style) {
+  const x = box.x * scale;
+  const y = box.y * scale;
+  const width = box.width * scale;
+  const height = box.height * scale;
+  const labelHeight = Math.max(18, 22 * scale);
+  const textWidth = Math.min(outputWidth, ctx.measureText(label).width + 12);
+  const labelX = Math.min(Math.max(0, x), Math.max(0, outputWidth - textWidth));
+  const labelY = Math.max(0, y - Math.max(20, labelHeight));
+
+  ctx.save();
+  ctx.lineWidth = style.lineWidth;
+  if (style.dash) ctx.setLineDash(style.dash);
+  ctx.strokeStyle = style.stroke;
+  ctx.fillStyle = style.fill;
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeRect(x, y, width, height);
+  ctx.setLineDash([]);
+  ctx.fillStyle = style.labelFill;
+  ctx.fillRect(labelX, labelY, textWidth, labelHeight);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(label, labelX + 6, labelY + Math.max(13, 16 * scale));
+  ctx.restore();
+}
+
+function canvasToDataUrlWithBarcodeBoxes(sourceCanvas, barcodes = [], maxWidth = 820, candidateBoxes = []) {
   if (!sourceCanvas?.width || !sourceCanvas?.height) return '';
   const scale = Math.min(1, maxWidth / sourceCanvas.width);
   const out = document.createElement('canvas');
@@ -706,29 +781,29 @@ function canvasToDataUrlWithBarcodeBoxes(sourceCanvas, barcodes = [], maxWidth =
   const ctx = out.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
 
-  const located = barcodes.filter(b => b.pageBoundingBox);
-  ctx.lineWidth = Math.max(3, Math.round(4 * scale));
   ctx.font = `${Math.max(12, Math.round(18 * scale))}px Segoe UI, Arial, sans-serif`;
+  for (const candidate of candidateBoxes) {
+    drawPreviewBarcodeBox(ctx, scale, out.width, candidate.box, candidate.label, {
+      stroke: '#9a5a00',
+      fill: 'rgba(154,90,0,.08)',
+      labelFill: '#9a5a00',
+      lineWidth: Math.max(2, Math.round(3 * scale)),
+      dash: [Math.max(5, 7 * scale), Math.max(4, 5 * scale)]
+    });
+  }
+
+  const located = barcodes.filter(b => b.pageBoundingBox);
   for (const b of located) {
-    const box = expandBox(b.pageBoundingBox, sourceCanvas.width, sourceCanvas.height, BARCODE_BOX_MARGIN_PX);
+    const box = expandBox(b.pageBoundingBox, sourceCanvas.width, sourceCanvas.height, PREVIEW_BARCODE_BOX_MARGIN_PX);
     if (!box) continue;
-    const x = box.x * scale;
-    const y = box.y * scale;
-    const width = box.width * scale;
-    const height = box.height * scale;
     const isDm = isDataMatrixBarcode(b);
     const isQr = isQrBarcode(b);
-    ctx.strokeStyle = isDm || isQr ? '#0b5cad' : '#c40018';
-    ctx.fillStyle = isDm || isQr ? 'rgba(11,92,173,.12)' : 'rgba(196,0,24,.10)';
-    ctx.fillRect(x, y, width, height);
-    ctx.strokeRect(x, y, width, height);
-    const label = barcodeKindLabel(b);
-    const textWidth = ctx.measureText(label).width + 12;
-    const labelY = Math.max(0, y - Math.max(20, 22 * scale));
-    ctx.fillStyle = isDm || isQr ? '#0b5cad' : '#c40018';
-    ctx.fillRect(x, labelY, textWidth, Math.max(18, 22 * scale));
-    ctx.fillStyle = '#fff';
-    ctx.fillText(label, x + 6, labelY + Math.max(13, 16 * scale));
+    drawPreviewBarcodeBox(ctx, scale, out.width, box, barcodeKindLabel(b), {
+      stroke: isDm || isQr ? '#0b5cad' : '#c40018',
+      fill: isDm || isQr ? 'rgba(11,92,173,.12)' : 'rgba(196,0,24,.10)',
+      labelFill: isDm || isQr ? '#0b5cad' : '#c40018',
+      lineWidth: Math.max(3, Math.round(4 * scale))
+    });
   }
   return out.toDataURL('image/jpeg', 0.88);
 }
@@ -782,7 +857,27 @@ function cropForDecodedBarcodeMatch(canvas, barcodes, predicate, marginPx = BARC
   };
 }
 
-function createLabelImages(canvas, detectedBarcodes = []) {
+function relativeCanvasBox(canvas, spec) {
+  return clampBox({
+    x: Math.round(canvas.width * spec.x),
+    y: Math.round(canvas.height * spec.y),
+    width: Math.round(canvas.width * spec.w),
+    height: Math.round(canvas.height * spec.h)
+  }, canvas.width, canvas.height);
+}
+
+function buildStarTrackPreviewCandidateBoxes(canvas, detectedBarcodes = []) {
+  const hasRouting = detectedBarcodes.some(b => isLinearBarcode(b) && isStarTrackRoutingValue(b.rawValue));
+  const hasAtl = detectedBarcodes.some(b => isLinearBarcode(b) && isStarTrackAtlValue(b.rawValue));
+  const hasFreight = detectedBarcodes.some(b => isLinearBarcode(b) && isStarTrackFreightItemValue(b.rawValue));
+  return [
+    !hasAtl ? { label: STARTRACK_PREVIEW_BOXES.atl.label, box: relativeCanvasBox(canvas, STARTRACK_PREVIEW_BOXES.atl) } : null,
+    !hasRouting ? { label: STARTRACK_PREVIEW_BOXES.routing.label, box: relativeCanvasBox(canvas, STARTRACK_PREVIEW_BOXES.routing) } : null,
+    !hasFreight ? { label: STARTRACK_PREVIEW_BOXES.freight.label, box: relativeCanvasBox(canvas, STARTRACK_PREVIEW_BOXES.freight) } : null
+  ].filter(Boolean);
+}
+
+function createLabelImages(canvas, detectedBarcodes = [], labelFamily = 'eparcel') {
   const w = canvas.width;
   const h = canvas.height;
   const dmLocated = cropForDecodedBarcode(canvas, detectedBarcodes, FORMAT_KIND.datamatrix);
@@ -806,18 +901,22 @@ function createLabelImages(canvas, detectedBarcodes = []) {
 
   // Fixed template crops are fallback evidence only. If a barcode decoded with a real
   // page box, prefer that because label layouts can shift between products/customers.
+  const st = STARTRACK_LINEAR_TARGETS;
   const dmCrop = cropCanvas(canvas, w * 0.55, h * 0.02, w * 0.43, h * 0.31);
   const dmFocusedCrop = cropCanvas(canvas, w * 0.72, h * 0.07, w * 0.26, h * 0.22);
   const qrCrop = cropCanvas(canvas, w * 0.35, h * 0.10, w * 0.60, h * 0.55);
-  const linearCrop = cropCanvas(canvas, w * 0.04, h * 0.42, w * 0.92, h * 0.30);
+  const linearCrop = cropCanvas(canvas, w * st.sweep.x, h * st.sweep.y, w * st.sweep.w, h * st.sweep.h);
   const rightLinearCrop = cropCanvas(canvas, w * 0.68, h * 0.18, w * 0.31, h * 0.68);
-  const starTrackRoutingCrop = cropCanvas(canvas, w * 0.04, h * 0.23, w * 0.62, h * 0.22);
-  const starTrackAtlCrop = cropCanvas(canvas, w * 0.54, h * 0.02, w * 0.44, h * 0.18);
-  const starTrackFreightCrop = cropCanvas(canvas, w * 0.04, h * 0.50, w * 0.92, h * 0.20);
+  const starTrackRoutingCrop = cropCanvas(canvas, w * st.routing.x, h * st.routing.y, w * st.routing.w, h * st.routing.h);
+  const starTrackAtlCrop = cropCanvas(canvas, w * st.atl.x, h * st.atl.y, w * st.atl.w, h * st.atl.h);
+  const starTrackFreightCrop = cropCanvas(canvas, w * st.freight.x, h * st.freight.y, w * st.freight.w, h * st.freight.h);
+  const previewCandidateBoxes = labelFamily === 'startrack'
+    ? buildStarTrackPreviewCandidateBoxes(canvas, detectedBarcodes)
+    : [];
 
   return {
     labelPreviewPlain: canvasToDataUrl(canvas, 760),
-    labelPreview: canvasToDataUrlWithBarcodeBoxes(canvas, detectedBarcodes, 820),
+    labelPreview: canvasToDataUrlWithBarcodeBoxes(canvas, detectedBarcodes, 820, previewCandidateBoxes),
     dataMatrixCrop: canvasToDataUrl(dmLocated?.canvas || dmCrop, 420),
     dataMatrixFocusedCrop: canvasToDataUrl(dmLocated?.canvas || dmFocusedCrop, 320),
     dataMatrixBox: dmLocated?.box || null,
@@ -1074,23 +1173,6 @@ function servicePayloadText(row) {
   return row.apiNote ? `${payload}\n\n${row.apiNote}` : payload;
 }
 
-function isDataMatrixBarcode(b) {
-  const fmt = String(b?.format || b?.symbology || '').toLowerCase();
-  const raw = String(b?.rawValue || '');
-  return fmt.includes('data') || raw.includes('(420)') || raw.includes('(8008)') || raw.includes('8008') || raw.includes('|420');
-}
-
-function isQrBarcode(b) {
-  const fmt = String(b?.format || b?.symbology || '').toLowerCase();
-  return fmt.includes('qr') || b?.kind === FORMAT_KIND.qr;
-}
-
-function isLinearBarcode(b) {
-  const fmt = String(b?.format || b?.symbology || '').toLowerCase();
-  if (isQrBarcode(b) || isDataMatrixBarcode(b)) return false;
-  return fmt.includes('128') || fmt.includes('code_128') || fmt.includes('code 128') || b?.kind === FORMAT_KIND.linear;
-}
-
 function decodedBarcodeList(audit, type) {
   const all = audit?.detectedBarcodes || [];
   if (type === 'datamatrix') return all.filter(isDataMatrixBarcode);
@@ -1248,11 +1330,21 @@ function textContentItemsToLines(items) {
 
   const groups = [];
   const yTolerance = 3.5;
+  const yBuckets = new Map();
   for (const entry of entries) {
-    let group = groups.find(g => Math.abs(g.y - entry.y) <= yTolerance);
+    const bucketKey = Math.round(entry.y / yTolerance);
+    let group = null;
+    for (const key of [bucketKey - 1, bucketKey, bucketKey + 1]) {
+      const bucketGroups = yBuckets.get(key) || [];
+      group = bucketGroups.find(candidate => Math.abs(candidate.y - entry.y) <= yTolerance);
+      if (group) break;
+    }
     if (!group) {
       group = { y: entry.y, items: [] };
       groups.push(group);
+      const bucketGroups = yBuckets.get(bucketKey) || [];
+      bucketGroups.push(group);
+      yBuckets.set(bucketKey, bucketGroups);
     }
     group.items.push(entry);
   }
@@ -1271,13 +1363,18 @@ function textContentItemsToLines(items) {
   }).filter(Boolean);
 }
 
+function pdfTextLayerNeedsOcr(lines) {
+  const usefulChars = lines.join(' ').replace(/[^A-Za-z0-9]/g, '').length;
+  return usefulChars < PDF_TEXT_LAYER_MIN_USEFUL_CHARS;
+}
+
 async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
   const found = [];
   const categoryFormats = target.formats || ['Code128', 'DataMatrix'];
   const variants = selectScanVariants(target.canvas, target.kind);
 
-  // Try the native detector first because it is cheap, then run the more expensive
-  // ZXing passes that provide stronger coverage for production label files.
+  // Native reads are attempted first so browsers with reliable support can avoid
+  // unnecessary WASM/JS passes on the same crop.
   if (detector) {
     const browserHits = await detectWithBrowserBarcodeDetector(target.canvas, detector, pageNumber, target.label);
     found.push(...browserHits.map(hit => mapBarcodeToPage(hit, target, 'original')));
@@ -1285,7 +1382,7 @@ async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
   }
 
   for (const variant of variants) {
-    // ZXing-C++ WASM is the primary scanner for accuracy-sensitive barcode reads.
+    // WASM is the main cross-browser decoder for Australia Post label symbols.
     const wasmHits = await wasmDecodeCanvas(
       variant.canvas,
       pageNumber,
@@ -1298,8 +1395,8 @@ async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
     found.push(...wasmHits.map(hit => mapBarcodeToPage(hit, target, variant.label)));
     if (shouldStopTargetScan(target, found)) return found;
 
-    // The pure-JS reader is slower, so keep it as a fallback for variants where
-    // the WASM reader did not return anything.
+    // The JS reader is retained for scanner diversity, but only after WASM misses
+    // on the current crop variant.
     if (!wasmHits.length) {
       const jsHits = zxingDecodeCanvas(
         variant.canvas,
@@ -1314,9 +1411,7 @@ async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
     }
   }
 
-  // Linear barcode orientation is not consistent across every label template.
-  // Rotated reads are expensive, so only try a small WASM pass when the normal
-  // variants failed to decode the target.
+  // Rotated linear scans are expensive and only pay off when all normal variants miss.
   if (target.kind === FORMAT_KIND.linear && !found.length) {
     for (const variant of variants.slice(0, 2)) {
       for (const degrees of [90, 270]) {
@@ -1339,19 +1434,7 @@ async function detectOnCanvas(canvas, detector, pageNumber = 1, onDebug = null, 
   for (const target of targets) {
     if (target.kind === FORMAT_KIND.mixed && shouldSkipFullPageSafetyScan(found, labelFamily)) {
       const decodedCount = dedupeBarcodes(found).length;
-      const skipped = {
-        pageNumber,
-        kind: target.kind,
-        label: target.label,
-        formats: target.formats,
-        decodedCount: 0,
-        width: target.canvas.width,
-        height: target.canvas.height,
-        decodedValues: [],
-        durationMs: 0,
-        skipped: true
-      };
-      scanDiagnostics.push(skipped);
+      scanDiagnostics.push(scanDiagnostic(target, [], pageNumber, 0, { skipped: true }));
       onDebug?.(`Skipped ${target.label}; targeted scans already found ${decodedCount} barcode candidate(s)`, 0);
       continue;
     }
@@ -1360,23 +1443,7 @@ async function detectOnCanvas(canvas, detector, pageNumber = 1, onDebug = null, 
     const decoded = await scanTargetWithAllEngines(target, detector, pageNumber);
     const durationMs = performance.now() - scanStart;
     found.push(...decoded);
-    scanDiagnostics.push({
-      pageNumber,
-      kind: target.kind,
-      label: target.label,
-      formats: target.formats,
-      decodedCount: decoded.length,
-      width: target.canvas.width,
-      height: target.canvas.height,
-      decodedValues: decoded.map(d => d.rawValue),
-      decodedSources: decoded.map(d => ({
-        source: d.source || 'Unknown detector',
-        format: d.format || d.symbology || 'unknown format',
-        variantLabel: d.variantLabel || '',
-        rawValue: d.rawValue || ''
-      })),
-      durationMs
-    });
+    scanDiagnostics.push(scanDiagnostic(target, decoded, pageNumber, durationMs));
     if (decoded.length || durationMs >= 1000) {
       onDebug?.(`Scan target "${target.label}" found ${decoded.length} candidate${decoded.length === 1 ? '' : 's'}: ${detectorResultSummary(decoded)}`, durationMs);
     }
@@ -1413,6 +1480,8 @@ async function processImage(file, detector, onDebug = null, labelFamily = 'eparc
     ctx.drawImage(img, 0, 0);
     mark('Rendered image to canvas', drawStart);
     await yieldToBrowser();
+    const ocrText = await recognizeCanvasText(canvas, mark, `image ${file.name}`);
+    await yieldToBrowser();
     const visualStart = performance.now();
     const visualEvidence = detectVisualBarcodeEvidence(canvas);
     mark('Checked visual barcode evidence', visualStart);
@@ -1423,7 +1492,7 @@ async function processImage(file, detector, onDebug = null, labelFamily = 'eparc
     mark(`Decoded barcode candidates (${detected.length})`, scanStart);
     await yieldToBrowser();
     const imageStart = performance.now();
-    const labelImages = createLabelImages(canvas, detected);
+    const labelImages = createLabelImages(canvas, detected, labelFamily);
     mark('Generated label preview and barcode crops', imageStart);
     mark(`Completed image ${file.name}`, fileStart);
 
@@ -1436,12 +1505,13 @@ async function processImage(file, detector, onDebug = null, labelFamily = 'eparc
         pixelHeight: img.naturalHeight,
         widthMm: null,
         heightMm: null,
-        note: 'Raster images do not reliably expose physical DPI. A6 dimensions are assumed for layout heuristics.'
+        note: 'Raster images do not reliably expose physical DPI. A6 dimensions are assumed for layout heuristics.',
+        textSources: ocrText ? ['ocr'] : []
       },
       detectedBarcodes: detected,
       visualEvidence,
       labelImages,
-      extractedText: ''
+      extractedText: ocrText
     };
   } finally {
     URL.revokeObjectURL(imgUrl);
@@ -1491,6 +1561,13 @@ async function processPdfLabels(file, detector, onDebug = null, labelFamily = 'e
     mark(`Rendered page ${pageNumber} to canvas (${canvas.width}x${canvas.height}px)`, renderStart);
 
     await yieldToBrowser();
+    const shouldOcrPage = pdfTextLayerNeedsOcr(pageLines);
+    const ocrText = shouldOcrPage ? await recognizeCanvasText(canvas, mark, `PDF page ${pageNumber}`) : '';
+    if (!shouldOcrPage) {
+      mark(`Skipped OCR on page ${pageNumber}; selectable PDF text layer provided sufficient audit text`, performance.now());
+    }
+    const extractedText = mergeExtractedText(pageLines.join('\n'), ocrText);
+    await yieldToBrowser();
     const visualStart = performance.now();
     const visualEvidence = detectVisualBarcodeEvidence(canvas);
     mark(`Checked visual barcode evidence on page ${pageNumber}`, visualStart);
@@ -1501,7 +1578,7 @@ async function processPdfLabels(file, detector, onDebug = null, labelFamily = 'e
     mark(`Decoded page ${pageNumber} barcode candidates (${detected.length})`, scanStart);
     await yieldToBrowser();
     const imageStart = performance.now();
-    const labelImages = createLabelImages(canvas, detected);
+    const labelImages = createLabelImages(canvas, detected, labelFamily);
     mark(`Generated page ${pageNumber} label preview and barcode crops`, imageStart);
 
     labels.push({
@@ -1516,13 +1593,17 @@ async function processPdfLabels(file, detector, onDebug = null, labelFamily = 'e
         heightMm: pageMm.heightMm,
         pixelWidth: canvas.width,
         pixelHeight: canvas.height,
-        note: 'PDF page rendered locally in the browser and audited as an individual label.'
+        note: 'PDF page rendered locally in the browser and audited as an individual label.',
+        textSources: [
+          ...(pageLines.length ? ['pdf-text-layer'] : []),
+          ...(ocrText ? ['ocr'] : [])
+        ]
       },
       detectedBarcodes: detected,
       visualEvidence,
       labelImages,
       scanDiagnostics: pageScan.scanDiagnostics || [],
-      extractedText: pageLines.join('\n')
+      extractedText
     });
     mark(`Completed page ${pageNumber} of ${pdf.numPages}`, pageStart);
     await yieldToBrowser();

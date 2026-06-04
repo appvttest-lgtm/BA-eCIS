@@ -1,20 +1,23 @@
 {
   "name": "ecommerce-integration-label-auditor-local",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "private": true,
   "type": "module",
   "description": "Local-only Australia Post eParcel and StarTrack digital label audit web app with barcode, SSCC, QR, routing and visible label checks.",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "vite build",
+    "test": "node --test",
     "start": "node server.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173"
   },
   "devDependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
     "@zxing/library": "0.21.3",
     "pdfjs-dist": "4.10.38",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "tesseract.js": "^7.0.0",
     "vite": "5.4.21",
     "zxing-wasm": "3.0.3"
   }

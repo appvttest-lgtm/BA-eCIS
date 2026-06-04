@@ -740,6 +740,11 @@ function decodedRawValues(detectedBarcodes) {
   return detectedBarcodes.map(b => b.rawValue || b.raw || b.text || '').filter(Boolean);
 }
 
+// Manual entries are useful for investigation counts, but never substitute for decoded barcode proof.
+function diagnosticManualValues(manualBarcodes) {
+  return String(manualBarcodes || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+}
+
 function decodedLinearPresent(detectedBarcodes) {
   return detectedBarcodes.some(b => /code[_\s-]?128|gs1/i.test(String(b.format || '')) || parseEparcelBarcode(b.rawValue || '').hasAi91);
 }
@@ -752,7 +757,7 @@ function validateLabelFacts(facts) {
   const validations = [];
   validations.push(facts.extractedLineCount > 0
     ? result('TEXT_EXTRACTED', 'PDF/text content extracted', 'INFO', 'label-layout', 'pass', `${facts.extractedLineCount} text line(s) were extracted from the file.`, { evidence: facts.lines.slice(0, 40).join('\n') })
-    : result('TEXT_EXTRACTED', 'PDF/text content extracted', 'WARNING', 'label-layout', 'manual_review', 'No selectable text was extracted. Image OCR is not available in this local MVP.'));
+    : result('TEXT_EXTRACTED', 'PDF/text content extracted', 'WARNING', 'label-layout', 'manual_review', 'No selectable or OCR text was extracted from this label.'));
 
   validations.push(facts.labelType
     ? result('LABEL_TYPE', 'Label product branding / header', 'INFO', 'label-layout', 'pass', `Detected label header text: ${facts.labelType}.`, { actual: facts.labelType })
@@ -789,7 +794,32 @@ function validateLabelFacts(facts) {
   return validations;
 }
 
-
+function summarizeValidations(validations) {
+  const summary = {
+    overallStatus: 'PASS',
+    total: validations.length,
+    critical: 0,
+    errors: 0,
+    warnings: 0,
+    manualReview: 0,
+    failed: 0,
+    passed: 0
+  };
+  for (const validation of validations) {
+    if (validation.severity === 'CRITICAL') summary.critical += 1;
+    if (validation.severity === 'ERROR') summary.errors += 1;
+    if (validation.severity === 'WARNING') summary.warnings += 1;
+    if (validation.status === 'manual_review') summary.manualReview += 1;
+    if (validation.status === 'fail') summary.failed += 1;
+    if (validation.status === 'pass') summary.passed += 1;
+    if (validation.status === 'fail' && (validation.severity === 'CRITICAL' || validation.severity === 'ERROR')) {
+      summary.overallStatus = 'FAIL';
+    } else if (summary.overallStatus !== 'FAIL' && (validation.status === 'warning' || validation.status === 'manual_review')) {
+      summary.overallStatus = 'REVIEW';
+    }
+  }
+  return summary;
+}
 
 /** Parses JSON or plain-text Get Shipments snippets into local evidence for comparison. */
 function parseApiPayloadText(payloadText) {
@@ -821,16 +851,26 @@ function parseApiPayloadText(payloadText) {
       Object.entries(value).forEach(([key, item]) => walk(item, path ? `${path}.${key}` : key));
       return;
     }
-    flat.push({ path, value, text: String(value) });
+    const text = String(value);
+    flat.push({
+      path,
+      value,
+      text,
+      normalizedPath: normalizePayloadText(path),
+      normalizedValue: normalizePayloadText(text)
+    });
   };
   if (parsed !== null) walk(parsed);
+  const normalizedText = normalizePayloadText(rawText);
   return {
     provided: true,
     rawText,
     parsed,
     parseError,
     flat,
-    normalizedText: normalizePayloadText(rawText)
+    normalizedText,
+    normalizedValueText: flat.map(item => item.normalizedValue).filter(Boolean).join('|'),
+    normalizedPathText: flat.map(item => item.normalizedPath).filter(Boolean).join('|')
   };
 }
 
@@ -851,7 +891,7 @@ function payloadEvidenceForValues(ctx, values = []) {
   if (ctx.flat?.length) {
     for (const item of ctx.flat) {
       const itemValue = String(item.value ?? '');
-      const itemNormalized = normalizePayloadText(itemValue);
+      const itemNormalized = item.normalizedValue || normalizePayloadText(itemValue);
       for (const value of cleaned) {
         const valueNormalized = normalizePayloadText(value);
         if (!valueNormalized || valueNormalized.length < 2) continue;
@@ -888,7 +928,7 @@ function payloadEvidenceForTokens(ctx, tokens = []) {
   if (ctx.flat?.length) {
     for (const item of ctx.flat) {
       const itemValue = String(item.value ?? '');
-      const itemNormalized = normalizePayloadText(itemValue);
+      const itemNormalized = item.normalizedValue || normalizePayloadText(itemValue);
       const matched = cleaned.filter(token => itemNormalized.includes(normalizePayloadText(token)));
       if (matched.length) lines.push(`${item.path || '(root)'}: ${itemValue}  [matched: ${matched.join(', ')}]`);
     }
@@ -950,7 +990,8 @@ function payloadBool(ctx, patterns = []) {
   if (!ctx?.provided || !ctx.flat?.length) return null;
   for (const item of ctx.flat) {
     const path = String(item.path || '');
-    if (!patterns.some(pattern => pattern.test(path))) continue;
+    const normalizedPath = item.normalizedPath || normalizePayloadText(path);
+    if (!patterns.some(pattern => pattern.test(path) || pattern.test(normalizedPath))) continue;
     if (typeof item.value === 'boolean') return item.value;
     const text = String(item.value).trim().toLowerCase();
     if (['true', 'y', 'yes', '1', 'enabled'].includes(text)) return true;
@@ -1156,7 +1197,7 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
     provided: selectedFormat === 'sscc'
   };
   const facts = extractLabelFacts(extractedText);
-  const manualValues = String(manualBarcodes || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean); // Optional diagnostic input; never treated as decoded proof.
+  const manualValues = diagnosticManualValues(manualBarcodes);
   const decodedValues = decodedRawValues(detectedBarcodes);
   const allRawBarcodes = [...decodedValues];
 
@@ -1306,20 +1347,7 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
   }
 
 
-  const fail = validations.some(v => v.status === 'fail' && (v.severity === 'CRITICAL' || v.severity === 'ERROR'));
-  const review = validations.some(v => v.status === 'warning' || v.status === 'manual_review');
-  const overallStatus = fail ? 'FAIL' : review ? 'REVIEW' : 'PASS';
-
-  const summary = {
-    overallStatus,
-    total: validations.length,
-    critical: validations.filter(v => v.severity === 'CRITICAL').length,
-    errors: validations.filter(v => v.severity === 'ERROR').length,
-    warnings: validations.filter(v => v.severity === 'WARNING').length,
-    manualReview: validations.filter(v => v.status === 'manual_review').length,
-    failed: validations.filter(v => v.status === 'fail').length,
-    passed: validations.filter(v => v.status === 'pass').length
-  };
+  const summary = summarizeValidations(validations);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -1665,7 +1693,7 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
     provided: selectedFormat === 'sscc'
   };
   let facts = extractStarTrackFacts(extractedText);
-  const manualValues = String(manualBarcodes || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const manualValues = diagnosticManualValues(manualBarcodes);
   const decodedValues = decodedRawValues(detectedBarcodes);
   const linearValues = detectedBarcodes.filter(b => /128|code/i.test(String(b.format || b.symbology || '')) || b.kind === 'linear').map(b => b.rawValue).filter(Boolean);
   const qrValues = detectedBarcodes.filter(b => /qr/i.test(String(b.format || b.symbology || '')) || b.kind === 'qr').map(b => b.rawValue).filter(Boolean);
@@ -1695,6 +1723,7 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
   ]);
   const atlExpected = Boolean(facts.authorityToLeavePresent || expectedAtlNumbers.length);
   const ssccOnly = selectedFormat === 'sscc' || (validSsccs.length > 0 && freightParses.length === 0);
+  const visualLinear = Boolean(visualEvidence?.linearBarcodeVisible);
   const detectedCarrier = qrParses.length || freightParses.length || routingParses.length || atlParses.length || validSsccs.length || /STAR\s*TRACK|STARTRACK/i.test(extractedText || '') ? 'startrack' : 'unknown';
   const detectedFormat = validSsccs.length && !freightParses.length ? 'sscc' : freightParses.length ? 'standard' : validSsccs.length ? 'sscc' : 'unknown';
   const modeEvidence = [
@@ -1721,16 +1750,16 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
 
   validations.push((selectedFormat === 'sscc' ? validSsccs.length : freightParses.length)
     ? result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'pass', selectedFormat === 'sscc' ? `${validSsccs.length} SSCC freight item barcode(s) decoded.` : `${freightParses.length} StarTrack Code 128 freight item barcode(s) decoded.`, { actual: [...freightParses.map(f => f.freightItemId), ...validSsccs.map(s => `00${s.sscc}`)].join(', ') })
-    : result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'fail', selectedFormat === 'sscc' ? 'SSCC assessment was selected, but no valid AI 00 SSCC freight item barcode was decoded.' : 'Standard article format was selected, but no StarTrack 20-character freight item barcode was decoded.', { expected: selectedFormat === 'sscc' ? `AI 00 SSCC${expectedSscc.companyPrefix ? ` with GS1 Company Prefix ${expectedSscc.companyPrefix}` : ''}` : 'StarTrack 20-character Code 128 freight item barcode' }));
+    : result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'fail', visualLinear ? 'A StarTrack freight item barcode appears visible, but no valid freight item barcode was decoded by the scanner pipeline.' : selectedFormat === 'sscc' ? 'SSCC assessment was selected, but no valid AI 00 SSCC freight item barcode was decoded.' : 'Standard article format was selected, but no StarTrack 20-character freight item barcode was decoded.', { expected: selectedFormat === 'sscc' ? `AI 00 SSCC${expectedSscc.companyPrefix ? ` with GS1 Company Prefix ${expectedSscc.companyPrefix}` : ''}` : 'StarTrack 20-character Code 128 freight item barcode', evidence: visualEvidence?.linearEvidence || '' }));
 
   validations.push(routingParses.length
     ? result('ST_ROUTING_BARCODE_PRESENT', 'Routing barcode decoded', 'CRITICAL', 'startrack-routing', 'pass', `${routingParses.length} routing barcode(s) decoded.`, { actual: routingParses.map(r => r.raw).join(', ') })
-    : result('ST_ROUTING_BARCODE_PRESENT', 'Routing barcode decoded', 'CRITICAL', 'startrack-routing', 'fail', 'No StarTrack routing barcode or GS1 421 routing barcode was decoded.'));
+    : result('ST_ROUTING_BARCODE_PRESENT', 'Routing barcode decoded', 'CRITICAL', 'startrack-routing', 'fail', visualLinear ? 'A linear routing barcode appears visible, but no StarTrack routing barcode or GS1 421 routing barcode was decoded.' : 'No StarTrack routing barcode or GS1 421 routing barcode was decoded.', { evidence: visualEvidence?.linearEvidence || '' }));
 
   validations.push(atlParses.length
     ? result('ST_ATL_BARCODE', 'Authority To Leave barcode decoded', 'INFO', 'startrack-atl', 'pass', `ATL barcode decoded: ${atlParses.map(a => a.atlNumber).join(', ')}.`, { actual: atlParses.map(a => a.atlNumber).join(', ') })
     : atlExpected
-      ? result('ST_ATL_BARCODE', 'Authority To Leave barcode decoded', 'ERROR', 'startrack-atl', 'fail', 'Authority To Leave text or QR data indicates an ATL barcode is expected, but no C999999999 ATL barcode was decoded.', { expected: 'C999999999', actual: expectedAtlNumbers.join(', ') || 'ATL text present' })
+      ? result('ST_ATL_BARCODE', 'Authority To Leave barcode decoded', 'ERROR', 'startrack-atl', 'fail', visualLinear ? 'Authority To Leave text or QR data indicates an ATL barcode is expected and a linear barcode appears visible, but no C999999999 ATL barcode was decoded.' : 'Authority To Leave text or QR data indicates an ATL barcode is expected, but no C999999999 ATL barcode was decoded.', { expected: 'C999999999', actual: expectedAtlNumbers.join(', ') || 'ATL text present', evidence: visualEvidence?.linearEvidence || '' })
       : result('ST_ATL_BARCODE', 'Authority To Leave barcode decoded', 'INFO', 'startrack-atl', 'not_applicable', 'No Authority To Leave barcode was decoded and no ATL requirement was detected on the label.'));
 
   for (const [i, atl] of atlParses.entries()) {
@@ -1818,19 +1847,7 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
     validations.push(result('ST_SSCC_PRODUCT_RULE', 'SSCC product handling', 'INFO', 'startrack-sscc', 'pass', 'SSCC freight labels encode AI 00 SSCC data. StarTrack product may be supplied by QR/routing data, but it is not embedded in the SSCC article identifier.'));
   }
 
-  const fail = validations.some(v => v.status === 'fail' && (v.severity === 'CRITICAL' || v.severity === 'ERROR'));
-  const review = validations.some(v => v.status === 'warning' || v.status === 'manual_review');
-  const overallStatus = fail ? 'FAIL' : review ? 'REVIEW' : 'PASS';
-  const summary = {
-    overallStatus,
-    total: validations.length,
-    critical: validations.filter(v => v.severity === 'CRITICAL').length,
-    errors: validations.filter(v => v.severity === 'ERROR').length,
-    warnings: validations.filter(v => v.severity === 'WARNING').length,
-    manualReview: validations.filter(v => v.status === 'manual_review').length,
-    failed: validations.filter(v => v.status === 'fail').length,
-    passed: validations.filter(v => v.status === 'pass').length
-  };
+  const summary = summarizeValidations(validations);
   const articles = [
     ...freightParses.map(f => ({ type: 'startrack-code128-freight', articleId: f.freightItemId, ...f })),
     ...validSsccs.map(s => ({ type: 'sscc', articleId: `00${s.sscc}`, sscc: `00${s.sscc}`, ...s }))
