@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "vite build",
-    "test": "node --test",
+    "test": "node tests/smoke-rules.mjs && node tests/smoke-audit.mjs",
     "start": "node server.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173"
   },

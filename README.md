@@ -68,11 +68,13 @@ Users can optionally paste a Get Shipments API response or relevant JSON/plain-t
 
 ## Local Runtime
 
-Normal users can start the packaged app without using a batch file by installing Node.js from the company portal, opening Command Prompt or PowerShell in the extracted release folder, and running:
+The prebuilt app is committed in the `dist/` folder, so no client-side build, batch file or script is required. With Node.js installed, clone or download the repository and run:
 
 ```bash
 node server.mjs
 ```
+
+`server.mjs` serves the committed `dist/` build directly. After changing anything under `src/` or `rules/`, regenerate the committed build with `npm run build` before committing.
 
 The local app is served at:
 
@@ -108,13 +110,29 @@ The local HTTP server is used so browser modules, PDF workers, WebAssembly asset
 - typescript version 5.6.3 has no known direct vulnerabilities and is pinned to an exact version, which is a secure practice.
 - zxing-wasm version 3.0.3 has no known direct vulnerabilities, with no issues found in the direct dependency or Snyk database for this version.
 
+## Rule Sets
+
+Validation rules are declarative JSON files under `rules/`, derived from the two carrier specifications and the checklists in `docs/checklists/`. Each carrier has a base file plus per-product variant files that extend it:
+
+- `rules/eparcel/` - `base.json`, `parcel-post.json`, `express-post.json`, `returns.json`, `sscc.json`
+- `rules/startrack/` - `base.json`, `express.json`, `premium.json`, `fpp.json`, `sscc.json`
+
+`src/ruleEngine.js` is the generic evaluator: it merges a variant over its base, resolves rule inputs against the evidence extracted from the label (page geometry, text layer, decoded barcodes), applies the declarative asserts (regex, equality, ranges, date formats, cross-field comparisons) and named functions for algorithmic checks (check digits, service/product matrix). Every result carries the rule definition, the input data and the outcome so the report can show all three side by side. The audit engine selects the variant automatically from the decoded product codes and the selected audit mode.
+
+Run `npm test` for the rule-set and end-to-end audit smoke tests.
+
 ## Project Files
 
 - `src/main.jsx` - React UI, upload flow, rendering, scan orchestration and report export
-- `src/auditEngine.js` - barcode parsing, carrier-specific validation and payload comparison logic
+- `src/auditEngine.js` - barcode parsing, evidence extraction, rule-set selection and payload comparison logic
+- `src/ruleEngine.js` - generic evaluator for the declarative JSON rule sets
+- `src/reportView.jsx` - rule-by-rule report rows with input data, rule logic and outcome panes
+- `rules/` - executable JSON rule sets per carrier and product family
+- `docs/checklists/` - spec-derived audit checklists that the rule sets implement
 - `src/styles.css` - application and report styling
 - `server.mjs` - local static server for the built app
 - `start-auditer.bat` - end-user launcher
+- `tests/` - node smoke tests for the rule engine and audit pipeline
 - `Resources/` - reference PDFs and example labels used when checking audit behaviour
 
 ## Known Limits

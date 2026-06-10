@@ -1,0 +1,623 @@
+{
+  "id": "startrack-base",
+  "carrier": "startrack",
+  "name": "StarTrack shared rules",
+  "spec": { "doc": "StarTrack Label Specifications - Modify Your Own System (MOS) v9", "date": "2020-10-14" },
+  "constants": {
+    "productCodes": ["TSE", "RET", "RE2", "APT", "PRM", "FPP", "ARL", "FPA", "EXP"],
+    "labelCodes": ["TSE", "RET", "RE2", "APT", "PRM", "ARL", "EXP"],
+    "allowedProducts": ["TSE", "RET", "RE2", "APT", "PRM", "FPP", "ARL", "FPA", "EXP"]
+  },
+  "rules": [
+    {
+      "id": "ST-LAY-01",
+      "title": "StarTrack label dimensions",
+      "description": "Despatch labels are 100 x 150 mm (optionally 100 x 200 mm with the top 150 mm reserved for StarTrack); controlled returns/transfer labels are 150 x 100 mm.",
+      "obligation": "mandatory",
+      "severity": "WARNING",
+      "category": "startrack-label-layout",
+      "source": { "doc": "MOS v9", "ref": "1.001 / 3.001" },
+      "input": "page",
+      "assert": { "op": "fn", "name": "pageSizeWithin", "args": { "sizesMm": [[100, 150], [100, 200], [150, 100]], "toleranceMm": 10 } },
+      "onMissing": "manual_review",
+      "failStatus": "warning",
+      "messages": {
+        "pass": "Page dimensions match an accepted StarTrack label size ({actual}).",
+        "fail": "Page dimensions do not match the accepted StarTrack label sizes ({actual}).",
+        "missing": "Physical dimensions could not be determined. Review whether the label is 100 x 150 mm, 100 x 200 mm or 150 x 100 mm."
+      }
+    },
+    {
+      "id": "ST-HDR-01",
+      "title": "StarTrack logo/header",
+      "description": "The P-StarTrack logo must appear on the left side of the label header.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-label-layout",
+      "source": { "doc": "MOS v9", "ref": "1.002" },
+      "input": "text.hasStarTrackHeader",
+      "assert": { "op": "equals", "value": true },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "StarTrack header text was found.",
+        "fail": "StarTrack logo/header may be image-only or was not extracted as text. Confirm on the preview."
+      }
+    },
+    {
+      "id": "ST-HDR-02",
+      "title": "Label code displayed in header",
+      "description": "The 3-character label code for the StarTrack product must appear above the logo (Premium: white on black; Express/Special Services: black on white).",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-label-layout",
+      "source": { "doc": "MOS v9", "ref": "1.003" },
+      "input": "text.labelCode",
+      "assert": { "op": "present" },
+      "onMissing": "manual_review",
+      "messages": {
+        "pass": "Label/product code evidence found: {actual}.",
+        "missing": "A three-character label code was not extracted from the text layer or barcode data."
+      }
+    },
+    {
+      "id": "ST-HDR-04",
+      "title": "Connote number displayed in header",
+      "description": "The consignment number must appear in the centre of the header under a CONNOTE: heading, catering for up to 20 characters.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-label-layout",
+      "source": { "doc": "MOS v9", "ref": "1.004" },
+      "input": "text.consignmentIds",
+      "assert": { "op": "notEmpty" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Connote number evidence found: {actual}.",
+        "missing": "CONNOTE value was not extracted from the text layer or decoded barcode payload."
+      }
+    },
+    {
+      "id": "ST-RCV-01",
+      "title": "Receiver details present",
+      "description": "Receiver name, address, suburb, state and postcode must be displayed beneath the logo.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-text",
+      "source": { "doc": "MOS v9", "ref": "1.006" },
+      "input": "derived.receiverEvidence",
+      "assert": { "op": "notEmpty" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Receiver details were extracted from the text layer or decoded QR payload.",
+        "missing": "Receiver details could not be isolated from the text layer or decoded QR payload."
+      }
+    },
+    {
+      "id": "ST-SND-01",
+      "title": "Sender details present",
+      "description": "Sender name, phone and address must be displayed beneath the routing barcode.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-text",
+      "source": { "doc": "MOS v9", "ref": "1.016" },
+      "input": "text.fromBlock",
+      "assert": { "op": "notEmpty" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Sender details text was extracted.",
+        "missing": "Sender details could not be isolated from text."
+      }
+    },
+    {
+      "id": "ST-ITM-04",
+      "title": "Weight displayed",
+      "description": "The consignment weight in kg must appear under the WEIGHT heading.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-label-layout",
+      "source": { "doc": "MOS v9", "ref": "1.021" },
+      "input": "text.weightKg",
+      "assert": { "op": "present" },
+      "onMissing": "manual_review",
+      "messages": {
+        "pass": "Weight value found: {actual} kg.",
+        "missing": "Weight value was not extracted from the text layer or decoded barcode payload."
+      }
+    },
+    {
+      "id": "ST-ITM-05",
+      "title": "Cubic volume displayed",
+      "description": "The consignment cubic volume in cubic metres must appear under the CUBE heading.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-label-layout",
+      "source": { "doc": "MOS v9", "ref": "1.021" },
+      "input": "text.cube",
+      "assert": { "op": "present" },
+      "onMissing": "manual_review",
+      "messages": {
+        "pass": "Cubic volume found: {actual} m3.",
+        "missing": "Cubic volume was not extracted from the text layer or decoded barcode payload."
+      }
+    },
+    {
+      "id": "ST-QR-01",
+      "title": "StarTrack 2D QR barcode decoded",
+      "description": "The StarTrack 2D QR barcode must appear on all labels and carry the fixed-width shipment payload.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "ref": "1.015" },
+      "input": "barcodes.qrPresent",
+      "assert": { "op": "equals", "value": true },
+      "messages": {
+        "pass": "StarTrack QR payload decoded from the uploaded file.",
+        "fail": "StarTrack labels must contain a 2D QR barcode and it was not decoded from the uploaded file."
+      }
+    },
+    {
+      "id": "ST-FRT-01",
+      "title": "Freight item barcode decoded",
+      "description": "The 20-character StarTrack Code 128 freight item barcode must be present on every article.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "startrack-freight",
+      "source": { "doc": "MOS v9", "ref": "1.022" },
+      "input": "barcodes.freightPresent",
+      "assert": { "op": "equals", "value": true },
+      "messages": {
+        "pass": "StarTrack Code 128 freight item barcode(s) decoded.",
+        "fail": "No StarTrack 20-character freight item barcode was decoded from the uploaded file."
+      }
+    },
+    {
+      "id": "ST-RTE-01",
+      "title": "Routing barcode decoded",
+      "description": "An approved sortation barcode must be present: the StarTrack routing barcode, or the GS1 421 routing barcode for SSCC labels.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "startrack-routing",
+      "source": { "doc": "MOS v9", "ref": "1.014 / 4.001" },
+      "input": "barcodes.routingPresent",
+      "assert": { "op": "equals", "value": true },
+      "messages": {
+        "pass": "Routing barcode(s) decoded.",
+        "fail": "No StarTrack routing barcode or GS1 421 routing barcode was decoded."
+      }
+    },
+    {
+      "id": "ST-FRT-02A",
+      "title": "Freight barcode despatch ID",
+      "description": "The freight item barcode must start with the 4-character alphanumeric despatch ID issued by StarTrack.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-freight",
+      "source": { "doc": "MOS v9", "page": 12 },
+      "forEach": "barcodes.freight",
+      "input": "item.despatchId",
+      "evidence": ["item.freightItemId"],
+      "assert": { "op": "matches", "value": "^[A-Z0-9]{4}$" }
+    },
+    {
+      "id": "ST-FRT-02B",
+      "title": "Connote sequence",
+      "description": "Characters 5-12 of the freight barcode are the 8-digit consignment sequence.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-freight",
+      "source": { "doc": "MOS v9", "page": 12 },
+      "forEach": "barcodes.freight",
+      "input": "item.consignmentSequence",
+      "evidence": ["item.connoteNumber"],
+      "assert": { "op": "matches", "value": "^\\d{8}$" }
+    },
+    {
+      "id": "ST-FRT-02C",
+      "title": "Freight item sequence",
+      "description": "The final 5 characters of the freight barcode are the numeric item sequence within the consignment.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-freight",
+      "source": { "doc": "MOS v9", "page": 12 },
+      "forEach": "barcodes.freight",
+      "input": "item.itemNumber",
+      "assert": { "op": "matches", "value": "^\\d{5}$" }
+    },
+    {
+      "id": "ST-FRT-03",
+      "title": "Freight barcode product code",
+      "description": "Characters 13-15 of the freight barcode must be a valid StarTrack product code.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-product",
+      "source": { "doc": "MOS v9", "page": 7 },
+      "forEach": "barcodes.freight",
+      "input": "item.productCode",
+      "assert": { "op": "in", "value": "$constants.productCodes" }
+    },
+    {
+      "id": "ST-PRD-01",
+      "title": "Product matches the audited label type",
+      "description": "The product code in the freight barcode must belong to the product family selected for this audit.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-product",
+      "source": { "doc": "MOS v9", "page": 7 },
+      "forEach": "barcodes.freight",
+      "input": "item.productCode",
+      "assert": { "op": "in", "value": "$constants.allowedProducts" }
+    },
+    {
+      "id": "ST-FRT-08",
+      "title": "Visible connote matches freight barcode",
+      "description": "The CONNOTE value printed in the header must equal the connote embedded in the freight item barcode.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-freight",
+      "source": { "doc": "MOS v9", "page": 12 },
+      "when": { "path": "text.consignmentIds", "op": "notEmpty" },
+      "forEach": "barcodes.freight",
+      "input": "item.connoteNumber",
+      "evidence": ["text.consignmentIds"],
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "text.consignmentIds", "normalize": ["stripSpaces", "upper"] } },
+      "failStatus": "manual_review"
+    },
+    {
+      "id": "ST-RTE-02A",
+      "title": "Routing label code known",
+      "description": "The first three characters of the routing barcode must be a valid StarTrack label code.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-routing",
+      "source": { "doc": "MOS v9", "page": 14 },
+      "forEach": "barcodes.routing",
+      "input": "item.labelCode",
+      "evidence": ["item.raw"],
+      "assert": { "op": "in", "value": "$constants.labelCodes" }
+    },
+    {
+      "id": "ST-RTE-02B",
+      "title": "Routing postcode",
+      "description": "Characters 4-7 of the routing barcode must be the four-digit receiver postcode (9901 for NZ Premium).",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-routing",
+      "source": { "doc": "MOS v9", "page": 14 },
+      "forEach": "barcodes.routing",
+      "input": "item.postcode",
+      "evidence": ["item.raw"],
+      "assert": { "op": "matches", "value": "^\\d{4}$" }
+    },
+    {
+      "id": "ST-RTE-03",
+      "title": "Routing and product compatibility",
+      "description": "The routing label code must correspond to the product on the freight barcode or QR payload (for example FPP routes as PRM, FPA routes as ARL).",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-product",
+      "source": { "doc": "MOS v9", "page": 7 },
+      "when": { "path": "derived.primaryProductCode", "op": "present" },
+      "forEach": "barcodes.routing",
+      "input": "item",
+      "assert": { "op": "fn", "name": "routeProductMatch" }
+    },
+    {
+      "id": "ST-RTE-04",
+      "title": "Routing postcode matches QR postcode",
+      "description": "The postcode in the routing barcode must equal the receiver postcode in the QR payload.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-routing",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "when": { "path": "derived.qrPostcodes", "op": "notEmpty" },
+      "forEach": "barcodes.routing",
+      "itemWhen": { "path": "item.postcode", "op": "present" },
+      "input": "item.postcode",
+      "evidence": ["derived.qrPostcodes"],
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.qrPostcodes" } }
+    },
+    {
+      "id": "ST-QR-MAND",
+      "title": "QR mandatory fields populated",
+      "description": "All mandatory fixed-width QR fields must be populated: receiver suburb/postcode/name/address, connote, freight item, product, quantity, weight, despatch date, unit type, destination depot, DG indicator and movement type.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields",
+      "assert": { "op": "fn", "name": "qrMandatoryFields" }
+    },
+    {
+      "id": "ST-QR-F02",
+      "title": "QR receiver postcode",
+      "description": "QR field 2 must be a four-digit postcode (9901 for NZ Premium).",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.receiverPostcode",
+      "assert": { "op": "matches", "value": "^\\d{4}$" }
+    },
+    {
+      "id": "ST-QR-F03",
+      "title": "QR consignment number format",
+      "description": "QR field 3 must follow the connote format: 4-character despatch ID plus 8 digits.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 10 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.connoteNumber",
+      "assert": { "op": "matches", "value": "^[A-Z0-9]{4}\\d{8}$" },
+      "normalize": ["trim", "upper"]
+    },
+    {
+      "id": "ST-QR-F04",
+      "title": "QR freight item number format",
+      "description": "QR field 4 must be the 20-character freight item identifier: despatch ID + 8-digit connote sequence + 3-character product + 5-digit item sequence.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 12 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.freightItemNumber",
+      "assert": { "op": "matches", "value": "^[A-Z0-9]{4}\\d{8}[A-Z0-9]{3}\\d{5}$" }
+    },
+    {
+      "id": "ST-QR-F05",
+      "title": "QR product code known",
+      "description": "QR field 5 must be a valid StarTrack product code.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-product",
+      "source": { "doc": "MOS v9", "page": 7 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.productCode",
+      "assert": { "op": "in", "value": "$constants.productCodes" }
+    },
+    {
+      "id": "ST-PRD-02",
+      "title": "QR product matches the audited label type",
+      "description": "The QR product code must belong to the product family selected for this audit.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-product",
+      "source": { "doc": "MOS v9", "page": 7 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.productCode",
+      "assert": { "op": "in", "value": "$constants.allowedProducts" }
+    },
+    {
+      "id": "ST-QR-F08",
+      "title": "QR consignment quantity",
+      "description": "QR field 8 must be a numeric consignment quantity of at least 1.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.consignmentQuantity",
+      "assert": { "all": [{ "op": "matches", "value": "^\\s*\\d+\\s*$" }, { "op": "range", "min": 1, "max": 9999 }] }
+    },
+    {
+      "id": "ST-QR-F09",
+      "title": "QR consignment weight",
+      "description": "QR field 9 must be the total consignment weight in whole kilograms, rounded up.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.consignmentWeight",
+      "assert": { "all": [{ "op": "matches", "value": "^\\s*\\d+\\s*$" }, { "op": "range", "min": 1, "max": 99999 }] }
+    },
+    {
+      "id": "ST-QR-F11",
+      "title": "QR despatch date",
+      "description": "QR field 11 must be a valid calendar date in YYYYMMDD format.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.despatchDate",
+      "assert": { "op": "dateFormat", "value": "YYYYMMDD" }
+    },
+    {
+      "id": "ST-QR-F14",
+      "title": "QR unit type permitted",
+      "description": "QR field 14 must be an Appendix A unit type permitted for the product code.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-product",
+      "source": { "doc": "MOS v9", "ref": "Appendix A" },
+      "forEach": "barcodes.qr",
+      "input": "item.fields",
+      "assert": { "op": "fn", "name": "startrackUnitPermitted" },
+      "failStatus": "manual_review"
+    },
+    {
+      "id": "ST-QR-F19",
+      "title": "QR dangerous goods indicator",
+      "description": "QR field 19 must be Y or N.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.dangerousGoodsIndicator",
+      "assert": { "op": "in", "value": ["Y", "N"] }
+    },
+    {
+      "id": "ST-QR-F20",
+      "title": "QR movement type indicator",
+      "description": "QR field 20 must be N (despatch), C (controlled return) or T (transfer).",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.movementTypeIndicator",
+      "assert": { "op": "in", "value": ["N", "C", "T"] }
+    },
+    {
+      "id": "ST-QR-F21",
+      "title": "QR book-in window dates",
+      "description": "When populated, the not-before date must be YYYYMMDDHHMM and must not exceed the not-after date.",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.notBeforeDate", "op": "present" },
+      "input": "item.fields.notBeforeDate",
+      "evidence": ["item.fields.notAfterDate"],
+      "assert": {
+        "all": [
+          { "op": "dateFormat", "value": "YYYYMMDDHHMM" },
+          { "op": "ltePath", "path": "item.fields.notAfterDate" }
+        ]
+      }
+    },
+    {
+      "id": "ST-QR-F22",
+      "title": "QR not-after date format",
+      "description": "When populated, the not-after date must be a valid YYYYMMDDHHMM value.",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.notAfterDate", "op": "present" },
+      "input": "item.fields.notAfterDate",
+      "assert": { "op": "dateFormat", "value": "YYYYMMDDHHMM" }
+    },
+    {
+      "id": "ST-QR-F23",
+      "title": "QR ATL number format",
+      "description": "When populated, QR field 23 must use the C999999999 ATL format.",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-atl",
+      "source": { "doc": "MOS v9", "page": 17 },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.atlNumber", "op": "present" },
+      "input": "item.fields.atlNumber",
+      "assert": { "op": "matches", "value": "^C\\d{9}$" }
+    },
+    {
+      "id": "ST-QR-F24",
+      "title": "RA number required for returns and transfers",
+      "description": "QR field 24 (RA/TA number) is mandatory when the movement type is C (controlled return) or T (transfer).",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.movementTypeIndicator", "op": "in", "value": ["C", "T"] },
+      "input": "item.fields.raNumber",
+      "assert": { "op": "present" },
+      "messages": {
+        "pass": "RA/TA number is populated for this return/transfer movement: {actual}.",
+        "fail": "Movement type indicates a controlled return or transfer, but the RA/TA number field is blank.",
+        "missing": "Movement type indicates a controlled return or transfer, but the RA/TA number field is blank."
+      }
+    },
+    {
+      "id": "ST-HDR-06",
+      "title": "Return/transfer indicator displayed",
+      "description": "Controlled returns and transfer movements must display a *RETURN* or *TRANSFER* indicator in the centre of the label header.",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-label-layout",
+      "source": { "doc": "MOS v9", "ref": "3.003" },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.movementTypeIndicator", "op": "in", "value": ["C", "T"] },
+      "input": "text.returnTransferIndicator",
+      "assert": { "op": "present" },
+      "onMissing": "manual_review",
+      "messages": {
+        "pass": "Return/transfer indicator found on the label: {actual}.",
+        "missing": "QR movement type indicates a return/transfer, but no *RETURN* or *TRANSFER* indicator was extracted from the label text."
+      }
+    },
+    {
+      "id": "ST-ATL-EXPECTED",
+      "title": "ATL barcode present when expected",
+      "description": "When the label or QR payload indicates Authority To Leave, the C999999999 ATL barcode must be printed in the header.",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-atl",
+      "source": { "doc": "MOS v9", "ref": "1.005" },
+      "when": { "path": "derived.atlExpected", "op": "equals", "value": true },
+      "input": "barcodes.atl",
+      "evidence": ["derived.expectedAtlNumbers"],
+      "assert": { "op": "notEmpty" },
+      "messages": {
+        "pass": "ATL barcode decoded as expected.",
+        "fail": "Authority To Leave is indicated on the label, but no C999999999 ATL barcode was decoded."
+      }
+    },
+    {
+      "id": "ST-ATL-01",
+      "title": "ATL sequential counter",
+      "description": "The ATL barcode counter must start from 000000001.",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-atl",
+      "source": { "doc": "MOS v9", "page": 18 },
+      "forEach": "barcodes.atl",
+      "input": "item.counterNumber",
+      "evidence": ["item.atlNumber"],
+      "assert": { "op": "range", "min": 1, "max": 999999999 }
+    },
+    {
+      "id": "ST-ATL-05",
+      "title": "ATL barcode matches QR/visible ATL number",
+      "description": "The decoded ATL barcode must equal the ATL number carried in the QR payload and any visible ATL text.",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-atl",
+      "source": { "doc": "MOS v9", "page": 17 },
+      "when": { "path": "derived.expectedAtlNumbers", "op": "notEmpty" },
+      "forEach": "barcodes.atl",
+      "input": "item.atlNumber",
+      "evidence": ["derived.expectedAtlNumbers"],
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.expectedAtlNumbers", "normalize": ["stripSpaces", "upper"] } }
+    },
+    {
+      "id": "ST-X-01",
+      "title": "QR connote matches freight barcode",
+      "description": "The consignment number in the QR payload must equal the connote embedded in the freight item barcode.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "when": { "path": "derived.freightConnotes", "op": "notEmpty" },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.connoteNumber", "op": "present" },
+      "input": "item.fields.connoteNumber",
+      "evidence": ["derived.freightConnotes"],
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.freightConnotes", "normalize": ["stripSpaces", "upper"] } }
+    },
+    {
+      "id": "ST-X-02",
+      "title": "QR freight item matches freight barcode",
+      "description": "The freight item number in the QR payload must equal the decoded 20-character freight item barcode.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "when": { "path": "derived.freightIds", "op": "notEmpty" },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.freightItemNumber", "op": "present" },
+      "input": "item.fields.freightItemNumber",
+      "evidence": ["derived.freightIds"],
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.freightIds", "normalize": ["stripSpaces", "upper"] } }
+    }
+  ]
+}

@@ -1,14 +1,14 @@
 node_modules/
-dist/
 .DS_Store
 *.log
 
 .idea/
 *.msi
-node_modules/
+*.exe
+desktop.ini
 .env
-*.log
 
 release/
 *.zip
 *.sha256
+*.obj

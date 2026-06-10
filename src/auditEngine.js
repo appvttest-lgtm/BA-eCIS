@@ -1,5 +1,8 @@
 // Core reference data used by the audit rules. Keep these maps close to the parser
 // code because decoded barcode fields are resolved directly against them.
+import { evaluateRuleSet, registerRuleFunction, resolvePath } from './ruleEngine.js';
+import { getRuleSet } from '../rules/index.js';
+
 export const PRODUCT_CODE_MAP = {
   '00091': 'Parcel Post (Non-Signature)',
   '00093': 'Parcel Post + Signature',
@@ -771,22 +774,6 @@ function validateLabelFacts(facts) {
     ? result('VISIBLE_CONS_NO', 'Visible Cons No text', 'INFO', 'address-format', 'pass', `Visible consignment number extracted: ${facts.consignmentIds.join(', ')}.`, { actual: facts.consignmentIds.join(', ') })
     : result('VISIBLE_CONS_NO', 'Visible Cons No text', 'INFO', 'address-format', 'manual_review', 'No visible Cons No value was extracted.'));
 
-  validations.push(facts.toBlock.length
-    ? result('ADDR_TO_PRESENT', 'TO address block present', 'ERROR', 'address-format', 'pass', 'TO address block text was extracted.', { evidence: facts.toBlock.join('\n') })
-    : result('ADDR_TO_PRESENT', 'TO address block present', 'ERROR', 'address-format', 'warning', 'TO/DELIVER TO was not found or could not be isolated.'));
-
-  validations.push(facts.fromBlock.length
-    ? result('ADDR_FROM_PRESENT', 'FROM address block present', 'ERROR', 'address-format', 'pass', 'FROM address block text was extracted.', { evidence: facts.fromBlock.join('\n') })
-    : result('ADDR_FROM_PRESENT', 'FROM address block present', 'ERROR', 'address-format', 'warning', 'FROM/SENDER was not found or could not be isolated.'));
-
-  validations.push(facts.postcodeLines.length
-    ? result('ADDR_SUBURB_STATE_POSTCODE', 'Suburb/state/postcode line', 'ERROR', 'address-format', 'pass', `Detected postcode line(s): ${facts.postcodeLines.join(' | ')}.`, { actual: facts.postcodeLines.join(' | ') })
-    : result('ADDR_SUBURB_STATE_POSTCODE', 'Suburb/state/postcode line', 'ERROR', 'address-format', 'manual_review', 'Could not deterministically confirm suburb/state/postcode formatting from extracted text.'));
-
-  validations.push(facts.dangerousGoodsDeclarationPresent
-    ? result('DG_DECLARATION', 'Dangerous goods declaration', 'ERROR', 'address-format', 'pass', 'Aviation Security and Dangerous Goods Declaration text is present.', { evidence: (facts.dgBlock || []).join('\n') })
-    : result('DG_DECLARATION', 'Dangerous goods declaration', 'ERROR', 'address-format', 'manual_review', 'Dangerous goods declaration was not confirmed from extracted text.'));
-
   validations.push(facts.weightKg
     ? result('WEIGHT_PRESENT', 'Weight value visible', 'INFO', 'label-layout', 'pass', `Weight value found: ${facts.weightKg}kg.`, { actual: `${facts.weightKg}kg` })
     : result('WEIGHT_PRESENT', 'Weight value visible', 'INFO', 'label-layout', 'manual_review', 'Weight value was not extracted from the text layer or decoded barcode payload.'));
@@ -952,19 +939,19 @@ function payloadContainsAny(ctx, values = []) {
 
 function payloadComparableFieldName(v) {
   const id = String(v?.id || '').toUpperCase();
-  if (/ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|ST_FREIGHT_BARCODE_PRESENT|DATAMATRIX_PRESENT|GS1_128_PRESENT/.test(id)) return 'article_id';
-  if (/CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE/.test(id)) return 'consignment_id';
-  if (/PRODUCT|ST_QR_PRODUCT|ST_PRODUCT_KNOWN/.test(id)) return 'product_code';
-  if (/SERVICE|SERVICE_PRODUCT_MATCH/.test(id)) return 'service_code';
-  if (/ROUTE|ROUTING|ST_ROUTE/.test(id)) return 'routing_code';
-  if (/POSTCODE|DM_POSTCODE|ST_QR_POSTCODE/.test(id)) return 'delivery_postcode';
-  if (/WEIGHT|ST_WEIGHT/.test(id)) return 'weight';
-  if (/CUBE|CUBIC/.test(id)) return 'cubic_volume';
-  if (/DG|DANGEROUS/.test(id)) return 'dangerous_goods';
-  if (/ADDR_TO|RECEIVER/.test(id)) return 'receiver_address';
-  if (/ADDR_FROM|SENDER|LODGE|LODGEMENT/.test(id)) return 'lodgement_address';
-  if (/DATE|8008/.test(id)) return 'label_generation_datetime';
-  if (/LABEL_CODE|BRAND|LOGO|HEADER/.test(id)) return 'label_branding';
+  if (/CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE|EP-ART-03|EP-ART-07|ST-QR-F03|ST-X-01/.test(id)) return 'consignment_id';
+  if (/ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|ST_FREIGHT_BARCODE_PRESENT|DATAMATRIX_PRESENT|GS1_128_PRESENT|EP-ART-0[124568]|EP-LIN|EP-SS-|EP-DM-01|ST-FRT|ST-SSC|ST-X-02|ST-QR-F04/.test(id)) return 'article_id';
+  if (/PRODUCT|ST_QR_PRODUCT|ST_PRODUCT_KNOWN|EP-SVC-02|EP-SVC-07|ST-PRD|ST-QR-F05/.test(id)) return 'product_code';
+  if (/SERVICE|SERVICE_PRODUCT_MATCH|EP-SVC-01|EP-SVC-03|EP-RET-01/.test(id)) return 'service_code';
+  if (/ROUTE|ROUTING|ST_ROUTE|ST-RTE-02A|ST-RTE-03/.test(id)) return 'routing_code';
+  if (/POSTCODE|DM_POSTCODE|ST_QR_POSTCODE|EP-DM-05|EP-TO-08|ST-QR-F02|ST-RTE-02B|ST-RTE-04/.test(id)) return 'delivery_postcode';
+  if (/WEIGHT|ST_WEIGHT|ST-QR-F09|ST-ITM-04/.test(id)) return 'weight';
+  if (/CUBE|CUBIC|ST-ITM-05/.test(id)) return 'cubic_volume';
+  if (/DG|DANGEROUS|EP-LAY-07|ST-QR-F19/.test(id)) return 'dangerous_goods';
+  if (/ADDR_TO|RECEIVER|EP-TO-|ST-RCV/.test(id)) return 'receiver_address';
+  if (/ADDR_FROM|SENDER|LODGE|LODGEMENT|EP-FR-|ST-SND/.test(id)) return 'lodgement_address';
+  if (/DATE|8008|EP-DM-07|EP-LAY-06|ST-QR-F11/.test(id)) return 'label_generation_datetime';
+  if (/LABEL_CODE|BRAND|LOGO|HEADER|EP-LAY-05|ST-HDR-0[12]/.test(id)) return 'label_branding';
   return '';
 }
 
@@ -1050,7 +1037,7 @@ function applyPayloadIdentityGate(audit, apiPayload) {
 }
 
 function payloadIdentityRule(id) {
-  return /ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|GS1_PREFIX|DATAMATRIX_PRESENT|GS1_128_PRESENT|ST_FREIGHT_BARCODE_PRESENT|ST_SSCC|CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE/i.test(String(id || ''));
+  return /ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|GS1_PREFIX|DATAMATRIX_PRESENT|GS1_128_PRESENT|ST_FREIGHT_BARCODE_PRESENT|ST_SSCC|CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE|EP-ART|EP-LIN|EP-SS|EP-DM-01|ST-FRT|ST-SSC|ST-X-0[12]|ST-QR-F0[34]/i.test(String(id || ''));
 }
 
 /** Compares one validation row against matched Get Shipments evidence where a field mapping exists. */
@@ -1070,7 +1057,7 @@ function compareValidationToApiPayload(v, audit, ctx) {
     return withField(null, 'Get Shipments payload identity did not match this label; secondary field comparison suppressed.');
   }
 
-  if (/ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|GS1_PREFIX|DATAMATRIX_PRESENT|GS1_128_PRESENT|ST_FREIGHT_BARCODE_PRESENT|ST_SSCC/i.test(id)) {
+  if (/ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|GS1_PREFIX|DATAMATRIX_PRESENT|GS1_128_PRESENT|ST_FREIGHT_BARCODE_PRESENT|ST_SSCC|EP-ART-0[124568]|EP-LIN|EP-SS-|EP-DM-01|ST-FRT|ST-SSC|ST-X-02|ST-QR-F04/i.test(id)) {
     const articleValues = [
       ...articles.map(a => a.articleId || a.freightItemId || a.sscc).filter(Boolean),
       ...ssccArticles.map(a => a.sscc).filter(Boolean),
@@ -1082,7 +1069,7 @@ function compareValidationToApiPayload(v, audit, ctx) {
     return withField(match, articleValues.length ? `Compared article_id values: ${articleValues.join(', ')}` : '', payloadEvidenceForValues(ctx, articleValues));
   }
 
-  if (/CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE/i.test(id)) {
+  if (/CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE|EP-ART-03|EP-ART-07|ST-QR-F03|ST-X-01/i.test(id)) {
     const connoteValues = [
       ...(facts.consignmentIds || []),
       ...eparcelArticles.map(a => a.consignmentId).filter(Boolean),
@@ -1093,7 +1080,7 @@ function compareValidationToApiPayload(v, audit, ctx) {
     return withField(match, connoteValues.length ? `Compared consignment_id values: ${connoteValues.join(', ')}` : '', payloadEvidenceForValues(ctx, connoteValues));
   }
 
-  if (/PRODUCT|SERVICE_KNOWN|SERVICE_PRODUCT_MATCH|ST_QR_PRODUCT|ST_ROUTE_PRODUCT_MATCH/i.test(id)) {
+  if (/PRODUCT|SERVICE_KNOWN|SERVICE_PRODUCT_MATCH|ST_QR_PRODUCT|ST_ROUTE_PRODUCT_MATCH|EP-SVC|EP-RET-01|ST-PRD|ST-QR-F05|ST-RTE-03/i.test(id)) {
     const productCodes = [
       ...eparcelArticles.map(a => a.productCode).filter(Boolean),
       ...(startrack.freightParses || []).map(f => f.productCode),
@@ -1111,7 +1098,7 @@ function compareValidationToApiPayload(v, audit, ctx) {
     return withField(finalMatch, `Compared product_code/service_code/label_code values: ${[...productCodes, ...serviceCodes, ...labelCodes].join(', ') || 'none'}.`, payloadEvidenceForValues(ctx, [...productCodes, ...serviceCodes, ...labelCodes]));
   }
 
-  if (/ROUTE|ROUTING|POSTCODE|DM_POSTCODE|ST_QR_POSTCODE/i.test(id)) {
+  if (/ROUTE|ROUTING|POSTCODE|DM_POSTCODE|ST_QR_POSTCODE|EP-DM-05|EP-TO-08|ST-QR-F02|ST-RTE/i.test(id)) {
     const postcodes = [
       ...((facts.postcodeLines || []).join(' ').match(/\b\d{4}\b/g) || []),
       ...(audit?.parsed || []).map(p => p.postcode).filter(Boolean),
@@ -1122,7 +1109,7 @@ function compareValidationToApiPayload(v, audit, ctx) {
     return withField(match, postcodes.length ? `Compared delivery_postcode values: ${[...new Set(postcodes)].join(', ')}` : '', payloadEvidenceForValues(ctx, [...new Set(postcodes)]));
   }
 
-  if (/WEIGHT|ST_WEIGHT/i.test(id)) {
+  if (/WEIGHT|ST_WEIGHT|ST-QR-F09|ST-ITM-04/i.test(id)) {
     const weights = [facts.weightKg, ...(startrack.qrParses || []).map(q => q.fields?.consignmentWeight)].filter(Boolean);
     const normalizedWeights = weights.flatMap(w => {
       const asText = String(w).trim();
@@ -1133,40 +1120,40 @@ function compareValidationToApiPayload(v, audit, ctx) {
     return withField(match, weights.length ? `Compared weight values: ${weights.join(', ')}` : '', payloadEvidenceForValues(ctx, normalizedWeights));
   }
 
-  if (/CUBE|CUBIC/i.test(id)) {
+  if (/CUBE|CUBIC|ST-ITM-05/i.test(id)) {
     const cubes = [facts.cube, ...(startrack.qrParses || []).map(q => q.fields?.consignmentCube)].filter(Boolean);
     const match = payloadContainsAny(ctx, cubes);
     return withField(match, cubes.length ? `Compared cubic_volume values: ${cubes.join(', ')}` : '', payloadEvidenceForValues(ctx, cubes));
   }
 
-  if (/DG|DANGEROUS/i.test(id)) {
+  if (/DG|DANGEROUS|EP-LAY-07|ST-QR-F19/i.test(id)) {
     const apiDg = payloadBool(ctx, [/dangerous[_\s-]*goods/i, /dg[_\s-]*indicator/i, /contains[_\s-]*dangerous/i]);
     if (apiDg === null) return withField(null);
     const labelDg = Boolean(facts.dangerousGoodsDeclarationPresent || (startrack.qrParses || []).some(q => q.fields?.dangerousGoodsIndicator === 'Y'));
     return withField(apiDg === labelDg, `API dangerous_goods=${apiDg}; label dangerous_goods=${labelDg}.`, payloadEvidenceForPathPatterns(ctx, [/dangerous[_\s-]*goods/i, /dg[_\s-]*indicator/i, /contains[_\s-]*dangerous/i]));
   }
 
-  if (/ADDR_TO|RECEIVER/i.test(id)) {
+  if (/ADDR_TO|RECEIVER|EP-TO-|ST-RCV/i.test(id)) {
     const receiverValues = [...(facts.toBlock || []), ...(facts.postcodeLines || [])];
     const coverage = payloadTokenCoverage(ctx, receiverValues, { minTokens: 3 });
     if (!coverage) return withField(null);
     return withField(coverage.ok, `receiver_address token match ${coverage.matches.length}/${coverage.tokens.length}: ${coverage.matches.slice(0, 8).join(', ')}`, payloadEvidenceForTokens(ctx, coverage.matches));
   }
 
-  if (/ADDR_FROM|SENDER|LODGE|LODGEMENT/i.test(id)) {
+  if (/ADDR_FROM|SENDER|LODGE|LODGEMENT|EP-FR-|ST-SND/i.test(id)) {
     const senderValues = [...(facts.fromBlock || [])];
     const coverage = payloadTokenCoverage(ctx, senderValues, { minTokens: 3 });
     if (!coverage) return withField(null);
     return withField(coverage.ok, `lodgement_address token match ${coverage.matches.length}/${coverage.tokens.length}: ${coverage.matches.slice(0, 8).join(', ')}`, payloadEvidenceForTokens(ctx, coverage.matches));
   }
 
-  if (/DATE|8008/i.test(id)) {
+  if (/DATE|8008|EP-DM-07|EP-LAY-06|ST-QR-F11/i.test(id)) {
     const dates = [v.actual, ...(audit?.parsed || []).map(p => p.dateTime).filter(Boolean)].filter(Boolean);
     const match = payloadContainsAny(ctx, dates);
     return withField(match, dates.length ? `Compared label_generation_datetime values: ${dates.join(', ')}` : '', payloadEvidenceForValues(ctx, dates));
   }
 
-  if (/LABEL_CODE|BRAND|LOGO|HEADER/i.test(id)) {
+  if (/LABEL_CODE|BRAND|LOGO|HEADER|EP-LAY-05|ST-HDR-0[12]/i.test(id)) {
     const values = [facts.labelType, facts.labelCode, audit?.carrier === 'startrack' ? 'StarTrack' : 'Australia Post'].filter(Boolean);
     const match = payloadContainsAny(ctx, values);
     return withField(match, values.length ? `Compared label_branding values: ${values.join(', ')}` : '', payloadEvidenceForValues(ctx, values));
@@ -1189,6 +1176,244 @@ function attachApiPayloadComparison(audit, payloadText) {
 }
 
 /** Runs the full eParcel rule set against one rendered label/page. */
+// --- JSON rule-set support ---------------------------------------------------
+// Custom assert functions referenced by name from the /rules JSON files, plus
+// the evidence-context builders the declarative rules resolve their paths against.
+
+function normalizeForCompare(value, steps = []) {
+  let out = value === undefined || value === null ? '' : String(value);
+  for (const step of steps) {
+    if (step === 'stripSpaces') out = out.replace(/\s+/g, '');
+    if (step === 'upper') out = out.toUpperCase();
+    if (step === 'trim') out = out.trim();
+    if (step === 'digitsOnly') out = out.replace(/\D+/g, '');
+  }
+  return out;
+}
+
+registerRuleFunction('pageSizeWithin', (page, { args }) => {
+  const widthMm = page?.widthMm;
+  const heightMm = page?.heightMm;
+  if (!widthMm || !heightMm) {
+    return { pass: false, status: 'manual_review', message: 'Physical dimensions could not be determined from this file.' };
+  }
+  const tolerance = args?.toleranceMm ?? 5;
+  const sizes = args?.sizesMm || [];
+  const pass = sizes.some(([w, h]) =>
+    (Math.abs(widthMm - w) <= tolerance && Math.abs(heightMm - h) <= tolerance) ||
+    (Math.abs(widthMm - h) <= tolerance && Math.abs(heightMm - w) <= tolerance));
+  return {
+    pass,
+    expected: `${sizes.map(([w, h]) => `${w}mm x ${h}mm`).join(' or ')} (within ${tolerance}mm, either orientation)`,
+    actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm`
+  };
+});
+
+registerRuleFunction('inPathList', (value, { context, item, args }) => {
+  const raw = resolvePath(args?.path, context, item);
+  const list = (Array.isArray(raw) ? raw : (raw === undefined || raw === null || raw === '' ? [] : [raw]))
+    .map(v => normalizeForCompare(v, args?.normalize)).filter(Boolean);
+  if (!list.length) {
+    return { pass: false, status: 'manual_review', expected: `a matching value in ${args?.path}`, actual: 'no comparison values available', message: `No values were available at ${args?.path} to compare against.` };
+  }
+  const needle = normalizeForCompare(value, args?.normalize);
+  return { pass: list.includes(needle), expected: list.join(', '), actual: needle || 'missing' };
+});
+
+registerRuleFunction('eparcelCheckDigit', (article) => {
+  if (!article?.withoutCheckDigit) {
+    return { pass: false, status: 'manual_review', message: 'Article body unavailable for check digit calculation.' };
+  }
+  const cd = calculateEparcelCheckDigit(article.withoutCheckDigit);
+  const pass = cd.checkDigit === article.checkDigit;
+  return {
+    pass,
+    expected: cd.checkDigit,
+    actual: article.checkDigit,
+    evidence: cd.steps,
+    message: pass ? `Check digit is valid: ${article.checkDigit}.` : `Check digit mismatch. Expected ${cd.checkDigit}, got ${article.checkDigit}.`
+  };
+});
+
+registerRuleFunction('serviceProductCompatible', (article) => {
+  const service = SERVICE_CODE_MAP[article?.serviceCode];
+  if (!service) {
+    return { pass: true, message: `Service code ${article?.serviceCode || 'unknown'} is not recognised; the known-service rule reports that separately.` };
+  }
+  const validProducts = SERVICE_TO_PRODUCT_MAP[article.serviceCode] || [];
+  const pass = validProducts.includes(article.productCode);
+  return {
+    pass,
+    expected: validProducts.join(', '),
+    actual: article.productCode,
+    message: pass
+      ? `Service ${article.serviceCode} (${service.name}) supports product ${article.productCode}.`
+      : `Service ${article.serviceCode} (${service.name}) does not support product ${article.productCode}.`
+  };
+});
+
+registerRuleFunction('linearDmAgreement', (derived) => {
+  const linear = [...new Set(derived?.linearArticleIds || [])];
+  const dm = [...new Set(derived?.dmArticleIds || [])];
+  const pass = dm.every(id => linear.includes(id)) && linear.every(id => dm.includes(id));
+  return {
+    pass,
+    expected: 'identical article numbers in both symbols',
+    actual: `linear: ${linear.join(', ') || 'none'} | datamatrix: ${dm.join(', ') || 'none'}`,
+    message: pass
+      ? 'The linear barcode and DataMatrix encode the same article number(s).'
+      : 'The linear barcode and DataMatrix do not encode the same article number(s).'
+  };
+});
+
+registerRuleFunction('routeProductMatch', (route, { context }) => {
+  const product = resolvePath('derived.primaryProductCode', context);
+  const expectedLabelCode = STARTRACK_PRODUCT_CODE_MAP[product]?.labelCode;
+  if (!expectedLabelCode) {
+    return { pass: true, message: `Product ${product || 'unknown'} has no routing label code mapping to assert.` };
+  }
+  const pass = route?.labelCode === expectedLabelCode;
+  return {
+    pass,
+    expected: expectedLabelCode,
+    actual: route?.labelCode || 'missing',
+    message: pass
+      ? `Routing label code ${route.labelCode} matches product ${product}.`
+      : `Routing label code ${route?.labelCode || 'missing'} does not match product ${product}.`
+  };
+});
+
+const ST_QR_MANDATORY_FIELDS = [
+  ['receiverSuburb', 'Receiver suburb'], ['receiverPostcode', 'Receiver postcode'], ['connoteNumber', 'Consignment number'],
+  ['freightItemNumber', 'Freight item number'], ['productCode', 'Product code'], ['consignmentQuantity', 'Consignment quantity'],
+  ['consignmentWeight', 'Consignment weight'], ['despatchDate', 'Despatch date'], ['receiverName1', 'Receiver name'],
+  ['unitType', 'Unit type'], ['destinationDepot', 'Destination depot'], ['receiverAddress1', 'Receiver address line 1'],
+  ['dangerousGoodsIndicator', 'Dangerous goods indicator'], ['movementTypeIndicator', 'Movement type indicator']
+];
+
+registerRuleFunction('qrMandatoryFields', (fields) => {
+  const missing = ST_QR_MANDATORY_FIELDS.filter(([key]) => !String(fields?.[key] || '').trim()).map(([, label]) => label);
+  return {
+    pass: missing.length === 0,
+    expected: 'all mandatory QR fields populated',
+    actual: missing.length ? `missing: ${missing.join(', ')}` : 'all populated',
+    message: missing.length ? `QR mandatory fields missing: ${missing.join(', ')}.` : 'Mandatory QR fields are populated.'
+  };
+});
+
+registerRuleFunction('startrackUnitPermitted', (fields) => {
+  const unitType = fields?.unitType;
+  const allowed = STARTRACK_UNIT_TYPE_MAP[unitType] || [];
+  const pass = Boolean(allowed.length && (!fields?.productCode || allowed.includes(fields.productCode)));
+  return {
+    pass,
+    expected: allowed.length ? `unit ${unitType} permitted for: ${allowed.join(', ')}` : 'a known Appendix A unit type',
+    actual: `${unitType || 'blank'} for product ${fields?.productCode || 'unknown'}`,
+    message: pass
+      ? `Unit type ${unitType} is permitted${fields?.productCode ? ` for ${fields.productCode}` : ''}.`
+      : `Unit type ${unitType || 'blank'} could not be confirmed against product ${fields?.productCode || 'unknown'}.`
+  };
+});
+
+function lastAddressLine(block = []) {
+  return [...block].reverse().find(line => /\d{4}\s*$/.test(String(line))) || block[block.length - 1] || '';
+}
+
+function buildEparcelRuleContext({ fileInfo, facts, selectedFormat, parsed, dmParses, articles, invalidAnalyses, validSsccs, invalidSsccs, decodedLinear, decodedDm }) {
+  const linearParses = parsed.filter(p => p.hasAi01 !== undefined);
+  const gs1Items = [...linearParses, ...dmParses.map(p => p.base).filter(Boolean)].map(p => ({
+    raw: p.raw,
+    compact: p.compact,
+    prefix16: (p.compact || '').slice(0, 16),
+    hasAi01: Boolean(p.hasAi01),
+    hasAi91: Boolean(p.hasAi91),
+    hasAusPostGtin: Boolean(p.hasAusPostGtin)
+  }));
+  const toBlock = facts.toBlock || [];
+  const fromBlock = facts.fromBlock || [];
+  const postcodes4 = [...new Set([...(facts.postcodeLines || []), ...toBlock].flatMap(line => String(line).match(/\b\d{4}\b/g) || []))];
+  return {
+    page: { widthMm: fileInfo?.widthMm, heightMm: fileInfo?.heightMm, pageCount: fileInfo?.pageCount || 1 },
+    text: {
+      ...facts,
+      toLastLine: lastAddressLine(toBlock),
+      fromLastLine: lastAddressLine(fromBlock),
+      postcodes4,
+      labelDates: facts.dateCodeMMDD ? [facts.dateCodeMMDD] : [],
+      dgPresent: Boolean(facts.dangerousGoodsDeclarationPresent),
+      dgBlock: (facts.dgBlock || []).join('\n')
+    },
+    barcodes: {
+      linearPresent: Boolean(decodedLinear),
+      dataMatrixPresent: Boolean(decodedDm),
+      gs1: gs1Items,
+      datamatrix: dmParses,
+      sscc: { valid: validSsccs, invalid: invalidSsccs }
+    },
+    articles,
+    derived: {
+      linearArticleIds: linearParses.map(p => p.article?.articleId).filter(Boolean),
+      dmArticleIds: dmParses.map(p => p.base?.article?.articleId).filter(Boolean),
+      invalidArticleReasons: invalidAnalyses.map(a => `${a.candidate}: ${a.reason}`).join('\n'),
+      invalidSsccReasons: invalidSsccs.map(s => s.reason).join('\n')
+    },
+    selected: { carrier: 'eparcel', format: selectedFormat }
+  };
+}
+
+function selectEparcelVariant(selectedFormat, articles, facts) {
+  if (selectedFormat === 'sscc') return 'sscc';
+  const products = articles.filter(a => a.type === 'eparcel-standard').map(a => a.productCode);
+  if (products.some(code => code === '00065' || code === '00068')) return 'returns';
+  if (products.some(code => code === '00096' || code === '00087')) return 'express-post';
+  if (products.length) return 'parcel-post';
+  if (/express/i.test(facts?.labelType || '')) return 'express-post';
+  if (/parcel/i.test(facts?.labelType || '')) return 'parcel-post';
+  return 'base';
+}
+
+function buildStarTrackRuleContext({ fileInfo, facts, selectedFormat, qrParses, freightParses, routingParses, atlParses, validSsccs, invalidSsccs, expectedAtlNumbers, atlExpected }) {
+  const lines = facts.lines || [];
+  return {
+    page: { widthMm: fileInfo?.widthMm, heightMm: fileInfo?.heightMm, pageCount: fileInfo?.pageCount || 1 },
+    text: {
+      ...facts,
+      hasStarTrackHeader: lines.some(l => /STAR\s*TRACK|STARTRACK/i.test(l)),
+      returnTransferIndicator: ((lines.join('\n').match(/\*\s*(RETURN|TRANSFER)\s*\*/i) || [])[0] || '').trim()
+    },
+    barcodes: {
+      qrPresent: qrParses.length > 0,
+      freightPresent: freightParses.length > 0,
+      routingPresent: routingParses.length > 0,
+      qr: qrParses,
+      freight: freightParses,
+      routing: routingParses,
+      atl: atlParses,
+      sscc: { valid: validSsccs, invalid: invalidSsccs }
+    },
+    derived: {
+      qrPostcodes: uniqueNonEmpty(qrParses.map(q => q.fields?.receiverPostcode)),
+      freightConnotes: uniqueNonEmpty(freightParses.map(f => f.connoteNumber)),
+      freightIds: uniqueNonEmpty(freightParses.map(f => f.freightItemId)),
+      primaryProductCode: freightParses[0]?.productCode || qrParses[0]?.productCode || '',
+      expectedAtlNumbers,
+      atlExpected: Boolean(atlExpected),
+      invalidSsccReasons: invalidSsccs.map(s => s.reason).join('\n'),
+      receiverEvidence: [...(facts.toBlock || []), ...(facts.postcodeLines || [])]
+    },
+    selected: { carrier: 'startrack', format: selectedFormat }
+  };
+}
+
+function selectStarTrackVariant(selectedFormat, productCodes) {
+  if (selectedFormat === 'sscc') return 'sscc';
+  const codes = productCodes.filter(Boolean);
+  if (codes.some(c => c === 'FPP' || c === 'FPA')) return 'fpp';
+  if (codes.some(c => ['PRM', 'APT', 'ARL'].includes(c))) return 'premium';
+  if (codes.some(c => ['EXP', 'TSE', 'RET', 'RE2'].includes(c))) return 'express';
+  return 'base';
+}
+
 function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '', ssccExtensionDigit = '', labelFormat = 'standard' }) {
   const validations = [];
   const selectedFormat = normalizeLabelFormat(labelFormat);
@@ -1201,38 +1426,10 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
   const decodedValues = decodedRawValues(detectedBarcodes);
   const allRawBarcodes = [...decodedValues];
 
-  const pageCount = fileInfo?.pageCount || 1;
-  const widthMm = fileInfo?.widthMm;
-  const heightMm = fileInfo?.heightMm;
-
-  if (widthMm && heightMm) {
-    const portraitOk = Math.abs(widthMm - 105) <= 5 && Math.abs(heightMm - 148) <= 5;
-    const landscapeOk = Math.abs(widthMm - 148) <= 5 && Math.abs(heightMm - 105) <= 5;
-    validations.push(portraitOk || landscapeOk
-      ? result('A6_SIZE', 'A6 label dimensions', 'WARNING', 'label-layout', 'pass', `Page dimensions match an accepted eParcel A6-style label size (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: 'A6 105mm x 148mm or thermal 100mm x 150mm, portrait or landscape, within tolerance', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` })
-      : result('A6_SIZE', 'A6 label dimensions', 'WARNING', 'label-layout', 'warning', `Page dimensions do not match the accepted eParcel A6-style label sizes (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: 'A6 105mm x 148mm or thermal 100mm x 150mm, portrait or landscape, within tolerance', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` }));
-  } else {
-    validations.push(result('A6_SIZE', 'A6 label dimensions', 'WARNING', 'label-layout', 'manual_review', 'Physical dimensions could not be determined from this file. Review whether the label is A6-style, such as 105mm x 148mm or 100mm x 150mm.'));
-  }
-
   validations.push(...validateLabelFacts(facts));
 
-  const visualLinear = Boolean(visualEvidence?.linearBarcodeVisible);
-  const visualDm = Boolean(visualEvidence?.dataMatrixVisible);
   const decodedLinear = decodedLinearPresent(detectedBarcodes);
   const decodedDm = decodedDataMatrixPresent(detectedBarcodes);
-
-  if (decodedLinear) {
-    validations.push(result('GS1_128_PRESENT', 'GS1-128 Linear Barcode decoded', 'CRITICAL', 'gs1-128', 'pass', 'Required GS1-128 Linear Barcode was decoded from the uploaded file.'));
-  } else {
-    validations.push(result('GS1_128_PRESENT', 'GS1-128 Linear Barcode decoded', 'CRITICAL', 'gs1-128', 'fail', visualLinear ? 'A GS1-128 Linear Barcode appears visible, but it was not decoded by the scanner pipeline.' : 'No GS1-128 Linear Barcode was decoded from the uploaded file.', { evidence: visualEvidence?.linearEvidence || '' }));
-  }
-
-  if (decodedDm) {
-    validations.push(result('DATAMATRIX_PRESENT', 'GS1 DataMatrix Barcode decoded', 'CRITICAL', 'datamatrix', 'pass', 'Required GS1 DataMatrix Barcode was decoded from the uploaded file.'));
-  } else {
-    validations.push(result('DATAMATRIX_PRESENT', 'GS1 DataMatrix Barcode decoded', 'CRITICAL', 'datamatrix', 'fail', visualDm ? 'A GS1 DataMatrix square symbol appears visible, but it was not decoded by the scanner pipeline.' : 'No GS1 DataMatrix Barcode was decoded from the uploaded file.', { evidence: visualEvidence?.dataMatrixEvidence || '' }));
-  }
 
   const parsed = allRawBarcodes.map(raw => looksLikeDataMatrix(raw) ? parseGs1DataMatrix(raw) : parseEparcelBarcode(raw));
   const ssccParses = allRawBarcodes.map(parseSsccBarcode).filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
@@ -1267,85 +1464,16 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
   }));
   validations.push(...validateExpectedSsccPrefix({ expectedSscc, validSsccs, invalidSsccs, category: 'sscc', idPrefix: 'SSCC_EXPECTED' }));
 
-  if (articles.length === 0 && invalidAnalyses.length === 0) {
-    validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'fail', selectedFormat === 'sscc' ? 'SSCC assessment was selected, but no SSCC article ID could be extracted from decoded barcode data.' : 'Standard article format was selected, but no standard eParcel article ID could be extracted from decoded barcode data. Visible AP Article ID text is context only.'));
-  } else if (articles.length === 0 && invalidAnalyses.length) {
-    validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'fail', invalidAnalyses[0].reason, { expected: '21-char eParcel, 23-char eParcel, or 20-digit SSCC including AI 00', actual: invalidAnalyses.map(a => a.candidate).join(', ') }));
-  } else {
-    validations.push(result('ARTICLE_PARSE', 'Article ID parse', 'CRITICAL', 'barcode-structure', 'pass', selectedFormat === 'sscc' ? `${articles.length} valid SSCC article ID(s) parsed.` : `${articles.length} valid standard article ID(s) parsed.`, { actual: articles.map(a => a.articleId).join(', ') }));
-  }
-
-  for (const [i, p] of parsed.entries()) {
-    if (p.hasAi01 !== undefined) {
-      validations.push(p.hasAusPostGtin
-        ? result(`GS1_PREFIX_${i}`, 'AI 01 Australia Post GTIN', 'CRITICAL', 'gs1-128', 'pass', 'Decoded barcode begins with AI 01 and the expected Australia Post GTIN 99312650999998.', { actual: p.compact?.slice(0, 16) })
-        : result(`GS1_PREFIX_${i}`, 'AI 01 Australia Post GTIN', 'CRITICAL', 'gs1-128', p.hasAi01 ? 'fail' : 'not_applicable', p.hasAi01 ? 'Barcode has AI 01 but does not match the expected Australia Post GTIN.' : 'Raw value is not an AI 01 GS1 string; GTIN validation is not applicable.', { expected: '0199312650999998', actual: p.compact?.slice(0, 16) || '' }));
-
-      validations.push(p.hasAi91
-        ? result(`AI91_${i}`, 'AI 91 article component', 'CRITICAL', 'gs1-128', 'pass', 'AI 91 article component was found.')
-        : result(`AI91_${i}`, 'AI 91 article component', 'CRITICAL', 'gs1-128', p.hasAi01 ? 'fail' : 'not_applicable', p.hasAi01 ? 'AI 91 was not found after the AusPost GTIN prefix.' : 'AI 91 not applicable to HRI-only fallback.'));
-    }
-  }
-
   for (const [i, article] of articles.entries()) {
     if (article.type === 'sscc') {
       validations.push(result(`SSCC_${i}`, 'SSCC article detected', 'INFO', 'sscc', 'pass', `SSCC detected: ${article.sscc}. Embedded product/service/check-digit validation does not apply.`, { actual: article.sscc }));
-      continue;
     }
-
-    validations.push(/^[A-Z0-9]{3}$|^[A-Z0-9]{5}$/.test(article.mlid)
-      ? result(`MLID_${i}`, 'MLID format', 'ERROR', 'barcode-structure', 'pass', `MLID ${article.mlid} is ${article.mlidLength} uppercase alphanumeric characters.`, { actual: article.mlid })
-      : result(`MLID_${i}`, 'MLID format', 'ERROR', 'barcode-structure', 'fail', `Invalid MLID ${article.mlid}.`, { expected: '3 or 5 uppercase alphanumeric characters', actual: article.mlid }));
-
-    validations.push(/^\d{7}$/.test(article.consignmentSuffix)
-      ? result(`CONSIGNMENT_${i}`, 'Consignment suffix', 'ERROR', 'barcode-structure', 'pass', `Consignment suffix is 7 digits: ${article.consignmentSuffix}.`, { actual: article.consignmentSuffix })
-      : result(`CONSIGNMENT_${i}`, 'Consignment suffix', 'ERROR', 'barcode-structure', 'fail', `Consignment suffix is invalid: ${article.consignmentSuffix}.`, { expected: '7 digits', actual: article.consignmentSuffix }));
-
-    if (facts.consignmentIds.length) {
-      validations.push(facts.consignmentIds.includes(article.consignmentId)
-        ? result(`CONSIGNMENT_MATCH_${i}`, 'Visible consignment matches article ID', 'ERROR', 'barcode-structure', 'pass', 'Visible Cons No matches parsed article consignment ID.', { actual: article.consignmentId })
-        : result(`CONSIGNMENT_MATCH_${i}`, 'Visible consignment matches article ID', 'ERROR', 'barcode-structure', 'fail', 'Visible Cons No does not match parsed article consignment ID.', { expected: article.consignmentId, actual: facts.consignmentIds.join(', ') }));
-    }
-
-    const countNum = Number(article.articleCount);
-    validations.push(countNum >= 1 && countNum <= 20
-      ? result(`ARTICLE_COUNT_${i}`, 'Article count 01-20', 'ERROR', 'barcode-structure', 'pass', `Article count ${article.articleCount} is within 01-20.`, { actual: article.articleCount })
-      : result(`ARTICLE_COUNT_${i}`, 'Article count 01-20', 'ERROR', 'barcode-structure', 'fail', `Article count ${article.articleCount} is outside 01-20.`, { expected: '01 to 20', actual: article.articleCount }));
-
-    validations.push(article.postagePaidIndicator === '0'
-      ? result(`POSTAGE_PAID_${i}`, 'Postage paid indicator', 'ERROR', 'barcode-structure', 'pass', 'Postage paid indicator is 0.', { actual: article.postagePaidIndicator })
-      : result(`POSTAGE_PAID_${i}`, 'Postage paid indicator', 'ERROR', 'barcode-structure', 'fail', 'Postage paid indicator must be 0.', { expected: '0', actual: article.postagePaidIndicator }));
-
-    const cd = calculateEparcelCheckDigit(article.withoutCheckDigit);
-    validations.push(cd.checkDigit === article.checkDigit
-      ? result(`CHECK_DIGIT_${i}`, 'eParcel check digit', 'CRITICAL', 'check-digit', 'pass', `Check digit is valid: ${article.checkDigit}.`, { expected: cd.checkDigit, actual: article.checkDigit, evidence: cd.steps })
-      : result(`CHECK_DIGIT_${i}`, 'eParcel check digit', 'CRITICAL', 'check-digit', 'fail', `Check digit mismatch. Expected ${cd.checkDigit}, got ${article.checkDigit}.`, { expected: cd.checkDigit, actual: article.checkDigit, evidence: cd.steps }));
-
-    validations.push(...validateServiceProduct(article));
   }
 
-  for (const [i, dm] of dmParses.entries()) {
-    validations.push(dm.hasAi420 && /^\d{4}$/.test(dm.postcode || '')
-      ? result(`DM_POSTCODE_${i}`, 'AI 420 delivery postcode', 'CRITICAL', 'datamatrix', 'pass', `AI 420 postcode is present: ${dm.postcode}.`, { actual: dm.postcode })
-      : result(`DM_POSTCODE_${i}`, 'AI 420 delivery postcode', 'CRITICAL', 'datamatrix', 'fail', 'AI 420 delivery postcode is missing or invalid.', { expected: 'AI 420 + 4 digit postcode', actual: dm.postcode || 'missing' }));
-
-    validations.push(dm.hasAi8008 && /^\d{12}$/.test(dm.dateTime || '')
-      ? result(`DM_8008_${i}`, 'AI 8008 label generation date/time', 'CRITICAL', 'datamatrix', 'pass', `AI 8008 date/time is present: ${dm.dateTime}.`, { actual: dm.dateTime })
-      : result(`DM_8008_${i}`, 'AI 8008 label generation date/time', 'CRITICAL', 'datamatrix', 'fail', 'AI 8008 label generation date/time is missing or invalid.', { expected: 'AI 8008 + YYMMDDHHMMSS', actual: dm.dateTime || 'missing' }));
-
-    if (dm.hasAi92) {
-      validations.push(/^\d{8}$/.test(dm.dpid || '') && dm.dpid !== '00000000'
-        ? result(`DM_DPID_${i}`, 'AI 92 Delivery Point Identifier (DPID)', 'ERROR', 'datamatrix', 'pass', `DPID is present and valid: ${dm.dpid}.`, { actual: dm.dpid })
-        : result(`DM_DPID_${i}`, 'AI 92 Delivery Point Identifier (DPID)', 'ERROR', 'datamatrix', 'fail', 'DPID is present but invalid. If unavailable, omit AI 92 and its separator entirely.', { expected: '8 digits, not 00000000', actual: dm.dpid || 'missing' }));
-    } else {
-      validations.push(result(`DM_DPID_${i}`, 'AI 92 Delivery Point Identifier (DPID)', 'INFO', 'datamatrix', 'not_applicable', 'DPID is absent. This is allowed if AI 92 and its separator are omitted.'));
-    }
-
-    validations.push(dm.invalidLiteralSeparators
-      ? result(`DM_SEPARATORS_${i}`, 'FNC1 group separator encoding', 'CRITICAL', 'datamatrix', 'fail', 'Invalid literal separator marker detected, such as FNC1, _1, or $. The GS1 FNC1/group separator must be encoded as a control character, not printed text.', { actual: dm.raw })
-      : result(`DM_SEPARATORS_${i}`, 'FNC1 group separator encoding', 'INFO', 'datamatrix', 'pass', 'No invalid literal FNC1/group separator markers were found.'));
-  }
-
+  const ruleContext = buildEparcelRuleContext({ fileInfo, facts, selectedFormat, parsed, dmParses, articles, invalidAnalyses, validSsccs, invalidSsccs, decodedLinear, decodedDm });
+  const ruleVariant = selectEparcelVariant(selectedFormat, articles, facts);
+  const ruleSet = getRuleSet('eparcel', ruleVariant);
+  validations.push(...evaluateRuleSet(ruleSet, ruleContext));
 
   const summary = summarizeValidations(validations);
 
@@ -1358,6 +1486,7 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
     manualBarcodeCount: manualValues.length,
     expectedSscc,
     selectedAuditMode: { carrier: 'eparcel', labelFormat: selectedFormat },
+    ruleSet: { id: ruleSet.id, name: ruleSet.name, variant: ruleVariant, spec: ruleSet.spec || null },
     parsed,
     articles,
     invalidArticleCandidates: invalidAnalyses,
@@ -1662,25 +1791,6 @@ function validateStarTrackTextFacts(facts) {
   validations.push(facts.extractedLineCount > 0
     ? result('ST_TEXT_EXTRACTED', 'Visible text extracted', 'INFO', 'startrack-label-layout', 'pass', `${facts.extractedLineCount} text line(s) were extracted from the file.`, { evidence: facts.lines.slice(0, 50).join('\n') })
     : result('ST_TEXT_EXTRACTED', 'Visible text extracted', 'WARNING', 'startrack-label-layout', 'manual_review', 'No selectable text was extracted. Barcode evidence is still assessed from the rendered image.'));
-  validations.push(result('ST_LOGO_HEADER', 'StarTrack logo/header', 'INFO', 'startrack-label-layout', facts.lines.some(l => /STAR\s*TRACK|STARTRACK/i.test(l)) ? 'pass' : 'manual_review', facts.lines.some(l => /STAR\s*TRACK|STARTRACK/i.test(l)) ? 'StarTrack header text was found.' : 'StarTrack logo/header may be image-only or was not extracted as text.'));
-  validations.push(facts.labelCode
-    ? result('ST_LABEL_CODE_VISIBLE', 'StarTrack label code evidence', 'INFO', 'startrack-label-layout', 'pass', `Label/product code evidence found: ${facts.labelCode}.`, { actual: facts.labelCode })
-    : result('ST_LABEL_CODE_VISIBLE', 'StarTrack label code evidence', 'INFO', 'startrack-label-layout', 'manual_review', 'A three-character label code was not extracted from the text layer or barcode data.'));
-  validations.push(facts.consignmentIds.length
-    ? result('ST_CONNOTE_VISIBLE', 'Connote number evidence', 'INFO', 'startrack-label-layout', 'pass', `Connote number evidence found: ${facts.consignmentIds.join(', ')}.`, { actual: facts.consignmentIds.join(', ') })
-    : result('ST_CONNOTE_VISIBLE', 'Connote number evidence', 'INFO', 'startrack-label-layout', 'manual_review', 'CONNOTE value was not extracted from the text layer or decoded barcode payload.'));
-  validations.push(facts.toBlock.length || facts.postcodeLines.length
-    ? result('ST_RECEIVER_BLOCK', 'Receiver details present', 'ERROR', 'startrack-text', 'pass', 'Receiver details were extracted from the text layer or decoded QR payload.', { evidence: [...facts.toBlock, ...facts.postcodeLines].join('\n') })
-    : result('ST_RECEIVER_BLOCK', 'Receiver details present', 'ERROR', 'startrack-text', 'manual_review', 'Receiver details could not be isolated from the text layer or decoded QR payload.'));
-  validations.push(facts.fromBlock.length
-    ? result('ST_SENDER_BLOCK', 'Sender details present', 'ERROR', 'startrack-text', 'pass', 'Sender details text was extracted.', { evidence: facts.fromBlock.join('\n') })
-    : result('ST_SENDER_BLOCK', 'Sender details present', 'ERROR', 'startrack-text', 'manual_review', 'Sender details could not be isolated from text.'));
-  validations.push(facts.weightKg
-    ? result('ST_WEIGHT_PRESENT', 'Weight evidence', 'INFO', 'startrack-label-layout', 'pass', `Weight value found: ${facts.weightKg}kg.`, { actual: `${facts.weightKg}kg` })
-    : result('ST_WEIGHT_PRESENT', 'Weight evidence', 'INFO', 'startrack-label-layout', 'manual_review', 'Weight value was not extracted from the text layer or decoded barcode payload.'));
-  validations.push(facts.cube
-    ? result('ST_CUBE_PRESENT', 'Cubic volume evidence', 'INFO', 'startrack-label-layout', 'pass', `Cubic volume found: ${facts.cube}m3.`, { actual: `${facts.cube}m3` })
-    : result('ST_CUBE_PRESENT', 'Cubic volume evidence', 'INFO', 'startrack-label-layout', 'manual_review', 'Cubic volume was not extracted from the text layer or decoded barcode payload.'));
   return validations;
 }
 
@@ -1698,18 +1808,6 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
   const linearValues = detectedBarcodes.filter(b => /128|code/i.test(String(b.format || b.symbology || '')) || b.kind === 'linear').map(b => b.rawValue).filter(Boolean);
   const qrValues = detectedBarcodes.filter(b => /qr/i.test(String(b.format || b.symbology || '')) || b.kind === 'qr').map(b => b.rawValue).filter(Boolean);
 
-  const widthMm = fileInfo?.widthMm;
-  const heightMm = fileInfo?.heightMm;
-  if (widthMm && heightMm) {
-    const normal = Math.abs(widthMm - 100) <= 8 && Math.abs(heightMm - 150) <= 10;
-    const landscape = Math.abs(widthMm - 150) <= 10 && Math.abs(heightMm - 100) <= 8;
-    const extended = Math.abs(widthMm - 100) <= 8 && Math.abs(heightMm - 200) <= 12;
-    validations.push(normal || landscape || extended
-      ? result('ST_LABEL_SIZE', 'StarTrack label dimensions', 'WARNING', 'startrack-label-layout', 'pass', `Page dimensions match an accepted StarTrack label size (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: '100mm x 150mm despatch, 100mm x 200mm optional extended despatch, or 150mm x 100mm controlled returns/transfer, within tolerance', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` })
-      : result('ST_LABEL_SIZE', 'StarTrack label dimensions', 'WARNING', 'startrack-label-layout', 'warning', `Page dimensions do not match the accepted StarTrack label sizes (${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm).`, { expected: '100mm x 150mm despatch, 100mm x 200mm optional extended despatch, or 150mm x 100mm controlled returns/transfer, within tolerance', actual: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm` }));
-  } else {
-    validations.push(result('ST_LABEL_SIZE', 'StarTrack label dimensions', 'WARNING', 'startrack-label-layout', 'manual_review', 'Physical dimensions could not be determined from this file. Review whether the label is 100mm x 150mm, 100mm x 200mm, or 150mm x 100mm.'));
-  }
   const qrParses = qrValues.map(parseStarTrackQrBarcode).filter(p => p.valid);
   const freightParses = linearValues.map(parseStarTrackFreightItemBarcode).filter(p => p.valid);
   const ssccParses = decodedValues.map(parseSsccBarcode).filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
@@ -1744,108 +1842,24 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
   validations.push(...validateStarTrackTextFacts(facts));
   validations.push(...validateExpectedSsccPrefix({ expectedSscc, validSsccs, invalidSsccs, category: 'startrack-sscc', idPrefix: 'ST_SSCC_EXPECTED' }));
 
-  validations.push(qrParses.length
-    ? result('ST_QR_PRESENT', 'StarTrack 2D QR barcode decoded', 'CRITICAL', 'startrack-qr', 'pass', `${qrParses.length} StarTrack QR payload(s) decoded from the uploaded file.`, { actual: `${qrParses.length}` })
-    : result('ST_QR_PRESENT', 'StarTrack 2D QR barcode decoded', 'CRITICAL', 'startrack-qr', 'fail', 'StarTrack labels must contain a 2D QR barcode and it was not decoded from the uploaded file.'));
-
-  validations.push((selectedFormat === 'sscc' ? validSsccs.length : freightParses.length)
-    ? result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'pass', selectedFormat === 'sscc' ? `${validSsccs.length} SSCC freight item barcode(s) decoded.` : `${freightParses.length} StarTrack Code 128 freight item barcode(s) decoded.`, { actual: [...freightParses.map(f => f.freightItemId), ...validSsccs.map(s => `00${s.sscc}`)].join(', ') })
-    : result('ST_FREIGHT_BARCODE_PRESENT', 'Freight item barcode decoded', 'CRITICAL', 'startrack-freight', 'fail', visualLinear ? 'A StarTrack freight item barcode appears visible, but no valid freight item barcode was decoded by the scanner pipeline.' : selectedFormat === 'sscc' ? 'SSCC assessment was selected, but no valid AI 00 SSCC freight item barcode was decoded.' : 'Standard article format was selected, but no StarTrack 20-character freight item barcode was decoded.', { expected: selectedFormat === 'sscc' ? `AI 00 SSCC${expectedSscc.companyPrefix ? ` with GS1 Company Prefix ${expectedSscc.companyPrefix}` : ''}` : 'StarTrack 20-character Code 128 freight item barcode', evidence: visualEvidence?.linearEvidence || '' }));
-
-  validations.push(routingParses.length
-    ? result('ST_ROUTING_BARCODE_PRESENT', 'Routing barcode decoded', 'CRITICAL', 'startrack-routing', 'pass', `${routingParses.length} routing barcode(s) decoded.`, { actual: routingParses.map(r => r.raw).join(', ') })
-    : result('ST_ROUTING_BARCODE_PRESENT', 'Routing barcode decoded', 'CRITICAL', 'startrack-routing', 'fail', visualLinear ? 'A linear routing barcode appears visible, but no StarTrack routing barcode or GS1 421 routing barcode was decoded.' : 'No StarTrack routing barcode or GS1 421 routing barcode was decoded.', { evidence: visualEvidence?.linearEvidence || '' }));
-
-  validations.push(atlParses.length
-    ? result('ST_ATL_BARCODE', 'Authority To Leave barcode decoded', 'INFO', 'startrack-atl', 'pass', `ATL barcode decoded: ${atlParses.map(a => a.atlNumber).join(', ')}.`, { actual: atlParses.map(a => a.atlNumber).join(', ') })
-    : atlExpected
-      ? result('ST_ATL_BARCODE', 'Authority To Leave barcode decoded', 'ERROR', 'startrack-atl', 'fail', visualLinear ? 'Authority To Leave text or QR data indicates an ATL barcode is expected and a linear barcode appears visible, but no C999999999 ATL barcode was decoded.' : 'Authority To Leave text or QR data indicates an ATL barcode is expected, but no C999999999 ATL barcode was decoded.', { expected: 'C999999999', actual: expectedAtlNumbers.join(', ') || 'ATL text present', evidence: visualEvidence?.linearEvidence || '' })
-      : result('ST_ATL_BARCODE', 'Authority To Leave barcode decoded', 'INFO', 'startrack-atl', 'not_applicable', 'No Authority To Leave barcode was decoded and no ATL requirement was detected on the label.'));
-
-  for (const [i, atl] of atlParses.entries()) {
-    validations.push(atl.counterNumber >= 1
-      ? result(`ST_ATL_COUNTER_${i}`, 'ATL sequential counter', 'ERROR', 'startrack-atl', 'pass', `ATL sequential counter is ${atl.counter}.`, { actual: atl.atlNumber })
-      : result(`ST_ATL_COUNTER_${i}`, 'ATL sequential counter', 'ERROR', 'startrack-atl', 'fail', 'ATL sequential counter must start from 000000001.', { expected: 'C000000001 or greater', actual: atl.atlNumber }));
-  }
-
-  for (const [i, freight] of freightParses.entries()) {
-    validations.push(STARTRACK_PRODUCT_CODE_MAP[freight.productCode]
-      ? result(`ST_PRODUCT_KNOWN_${i}`, 'Known StarTrack product code', 'ERROR', 'startrack-product', 'pass', `${freight.productCode} — ${freight.productName}.`, { actual: freight.productCode })
-      : result(`ST_PRODUCT_KNOWN_${i}`, 'Known StarTrack product code', 'ERROR', 'startrack-product', 'fail', `Unknown StarTrack product code ${freight.productCode}.`, { actual: freight.productCode }));
-    validations.push(/^\d{8}$/.test(freight.consignmentSequence)
-      ? result(`ST_CONNOTE_STRUCTURE_${i}`, 'Connote structure', 'ERROR', 'startrack-freight', 'pass', `Connote ${freight.connoteNumber} follows Despatch ID + 8 digits.`, { actual: freight.connoteNumber })
-      : result(`ST_CONNOTE_STRUCTURE_${i}`, 'Connote structure', 'ERROR', 'startrack-freight', 'fail', 'Connote sequence is not eight digits.', { actual: freight.connoteNumber }));
-    validations.push(/^\d{5}$/.test(freight.itemNumber)
-      ? result(`ST_ITEM_SEQUENCE_${i}`, 'Freight item sequence', 'ERROR', 'startrack-freight', 'pass', `Freight item sequence is ${freight.itemNumber}.`, { actual: freight.itemNumber })
-      : result(`ST_ITEM_SEQUENCE_${i}`, 'Freight item sequence', 'ERROR', 'startrack-freight', 'fail', 'Freight item sequence must be five digits.', { actual: freight.itemNumber }));
-    if (facts.consignmentIds.length) {
-      validations.push(facts.consignmentIds.includes(freight.connoteNumber)
-        ? result(`ST_CONNOTE_MATCH_${i}`, 'Visible connote matches freight barcode', 'ERROR', 'startrack-freight', 'pass', 'Visible CONNOTE value matches the freight item barcode.', { actual: freight.connoteNumber })
-        : result(`ST_CONNOTE_MATCH_${i}`, 'Visible connote matches freight barcode', 'ERROR', 'startrack-freight', 'manual_review', 'Visible CONNOTE value does not match the decoded freight item barcode or could not be matched.', { expected: freight.connoteNumber, actual: facts.consignmentIds.join(', ') }));
-    }
-  }
-
   for (const [i, sscc] of validSsccs.entries()) {
     validations.push(result(`ST_SSCC_${i}`, 'SSCC freight item detected', 'INFO', 'startrack-sscc', 'pass', `Valid AI 00 SSCC detected: 00${sscc.sscc}.`, { actual: `00${sscc.sscc}` }));
   }
-  for (const [i, sscc] of ssccParses.filter(p => !p.valid).entries()) {
+  for (const [i, sscc] of invalidSsccs.entries()) {
     validations.push(result(`ST_SSCC_INVALID_${i}`, 'SSCC check digit', 'CRITICAL', 'startrack-sscc', 'fail', sscc.reason, { expected: sscc.expectedCheckDigit, actual: sscc.checkDigit }));
   }
-
-  for (const [i, route] of routingParses.entries()) {
-    validations.push(STARTRACK_LABEL_CODE_MAP[route.labelCode]
-      ? result(`ST_ROUTE_LABEL_CODE_${i}`, 'Routing label code known', 'ERROR', 'startrack-routing', 'pass', `Routing label code ${route.labelCode} is known.`, { actual: route.labelCode })
-      : result(`ST_ROUTE_LABEL_CODE_${i}`, 'Routing label code known', 'ERROR', 'startrack-routing', 'fail', `Unknown routing label code ${route.labelCode}.`, { actual: route.labelCode }));
-    validations.push(/^\d{4}$/.test(route.postcode)
-      ? result(`ST_ROUTE_POSTCODE_${i}`, 'Routing postcode', 'ERROR', 'startrack-routing', 'pass', `Routing postcode is ${route.postcode}.`, { actual: route.postcode })
-      : result(`ST_ROUTE_POSTCODE_${i}`, 'Routing postcode', 'ERROR', 'startrack-routing', 'fail', 'Routing barcode postcode must be four digits.', { actual: route.postcode }));
-    const freightProduct = freightParses[0]?.productCode || qrParses[0]?.productCode;
-    if (freightProduct && STARTRACK_PRODUCT_CODE_MAP[freightProduct]) {
-      const expectedLabelCode = STARTRACK_PRODUCT_CODE_MAP[freightProduct].labelCode;
-      validations.push(route.labelCode === expectedLabelCode
-        ? result(`ST_ROUTE_PRODUCT_MATCH_${i}`, 'Routing/product compatibility', 'ERROR', 'startrack-product', 'pass', `Routing label code ${route.labelCode} matches product ${freightProduct}.`, { expected: expectedLabelCode, actual: route.labelCode })
-        : result(`ST_ROUTE_PRODUCT_MATCH_${i}`, 'Routing/product compatibility', 'ERROR', 'startrack-product', 'fail', `Routing label code ${route.labelCode} does not match product ${freightProduct}.`, { expected: expectedLabelCode, actual: route.labelCode }));
-    }
-  }
-
-  for (const [i, qr] of qrParses.entries()) {
-    const f = qr.fields;
-    const mandatory = [
-      ['receiverSuburb', 'Receiver suburb'], ['receiverPostcode', 'Receiver postcode'], ['connoteNumber', 'Consignment number'],
-      ['freightItemNumber', 'Freight item number'], ['productCode', 'Product code'], ['consignmentQuantity', 'Consignment quantity'],
-      ['consignmentWeight', 'Consignment weight'], ['despatchDate', 'Despatch date'], ['receiverName1', 'Receiver name'],
-      ['unitType', 'Unit type'], ['destinationDepot', 'Destination depot'], ['receiverAddress1', 'Receiver address line 1'],
-      ['dangerousGoodsIndicator', 'Dangerous goods indicator'], ['movementTypeIndicator', 'Movement type indicator']
-    ];
-    const missing = mandatory.filter(([key]) => !String(f[key] || '').trim()).map(([, label]) => label);
-    validations.push(missing.length === 0
-      ? result(`ST_QR_MANDATORY_${i}`, 'QR mandatory fields', 'ERROR', 'startrack-qr', 'pass', 'Mandatory QR fields are populated.')
-      : result(`ST_QR_MANDATORY_${i}`, 'QR mandatory fields', 'ERROR', 'startrack-qr', 'fail', `QR mandatory fields missing: ${missing.join(', ')}.`));
-    validations.push(/^\d{4}$/.test(f.receiverPostcode)
-      ? result(`ST_QR_POSTCODE_${i}`, 'QR receiver postcode', 'ERROR', 'startrack-qr', 'pass', `QR receiver postcode is ${f.receiverPostcode}.`, { actual: f.receiverPostcode })
-      : result(`ST_QR_POSTCODE_${i}`, 'QR receiver postcode', 'ERROR', 'startrack-qr', 'fail', 'QR receiver postcode must be four digits.', { actual: f.receiverPostcode }));
-    validations.push(STARTRACK_PRODUCT_CODE_MAP[f.productCode]
-      ? result(`ST_QR_PRODUCT_${i}`, 'QR product code known', 'ERROR', 'startrack-product', 'pass', `QR product ${f.productCode}: ${qr.productName}.`, { actual: f.productCode })
-      : result(`ST_QR_PRODUCT_${i}`, 'QR product code known', 'ERROR', 'startrack-product', 'fail', `Unknown QR product code ${f.productCode}.`, { actual: f.productCode }));
-    validations.push(['Y', 'N'].includes(f.dangerousGoodsIndicator)
-      ? result(`ST_QR_DG_${i}`, 'QR dangerous goods indicator', 'ERROR', 'startrack-qr', 'pass', `DG indicator is ${f.dangerousGoodsIndicator}.`, { actual: f.dangerousGoodsIndicator })
-      : result(`ST_QR_DG_${i}`, 'QR dangerous goods indicator', 'ERROR', 'startrack-qr', 'fail', 'DG indicator must be Y or N.', { actual: f.dangerousGoodsIndicator }));
-    validations.push(['N', 'C', 'T'].includes(f.movementTypeIndicator)
-      ? result(`ST_QR_MOVEMENT_${i}`, 'QR movement type indicator', 'ERROR', 'startrack-qr', 'pass', `Movement type indicator is ${f.movementTypeIndicator}.`, { actual: f.movementTypeIndicator })
-      : result(`ST_QR_MOVEMENT_${i}`, 'QR movement type indicator', 'ERROR', 'startrack-qr', 'fail', 'Movement type must be N, C or T.', { actual: f.movementTypeIndicator }));
-    const allowedUnits = STARTRACK_UNIT_TYPE_MAP[f.unitType] || [];
-    validations.push(allowedUnits.length && (!f.productCode || allowedUnits.includes(f.productCode))
-      ? result(`ST_QR_UNIT_${i}`, 'QR unit type permitted', 'ERROR', 'startrack-product', 'pass', `Unit type ${f.unitType} is permitted${f.productCode ? ` for ${f.productCode}` : ''}.`, { actual: f.unitType })
-      : result(`ST_QR_UNIT_${i}`, 'QR unit type permitted', 'ERROR', 'startrack-product', 'manual_review', `Unit type ${f.unitType || 'blank'} could not be confirmed against product ${f.productCode || 'unknown'}.`, { actual: f.unitType }));
-    if (f.atlNumber) {
-      validations.push(/^C\d{9}$/.test(f.atlNumber)
-        ? result(`ST_QR_ATL_${i}`, 'QR ATL number format', 'ERROR', 'startrack-atl', 'pass', `ATL number is ${f.atlNumber}.`, { actual: f.atlNumber })
-        : result(`ST_QR_ATL_${i}`, 'QR ATL number format', 'ERROR', 'startrack-atl', 'fail', 'ATL number must use C999999999 format when populated.', { actual: f.atlNumber }));
-    }
-  }
-  if (ssccOnly) {
+  if (ssccOnly && selectedFormat !== 'sscc') {
     validations.push(result('ST_SSCC_PRODUCT_RULE', 'SSCC product handling', 'INFO', 'startrack-sscc', 'pass', 'SSCC freight labels encode AI 00 SSCC data. StarTrack product may be supplied by QR/routing data, but it is not embedded in the SSCC article identifier.'));
   }
+
+  const ruleContext = buildStarTrackRuleContext({ fileInfo, facts, selectedFormat, qrParses, freightParses, routingParses, atlParses, validSsccs, invalidSsccs, expectedAtlNumbers, atlExpected });
+  const ruleVariant = selectStarTrackVariant(selectedFormat, [
+    ...freightParses.map(f => f.productCode),
+    ...qrParses.map(q => q.productCode),
+    facts.labelCode
+  ]);
+  const ruleSet = getRuleSet('startrack', ruleVariant);
+  validations.push(...evaluateRuleSet(ruleSet, ruleContext));
 
   const summary = summarizeValidations(validations);
   const articles = [
@@ -1862,6 +1876,7 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
     manualBarcodeCount: manualValues.length,
     expectedSscc,
     selectedAuditMode: { carrier: 'startrack', labelFormat: selectedFormat },
+    ruleSet: { id: ruleSet.id, name: ruleSet.name, variant: ruleVariant, spec: ruleSet.spec || null },
     parsed: [...qrParses, ...freightParses, ...routingParses, ...atlParses, ...validSsccs],
     startrack: { qrParses, freightParses, routingParses, ssccParses: validSsccs, atlParses, ssccOnly },
     articles,

@@ -1,0 +1,42 @@
+{
+  "id": "startrack-fpp",
+  "carrier": "startrack",
+  "name": "StarTrack Fixed Price Premium / Fixed Price Airlock",
+  "extends": "startrack-base",
+  "spec": { "doc": "StarTrack Label Specifications - Modify Your Own System (MOS) v9", "date": "2020-10-14" },
+  "constants": {
+    "allowedProducts": ["FPP", "FPA"]
+  },
+  "rules": [
+    {
+      "id": "ST-FPP-01",
+      "title": "Fixed price services are single-item consignments",
+      "description": "Fixed price services with fixed weight limits must have exactly one item per consignment, so the QR consignment quantity must be 1.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 10 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.consignmentQuantity",
+      "normalize": ["trim"],
+      "assert": { "op": "matches", "value": "^\\s*1\\s*$" },
+      "messages": {
+        "pass": "Consignment quantity is 1, as required for fixed price services.",
+        "fail": "Consignment quantity is {actual}. Fixed price services must consign a single item."
+      }
+    },
+    {
+      "id": "ST-FPP-02",
+      "title": "Unit type permitted for fixed price services",
+      "description": "Pallets and skids are not permitted unit types for FPP/FPA products.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-product",
+      "source": { "doc": "MOS v9", "ref": "Appendix A" },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.unitType", "op": "present" },
+      "input": "item.fields.unitType",
+      "assert": { "op": "notIn", "value": ["PAL", "SKI"] }
+    }
+  ]
+}

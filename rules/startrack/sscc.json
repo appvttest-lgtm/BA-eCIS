@@ -1,0 +1,79 @@
+{
+  "id": "startrack-sscc",
+  "carrier": "startrack",
+  "name": "StarTrack SSCC retailer labels",
+  "extends": "startrack-base",
+  "spec": { "doc": "StarTrack Label Specifications - Modify Your Own System (MOS) v9", "date": "2020-10-14" },
+  "rules": [
+    { "id": "ST-FRT-01", "disabled": true },
+    { "id": "ST-FRT-02A", "disabled": true },
+    { "id": "ST-FRT-02B", "disabled": true },
+    { "id": "ST-FRT-02C", "disabled": true },
+    { "id": "ST-FRT-03", "disabled": true },
+    { "id": "ST-FRT-08", "disabled": true },
+    { "id": "ST-PRD-01", "disabled": true },
+    { "id": "ST-QR-F04", "disabled": true },
+    { "id": "ST-X-01", "disabled": true },
+    { "id": "ST-X-02", "disabled": true },
+    {
+      "id": "ST-SSC-01",
+      "title": "AI 00 SSCC freight barcode decoded",
+      "description": "SSCC retailer labels carry a GS1 AI 00 SSCC barcode as the article identifier.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "startrack-sscc",
+      "source": { "doc": "MOS v9", "page": 13 },
+      "input": "barcodes.sscc.valid",
+      "assert": { "op": "notEmpty" },
+      "messages": {
+        "pass": "Valid AI 00 SSCC freight barcode(s) decoded.",
+        "fail": "SSCC assessment was selected, but no valid AI 00 SSCC freight barcode was decoded."
+      }
+    },
+    {
+      "id": "ST-SSC-02",
+      "title": "SSCC check digit",
+      "description": "The final SSCC digit must satisfy the GS1 mod-10 check digit algorithm.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "startrack-sscc",
+      "source": { "doc": "MOS v9", "page": 13 },
+      "input": "barcodes.sscc.invalid",
+      "evidence": ["derived.invalidSsccReasons"],
+      "assert": { "op": "empty" },
+      "messages": {
+        "pass": "All decoded SSCC barcodes have valid mod-10 check digits.",
+        "fail": "One or more decoded SSCC values failed the mod-10 check digit."
+      }
+    },
+    {
+      "id": "ST-SSC-06",
+      "title": "SSCC labels are despatch movements only",
+      "description": "SSCC barcodes may only be used for despatch movements, never for controlled returns or transfers.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-sscc",
+      "source": { "doc": "MOS v9", "page": 34 },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.movementTypeIndicator", "op": "present" },
+      "input": "item.fields.movementTypeIndicator",
+      "assert": { "op": "equals", "value": "N" },
+      "messages": {
+        "pass": "QR movement type is N (despatch), as required for SSCC labels.",
+        "fail": "QR movement type is {actual}. SSCC barcodes may only be used for despatch movements."
+      }
+    },
+    {
+      "id": "ST-SSC-07",
+      "title": "Product context comes from QR and routing data",
+      "description": "SSCC numbering cannot embed a StarTrack product or service, so product context is taken from the QR payload and routing barcode instead of the article identifier.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-sscc",
+      "source": { "doc": "MOS v9", "page": 13 },
+      "input": "selected.format",
+      "assert": { "op": "equals", "value": "sscc" },
+      "messages": { "pass": "SSCC label: product is validated from QR/routing data, not the article identifier." }
+    }
+  ]
+}

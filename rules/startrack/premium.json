@@ -1,0 +1,32 @@
+{
+  "id": "startrack-premium",
+  "carrier": "startrack",
+  "name": "StarTrack Premium",
+  "extends": "startrack-base",
+  "spec": { "doc": "StarTrack Label Specifications - Modify Your Own System (MOS) v9", "date": "2020-10-14" },
+  "constants": {
+    "allowedProducts": ["PRM", "APT", "ARL"]
+  },
+  "rules": [
+    {
+      "id": "ST-LOC-01",
+      "title": "Premium receiver location codes",
+      "description": "Premium labels print RC=AU, R1 = Primary Port and R2 = Secondary Port from the Location Master File. The ports cannot be validated without the LMF, so confirm them on the preview.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-routing",
+      "source": { "doc": "MOS v9", "ref": "1.009" },
+      "forEach": "barcodes.routing",
+      "input": "item.depotOrPort",
+      "evidence": ["item.raw"],
+      "assert": { "op": "matches", "value": "^[A-Z0-9]{2,3}$" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Routing port segment present: {actual}. Confirm it matches the Primary Port for the receiver postcode in the Location Master File.",
+        "fail": "Routing port segment looks invalid: {actual}.",
+        "missing": "Routing port segment was not decoded. Confirm RC/R1/R2 values on the preview."
+      }
+    }
+  ]
+}

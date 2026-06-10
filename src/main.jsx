@@ -13,6 +13,7 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { readBarcodes as readWasmBarcodes, prepareZXingModule } from 'zxing-wasm/reader';
 import zxingReaderWasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
 import { auditLabel, groupValidations, SERVICE_CODE_MAP, SERVICE_TO_PRODUCT_MAP, PRODUCT_CODE_MAP, STARTRACK_PRODUCT_CODE_MAP, STARTRACK_LABEL_CODE_MAP } from './auditEngine.js';
+import { RuleReport } from './reportView.jsx';
 import { mergeExtractedText, recognizeCanvasText } from './ocrText.js';
 import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from './scanner/barcodeTypes.js';
 import australiaPostLogoUrl from '../Australia_Post_logo_logotype.png';
@@ -2255,21 +2256,12 @@ function ValidationTable({ items }) {
   if (!items || !items.length) return <p className="muted small">No validation checks in this section.</p>;
   const showPayloadColumn = hasApiPayloadComparison(items);
   return (
-    <div className="table-wrap">
-      <table className={`compact-table validation-table ${showPayloadColumn ? 'has-payload-column' : ''}`}>
-        <thead><tr><th>Required</th><th>Decoded / label value</th>{showPayloadColumn && <th>Get Shipments value</th>}<th>Result</th></tr></thead>
-        <tbody>
-          {items.map((v, idx) => (
-            <tr key={idx} id={`rule-${v.id}`} className={validationTone(v)}>
-              <td><CriteriaCell validation={v} /></td>
-              <td><LabelMeasurementCell validation={v} /></td>
-              {showPayloadColumn && <td><ApiPayloadEvidenceCell match={v.apiPayloadMatch} /></td>}
-              <td><ValidationStatusCell validation={v} showPayloadColumn={showPayloadColumn} /></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <RuleReport
+      items={items}
+      standardFor={standardForValidation}
+      showPayload={showPayloadColumn}
+      renderPayload={match => <ApiPayloadEvidenceCell match={match} />}
+    />
   );
 }
 

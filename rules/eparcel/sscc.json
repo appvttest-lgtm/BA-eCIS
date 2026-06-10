@@ -1,0 +1,53 @@
+{
+  "id": "eparcel-sscc",
+  "carrier": "eparcel",
+  "name": "eParcel SSCC article identifiers",
+  "extends": "eparcel-base",
+  "spec": { "doc": "Parcel Post and Express Post - Label & Barcode Specification v1.4", "date": "2025-06-05" },
+  "rules": [
+    { "id": "EP-SVC-07", "disabled": true },
+    {
+      "id": "EP-SS-01",
+      "title": "AI 00 SSCC decoded",
+      "description": "The linear barcode must contain FNC1 + AI 00 + the 20-digit SSCC and nothing else.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "sscc",
+      "source": { "doc": "PP&EP v1.4", "page": 26 },
+      "input": "barcodes.sscc.valid",
+      "assert": { "op": "notEmpty" },
+      "messages": {
+        "pass": "Valid AI 00 SSCC barcode(s) decoded.",
+        "fail": "SSCC assessment was selected, but no valid AI 00 SSCC barcode was decoded."
+      }
+    },
+    {
+      "id": "EP-SS-02",
+      "title": "SSCC check digit",
+      "description": "The final SSCC digit must satisfy the GS1 mod-10 check digit algorithm.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "sscc",
+      "source": { "doc": "PP&EP v1.4", "page": 26 },
+      "input": "barcodes.sscc.invalid",
+      "evidence": ["derived.invalidSsccReasons"],
+      "assert": { "op": "empty" },
+      "messages": {
+        "pass": "All decoded SSCC barcodes have valid mod-10 check digits.",
+        "fail": "One or more decoded SSCC values failed the mod-10 check digit."
+      }
+    },
+    {
+      "id": "EP-SS-05",
+      "title": "Embedded product/service checks suppressed",
+      "description": "SSCC numbering cannot embed product or service codes, so those barcode-level checks do not apply. Delivery conditions come from the electronic order data.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "sscc",
+      "source": { "doc": "PP&EP v1.4", "page": 20 },
+      "input": "selected.format",
+      "assert": { "op": "equals", "value": "sscc" },
+      "messages": { "pass": "SSCC label: product and service codes are validated from order data, not the barcode." }
+    }
+  ]
+}

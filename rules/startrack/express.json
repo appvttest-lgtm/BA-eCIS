@@ -1,0 +1,32 @@
+{
+  "id": "startrack-express",
+  "carrier": "startrack",
+  "name": "StarTrack Express and Special Services",
+  "extends": "startrack-base",
+  "spec": { "doc": "StarTrack Label Specifications - Modify Your Own System (MOS) v9", "date": "2020-10-14" },
+  "constants": {
+    "allowedProducts": ["EXP", "TSE", "RET", "RE2"]
+  },
+  "rules": [
+    {
+      "id": "ST-LOC-02",
+      "title": "Express receiver location codes",
+      "description": "Express and Special Services labels print RC=AU, R1 blank and R2 = Nearest Depot from the Location Master File. The depot cannot be validated without the LMF, so confirm it on the preview.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-routing",
+      "source": { "doc": "MOS v9", "ref": "1.010" },
+      "forEach": "barcodes.routing",
+      "input": "item.depotOrPort",
+      "evidence": ["item.raw"],
+      "assert": { "op": "matches", "value": "^[A-Z0-9]{2,3}$" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Routing depot segment present: {actual}. Confirm it matches the Nearest Depot for the receiver postcode in the Location Master File.",
+        "fail": "Routing depot segment looks invalid: {actual}.",
+        "missing": "Routing depot segment was not decoded. Confirm RC/R1/R2 values on the preview."
+      }
+    }
+  ]
+}
