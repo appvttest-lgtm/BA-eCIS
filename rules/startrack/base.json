@@ -151,10 +151,26 @@
       "category": "startrack-qr",
       "source": { "doc": "MOS v9", "ref": "1.015" },
       "input": "barcodes.qrPresent",
-      "assert": { "op": "equals", "value": true },
+      "assert": { "op": "fn", "name": "requiredDecode", "args": { "visiblePath": "barcodes.dataMatrixVisible", "label": "The StarTrack 2D QR barcode" } },
       "messages": {
-        "pass": "StarTrack QR payload decoded from the uploaded file.",
-        "fail": "StarTrack labels must contain a 2D QR barcode and it was not decoded from the uploaded file."
+        "pass": "StarTrack QR payload decoded from the uploaded file."
+      }
+    },
+    {
+      "id": "ST-IMG-01",
+      "title": "Source image resolution",
+      "description": "Raster label images need roughly 300 DPI for reliable linear barcode decoding. Low-resolution exports collapse the narrow bars and spaces, destroying the encoded data.",
+      "obligation": "advisory",
+      "severity": "WARNING",
+      "category": "startrack-label-layout",
+      "source": { "doc": "Auditor rule", "ref": "image uploads" },
+      "when": { "path": "page.isRasterImage", "op": "equals", "value": true },
+      "input": "page.estimatedDpi",
+      "assert": { "op": "range", "min": 200, "max": 100000 },
+      "failStatus": "warning",
+      "messages": {
+        "pass": "Estimated image resolution is about {actual} DPI, which should be sufficient for barcode decoding.",
+        "fail": "Estimated image resolution is about {actual} DPI (assuming a standard 100mm label edge). Linear barcodes are typically unrecoverable below about 200 DPI - upload the original PDF or export the label at 300 DPI or higher."
       }
     },
     {
@@ -166,10 +182,9 @@
       "category": "startrack-freight",
       "source": { "doc": "MOS v9", "ref": "1.022" },
       "input": "barcodes.freightPresent",
-      "assert": { "op": "equals", "value": true },
+      "assert": { "op": "fn", "name": "requiredDecode", "args": { "visiblePath": "barcodes.linearVisible", "label": "The StarTrack 20-character freight item barcode" } },
       "messages": {
-        "pass": "StarTrack Code 128 freight item barcode(s) decoded.",
-        "fail": "No StarTrack 20-character freight item barcode was decoded from the uploaded file."
+        "pass": "StarTrack Code 128 freight item barcode(s) decoded."
       }
     },
     {
@@ -181,10 +196,9 @@
       "category": "startrack-routing",
       "source": { "doc": "MOS v9", "ref": "1.014 / 4.001" },
       "input": "barcodes.routingPresent",
-      "assert": { "op": "equals", "value": true },
+      "assert": { "op": "fn", "name": "requiredDecode", "args": { "visiblePath": "barcodes.linearVisible", "label": "A StarTrack routing barcode (or GS1 421 routing barcode)" } },
       "messages": {
-        "pass": "Routing barcode(s) decoded.",
-        "fail": "No StarTrack routing barcode or GS1 421 routing barcode was decoded."
+        "pass": "Routing barcode(s) decoded."
       }
     },
     {

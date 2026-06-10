@@ -8,7 +8,7 @@ import { evaluateRuleSet, mergeRuleSets, registerRuleFunction } from '../src/rul
 
 const load = p => JSON.parse(readFileSync(new URL(`../rules/${p}`, import.meta.url), 'utf8'));
 
-for (const name of ['pageSizeWithin', 'inPathList', 'eparcelCheckDigit', 'serviceProductCompatible', 'linearDmAgreement', 'routeProductMatch', 'qrMandatoryFields', 'startrackUnitPermitted']) {
+for (const name of ['pageSizeWithin', 'inPathList', 'eparcelCheckDigit', 'serviceProductCompatible', 'linearDmAgreement', 'routeProductMatch', 'qrMandatoryFields', 'startrackUnitPermitted', 'requiredDecode']) {
   registerRuleFunction(name, () => ({ pass: true, message: `${name} stubbed pass` }));
 }
 

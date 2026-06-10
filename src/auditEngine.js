@@ -1209,6 +1209,20 @@ registerRuleFunction('pageSizeWithin', (page, { args }) => {
   };
 });
 
+registerRuleFunction('requiredDecode', (value, { context, args }) => {
+  if (value === true) return { pass: true };
+  const visible = args?.visiblePath ? Boolean(resolvePath(args.visiblePath, context)) : false;
+  const page = context.page || {};
+  const parts = [];
+  parts.push(visible
+    ? `${args?.label || 'The required barcode'} appears visible on the label, but it was not decoded by the scanner pipeline.`
+    : `${args?.label || 'The required barcode'} was not decoded from the uploaded file.`);
+  if (page.isRasterImage && page.estimatedDpi && page.estimatedDpi < 200) {
+    parts.push(`The uploaded image is roughly ${page.estimatedDpi} DPI (${page.pixelWidth}x${page.pixelHeight}px). At this resolution the narrow bars and spaces of linear barcodes are usually destroyed and cannot be decoded. Upload the original PDF, or export the label image at 300 DPI or higher.`);
+  }
+  return { pass: false, message: parts.join(' ') };
+});
+
 registerRuleFunction('inPathList', (value, { context, item, args }) => {
   const raw = resolvePath(args?.path, context, item);
   const list = (Array.isArray(raw) ? raw : (raw === undefined || raw === null || raw === '' ? [] : [raw]))
@@ -1319,7 +1333,28 @@ function lastAddressLine(block = []) {
   return [...block].reverse().find(line => /\d{4}\s*$/.test(String(line))) || block[block.length - 1] || '';
 }
 
-function buildEparcelRuleContext({ fileInfo, facts, selectedFormat, parsed, dmParses, articles, invalidAnalyses, validSsccs, invalidSsccs, decodedLinear, decodedDm }) {
+/** Page geometry context shared by both carriers, including raster-image DPI estimation. */
+function buildPageContext(fileInfo) {
+  const pixelWidth = fileInfo?.pixelWidth || null;
+  const pixelHeight = fileInfo?.pixelHeight || null;
+  const isRasterImage = Boolean(pixelWidth && !fileInfo?.widthMm);
+  // Raster uploads carry no physical size; estimate DPI by assuming the short
+  // side is a standard 100mm label edge so low-resolution exports can be flagged.
+  const estimatedDpi = isRasterImage && pixelWidth && pixelHeight
+    ? Math.round(Math.min(pixelWidth, pixelHeight) / (100 / 25.4))
+    : null;
+  return {
+    widthMm: fileInfo?.widthMm,
+    heightMm: fileInfo?.heightMm,
+    pageCount: fileInfo?.pageCount || 1,
+    pixelWidth,
+    pixelHeight,
+    isRasterImage,
+    estimatedDpi
+  };
+}
+
+function buildEparcelRuleContext({ fileInfo, facts, selectedFormat, parsed, dmParses, articles, invalidAnalyses, validSsccs, invalidSsccs, decodedLinear, decodedDm, visualEvidence }) {
   const linearParses = parsed.filter(p => p.hasAi01 !== undefined);
   const gs1Items = [...linearParses, ...dmParses.map(p => p.base).filter(Boolean)].map(p => ({
     raw: p.raw,
@@ -1333,7 +1368,7 @@ function buildEparcelRuleContext({ fileInfo, facts, selectedFormat, parsed, dmPa
   const fromBlock = facts.fromBlock || [];
   const postcodes4 = [...new Set([...(facts.postcodeLines || []), ...toBlock].flatMap(line => String(line).match(/\b\d{4}\b/g) || []))];
   return {
-    page: { widthMm: fileInfo?.widthMm, heightMm: fileInfo?.heightMm, pageCount: fileInfo?.pageCount || 1 },
+    page: buildPageContext(fileInfo),
     text: {
       ...facts,
       toLastLine: lastAddressLine(toBlock),
@@ -1346,6 +1381,8 @@ function buildEparcelRuleContext({ fileInfo, facts, selectedFormat, parsed, dmPa
     barcodes: {
       linearPresent: Boolean(decodedLinear),
       dataMatrixPresent: Boolean(decodedDm),
+      linearVisible: Boolean(visualEvidence?.linearBarcodeVisible),
+      dataMatrixVisible: Boolean(visualEvidence?.dataMatrixVisible),
       gs1: gs1Items,
       datamatrix: dmParses,
       sscc: { valid: validSsccs, invalid: invalidSsccs }
@@ -1372,10 +1409,10 @@ function selectEparcelVariant(selectedFormat, articles, facts) {
   return 'base';
 }
 
-function buildStarTrackRuleContext({ fileInfo, facts, selectedFormat, qrParses, freightParses, routingParses, atlParses, validSsccs, invalidSsccs, expectedAtlNumbers, atlExpected }) {
+function buildStarTrackRuleContext({ fileInfo, facts, selectedFormat, qrParses, freightParses, routingParses, atlParses, validSsccs, invalidSsccs, expectedAtlNumbers, atlExpected, visualEvidence }) {
   const lines = facts.lines || [];
   return {
-    page: { widthMm: fileInfo?.widthMm, heightMm: fileInfo?.heightMm, pageCount: fileInfo?.pageCount || 1 },
+    page: buildPageContext(fileInfo),
     text: {
       ...facts,
       hasStarTrackHeader: lines.some(l => /STAR\s*TRACK|STARTRACK/i.test(l)),
@@ -1385,6 +1422,8 @@ function buildStarTrackRuleContext({ fileInfo, facts, selectedFormat, qrParses, 
       qrPresent: qrParses.length > 0,
       freightPresent: freightParses.length > 0,
       routingPresent: routingParses.length > 0,
+      linearVisible: Boolean(visualEvidence?.linearBarcodeVisible),
+      dataMatrixVisible: Boolean(visualEvidence?.dataMatrixVisible),
       qr: qrParses,
       freight: freightParses,
       routing: routingParses,
@@ -1470,7 +1509,7 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
     }
   }
 
-  const ruleContext = buildEparcelRuleContext({ fileInfo, facts, selectedFormat, parsed, dmParses, articles, invalidAnalyses, validSsccs, invalidSsccs, decodedLinear, decodedDm });
+  const ruleContext = buildEparcelRuleContext({ fileInfo, facts, selectedFormat, parsed, dmParses, articles, invalidAnalyses, validSsccs, invalidSsccs, decodedLinear, decodedDm, visualEvidence });
   const ruleVariant = selectEparcelVariant(selectedFormat, articles, facts);
   const ruleSet = getRuleSet('eparcel', ruleVariant);
   validations.push(...evaluateRuleSet(ruleSet, ruleContext));
@@ -1852,7 +1891,7 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
     validations.push(result('ST_SSCC_PRODUCT_RULE', 'SSCC product handling', 'INFO', 'startrack-sscc', 'pass', 'SSCC freight labels encode AI 00 SSCC data. StarTrack product may be supplied by QR/routing data, but it is not embedded in the SSCC article identifier.'));
   }
 
-  const ruleContext = buildStarTrackRuleContext({ fileInfo, facts, selectedFormat, qrParses, freightParses, routingParses, atlParses, validSsccs, invalidSsccs, expectedAtlNumbers, atlExpected });
+  const ruleContext = buildStarTrackRuleContext({ fileInfo, facts, selectedFormat, qrParses, freightParses, routingParses, atlParses, validSsccs, invalidSsccs, expectedAtlNumbers, atlExpected, visualEvidence });
   const ruleVariant = selectStarTrackVariant(selectedFormat, [
     ...freightParses.map(f => f.productCode),
     ...qrParses.map(q => q.productCode),

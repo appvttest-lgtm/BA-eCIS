@@ -150,10 +150,26 @@
       "category": "gs1-128",
       "source": { "doc": "PP&EP v1.4", "page": 15 },
       "input": "barcodes.linearPresent",
-      "assert": { "op": "equals", "value": true },
+      "assert": { "op": "fn", "name": "requiredDecode", "args": { "visiblePath": "barcodes.linearVisible", "label": "A GS1-128 linear barcode" } },
       "messages": {
-        "pass": "Required GS1-128 linear barcode was decoded from the uploaded file.",
-        "fail": "No GS1-128 linear barcode was decoded from the uploaded file."
+        "pass": "Required GS1-128 linear barcode was decoded from the uploaded file."
+      }
+    },
+    {
+      "id": "EP-IMG-01",
+      "title": "Source image resolution",
+      "description": "Raster label images need roughly 300 DPI for reliable linear barcode decoding. Low-resolution exports collapse the narrow bars and spaces, destroying the encoded data.",
+      "obligation": "advisory",
+      "severity": "WARNING",
+      "category": "label-layout",
+      "source": { "doc": "Auditor rule", "ref": "image uploads" },
+      "when": { "path": "page.isRasterImage", "op": "equals", "value": true },
+      "input": "page.estimatedDpi",
+      "assert": { "op": "range", "min": 200, "max": 100000 },
+      "failStatus": "warning",
+      "messages": {
+        "pass": "Estimated image resolution is about {actual} DPI, which should be sufficient for barcode decoding.",
+        "fail": "Estimated image resolution is about {actual} DPI (assuming a standard 100mm label edge). Linear barcodes are typically unrecoverable below about 200 DPI - upload the original PDF or export the label at 300 DPI or higher."
       }
     },
     {
@@ -165,10 +181,9 @@
       "category": "datamatrix",
       "source": { "doc": "PP&EP v1.4", "page": 18 },
       "input": "barcodes.dataMatrixPresent",
-      "assert": { "op": "equals", "value": true },
+      "assert": { "op": "fn", "name": "requiredDecode", "args": { "visiblePath": "barcodes.dataMatrixVisible", "label": "A GS1 DataMatrix barcode" } },
       "messages": {
-        "pass": "Required GS1 DataMatrix barcode was decoded from the uploaded file.",
-        "fail": "No GS1 DataMatrix barcode was decoded from the uploaded file."
+        "pass": "Required GS1 DataMatrix barcode was decoded from the uploaded file."
       }
     },
     {
