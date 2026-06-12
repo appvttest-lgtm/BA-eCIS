@@ -328,11 +328,43 @@ function buildResult(rule, ruleSet, status, assertRes, inputPath, inputValue, co
   };
 }
 
+const TEMPLATE_CACHE = new WeakMap();
+
+/**
+ * Resolves {{constantName}} placeholders in rule strings against
+ * ruleSet.constants - arrays join with | (regex alternation), scalars
+ * stringify - so list-like reference data is defined once per rule file.
+ */
+export function resolveRuleSetTemplates(ruleSet) {
+  if (TEMPLATE_CACHE.has(ruleSet)) return TEMPLATE_CACHE.get(ruleSet);
+  const constants = ruleSet.constants || {};
+  const sub = value => {
+    if (typeof value === 'string') {
+      return value.replace(/\{\{(\w+)\}\}/g, (token, key) => {
+        const c = constants[key];
+        if (c === undefined) return token;
+        return Array.isArray(c) ? c.join('|') : String(c);
+      });
+    }
+    if (Array.isArray(value)) return value.map(sub);
+    if (value && typeof value === 'object') {
+      const out = {};
+      for (const [k, v] of Object.entries(value)) out[k] = sub(v);
+      return out;
+    }
+    return value;
+  };
+  const resolved = { ...ruleSet, rules: (ruleSet.rules || []).map(sub) };
+  TEMPLATE_CACHE.set(ruleSet, resolved);
+  return resolved;
+}
+
 /**
  * Runs every rule in a (merged) rule set against the evidence context.
  * Returns an array of result objects compatible with auditEngine validations.
  */
-export function evaluateRuleSet(ruleSet, context) {
+export function evaluateRuleSet(inputRuleSet, context) {
+  const ruleSet = resolveRuleSetTemplates(inputRuleSet);
   const constants = ruleSet.constants || {};
   const results = [];
   for (const rule of ruleSet.rules || []) {

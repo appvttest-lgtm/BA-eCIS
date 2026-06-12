@@ -4,6 +4,7 @@
   "name": "eParcel shared rules",
   "spec": { "doc": "Parcel Post and Express Post - Label & Barcode Specification v1.4", "date": "2025-06-05" },
   "constants": {
+    "auStates": ["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"],
     "serviceCodes": ["03", "08", "09", "15", "45", "49", "50", "51", "81", "82", "83"],
     "productCodes": ["00093", "00096", "00065", "00068", "00091", "00087"],
     "allowedProducts": ["00093", "00096", "00065", "00068", "00091", "00087"]
@@ -91,7 +92,7 @@
       "evidence": ["text.toBlock"],
       "assert": {
         "all": [
-          { "op": "matches", "value": "^[A-Z][A-Z'\\- ]*[A-Z]\\s+(ACT|NSW|NT|QLD|SA|TAS|VIC|WA)\\s+\\d{4}$" },
+          { "op": "matches", "value": "^[A-Z][A-Z'\\- ]*[A-Z]\\s+({{auStates}})\\s+\\d{4}$" },
           { "op": "notMatches", "value": "," }
         ]
       },
@@ -131,7 +132,7 @@
       "evidence": ["text.fromBlock"],
       "assert": {
         "all": [
-          { "op": "matches", "value": "^[A-Z][A-Z'\\- ]*[A-Z]\\s+(ACT|NSW|NT|QLD|SA|TAS|VIC|WA)\\s+\\d{4}$" },
+          { "op": "matches", "value": "^[A-Z][A-Z'\\- ]*[A-Z]\\s+({{auStates}})\\s+\\d{4}$" },
           { "op": "notMatches", "value": "," }
         ]
       },

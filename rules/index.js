@@ -29,6 +29,10 @@ const RULE_SETS = {
   }
 };
 
+// Canonical AU state list - shared with auditEngine text extraction so the
+// visible-address heuristics and the address rules can never drift apart.
+export const AU_STATES = eparcelBase.constants.auStates;
+
 export function getRuleSet(carrier, variant) {
   const sets = RULE_SETS[carrier] || {};
   return sets[variant] || sets.base;

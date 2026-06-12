@@ -1,7 +1,7 @@
 // Core reference data used by the audit rules. Keep these maps close to the parser
 // code because decoded barcode fields are resolved directly against them.
 import { evaluateRuleSet, registerRuleFunction, resolvePath } from './ruleEngine.js';
-import { getRuleSet } from '../rules/index.js';
+import { AU_STATES, getRuleSet } from '../rules/index.js';
 
 import {
   getProductCodeDescription,
@@ -17,7 +17,7 @@ import { attachApiPayloadComparison } from './audit/payloadComparison.js';
 
 export * from './audit/referenceData.js';
 
-const STATE_REGEX = '(?:ACT|NSW|NT|QLD|SA|TAS|VIC|WA)';
+const STATE_REGEX = `(?:${AU_STATES.join('|')})`;
 const POSTCODE_LINE_REGEX = new RegExp(`\\b([A-Z][A-Z\\s'-]+?\\s+${STATE_REGEX}\\s+\\d{4})\\b`, 'i');
 
 /** Creates one normalized validation row consumed by both the React UI and exported HTML. */
@@ -655,7 +655,7 @@ function extractDgBlock(lines) {
       // Remove the address prefix so DG evidence stays in the declaration block only.
       dgLine = dgLine.replace(/^Australia Postal Corporation\s+/i, '');
       dgLine = dgLine.replace(/^Level\s+[^\t]{1,40}?\s{2,}/i, '');
-      dgLine = dgLine.replace(/^[A-Z][A-Z\s'-]+\s+(?:ACT|NSW|NT|QLD|SA|TAS|VIC|WA)\s+\d{4}\s{2,}/i, '');
+      dgLine = dgLine.replace(new RegExp(`^[A-Z][A-Z\s'-]+\s+${STATE_REGEX}\s+\d{4}\s{2,}`, 'i'), '');
       dgLine = dgLine.trim();
       if (dgLine && isDgText(dgLine)) out.push(dgLine);
       if (/criminal offence/i.test(dgLine)) break;
