@@ -22,7 +22,7 @@ Keeping the upload paths separate ensures the correct audit rule set is applied 
 3. Barcode scanners attempt to decode all visible barcode regions.
 4. Decoded values are classified against the expected eParcel or StarTrack barcode specifications.
 5. The audit engine applies format, identity, routing, product/service, visible-text and optional payload comparison checks.
-6. Results are shown on-screen with full-label previews, barcode crop evidence, pass/fail tables and downloadable HTML reports.
+6. Results are shown on-screen with full-label previews, barcode crop evidence, pass/fail tables and a rule-by-rule report pane.
 
 ## Audit Logic
 
@@ -63,7 +63,7 @@ Users can optionally paste a Get Shipments API response or relevant JSON/plain-t
 - `Vite` for local development and production builds
 - `pdfjs-dist` for browser-based PDF rendering
 - `@zxing/library` and `zxing-wasm` for barcode decoding workflows
-- `TypeScript`, currently included as a project dependency for tooling compatibility
+- `tesseract.js` for in-browser OCR of visible label text
 - Node.js built-in modules in `server.mjs` for the lightweight local static server
 
 ## Local Runtime
@@ -107,7 +107,6 @@ The local HTTP server is used so browser modules, PDF workers, WebAssembly asset
 - @zxing/library version 0.21.3 has no known direct vulnerabilities; the project is in maintenance mode, but this specific version has no reported CVEs.
 - react and react-dom version 18.3.1 have no known direct vulnerabilities and are unaffected by the critical CVE-2025-55182 ("React2Shell") because the application does not use React Server Components.
 - vite version 5.4.21 is mitigated (patched) and successfully fixes the important security advisory CVE-2025-62522 related to directory traversal bypass.
-- typescript version 5.6.3 has no known direct vulnerabilities and is pinned to an exact version, which is a secure practice.
 - zxing-wasm version 3.0.3 has no known direct vulnerabilities, with no issues found in the direct dependency or Snyk database for this version.
 - tesseract.js version 7.0.0 and @tesseract.js-data/eng version 1.0.0 (in-browser OCR engine and English training data, both pinned exact and served from local assets) have no known direct vulnerabilities.
 - Development-only tooling (eslint, prettier and plugins, pinned exact) never ships in dist/. Two moderate advisories exist in Vite 5's dev-server esbuild; they affect npm run dev only and the fix is deferred because it requires a breaking Vite major upgrade (see release notes v1.7.4).
@@ -125,8 +124,12 @@ Run `npm test` for the rule-set and end-to-end audit smoke tests.
 
 ## Project Files
 
-- `src/main.jsx` - React UI, upload flow, rendering, scan orchestration and report export
-- `src/auditEngine.js` - barcode parsing, evidence extraction, rule-set selection and payload comparison logic
+- `src/main.jsx` - React UI, upload flow and audit orchestration
+- `src/auditEngine.js` - barcode parsing, evidence extraction and rule-set selection (facade over `src/audit/`)
+- `src/audit/` - carrier reference data and identity-gated Get Shipments payload comparison
+- `src/scanner/` - decode engines, canvas utilities, label preview images and the file-processing pipeline
+- `src/preprocess.js` - input preprocessing: orientation normalization and multi-label sheet segmentation
+- `src/ocrText.js` - OCR text extraction for visible-text checks
 - `src/ruleEngine.js` - generic evaluator for the declarative JSON rule sets
 - `src/reportView.jsx` - rule-by-rule report rows with input data, rule logic and outcome panes
 - `rules/` - executable JSON rule sets per carrier and product family
