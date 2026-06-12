@@ -87,7 +87,7 @@ This checklist enumerates every label conformance rule in the specification. Eac
 | ST-FRT-06 | ANSI print grade A–B preferred, C minimum, D–F fail | M | MANUAL (verifier) | ⛔ physical | p12 |
 | ST-FRT-07 | Human-readable 20-char Article ID beneath the barcode under heading `Article ID`; Arial Bold 8pt | M | PARTIAL (text) | ❌ gap — visible article ID not compared with decoded value | 1.022 |
 | ST-FRT-08 | Visible CONNOTE value matches the connote embedded in the freight barcode | M (implied) | AUTO | ✅ `ST_CONNOTE_MATCH` (manual-review on mismatch) | p10, p12 |
-| ST-FRT-09 | Compression-encoded symbol prints exactly 61 bars (19 symbol characters × 3 + 4 stop bars; all-Code-B prints 70) | M (derived) | AUTO (scanline measurement) | 🟡 `ST-FRT-09` counts bars across the decoded symbol; mismatch reports a warning, not a fail, because image quality affects the count | p12 |
+| ST-FRT-09 | Compression-encoded symbol prints exactly 61 bars (19 symbol characters × 3 + 4 stop bars; all-Code-B prints 70) | M (derived) | AUTO (scanline measurement) | 🟡 `ST-FRT-09` counts bars across the decoded symbol; mismatch warns (never fails) because image quality affects the count; an unmeasurable count warns as a scan-quality issue | p12 |
 
 ## 8. SSCC freight barcode variant (UCC/EAN-128)
 

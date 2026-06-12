@@ -6,6 +6,10 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.7.9 - bar count scan-quality warning
+---------------------------------------
+ST-FRT-09 no longer skips silently when the freight barcode's bar count cannot be measured reliably (low contrast or inconsistent scanlines). It now reports a warning that names the likely scan-quality cause and recommends the original PDF or a 300 DPI export, so an unconfirmed compression check is always visible in the report. A wrong count still warns with the 61-vs-70 explanation; neither case ever fails the label.
+
 v1.7.8 - freight barcode bar count (compression evidence)
 ---------------------------------------------------------
 A Code 128 symbol's bar count is fixed by its encodation: the 20-character StarTrack freight item barcode with the mandated Code B/C compression always prints exactly 61 bars (19 symbol characters x 3 bars + 4 stop bars), while an uncompressed all-Code-B symbol prints 70. This is the first symbol-level compression check - the v1.7.7 rules validate the decoded text, which is identical either way.

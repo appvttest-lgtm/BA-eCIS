@@ -233,7 +233,16 @@ expect(
 const unmeasuredContext = JSON.parse(JSON.stringify(stContext));
 delete unmeasuredContext.barcodes.freight[0].barCount;
 const unmeasuredResults = evaluateRuleSet(stBase, unmeasuredContext);
-expect('ST-FRT-09 skipped when no bar count was measured', byId(unmeasuredResults, 'ST-FRT-09').length === 0);
+expect(
+  'ST-FRT-09 warns when no bar count was measured',
+  byId(unmeasuredResults, 'ST-FRT-09')[0]?.status === 'warning',
+  `got ${byId(unmeasuredResults, 'ST-FRT-09')[0]?.status}`
+);
+expect(
+  'ST-FRT-09 unmeasured warning names scan quality, not compression failure',
+  /scan quality/i.test(byId(unmeasuredResults, 'ST-FRT-09')[0]?.message || ''),
+  byId(unmeasuredResults, 'ST-FRT-09')[0]?.message
+);
 
 // --- Compression rules: negative and exemption cases (issue #8) ---
 const badCompressionContext = JSON.parse(JSON.stringify(stContext));
