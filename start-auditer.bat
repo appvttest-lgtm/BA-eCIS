@@ -6,7 +6,7 @@ set APP_URL=http://127.0.0.1:3000
 set HEALTH_URL=http://127.0.0.1:3000/healthz
 
 echo ===============================================
-echo Australia Post - eCommerce Integration Label Auditor v1.6.9
+echo Australia Post - eCommerce Integration Label Auditor
 echo ===============================================
 echo This app runs locally at %APP_URL%
 echo.
@@ -27,20 +27,37 @@ if not exist "dist\index.html" (
   exit /b 1
 )
 
+rem Health checks use curl.exe (shipped with Windows 10 1803+) so the
+rem end-user launcher never needs PowerShell or an ExecutionPolicy bypass.
+where curl >nul 2>nul
+if errorlevel 1 set NO_CURL=1
+
+if defined NO_CURL goto start_server
 echo Checking whether the local server is already running...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $r = Invoke-WebRequest -Uri '%HEALTH_URL%' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -ge 200) { exit 0 } else { exit 1 } } catch { exit 1 }"
+curl -s -f --max-time 1 -o nul "%HEALTH_URL%" >nul 2>nul
 if not errorlevel 1 (
   echo Local server is already running. Opening browser...
   start "" "%APP_URL%"
   exit /b 0
 )
 
+:start_server
 echo Starting local server in a separate window...
 start "Australia Post - eCommerce Integration Label Auditor Server" /min "%~dp0run-server.bat"
 
+if defined NO_CURL (
+  echo Waiting briefly for the local server to start...
+  timeout /t 5 /nobreak >nul
+  goto open_browser
+)
+
 echo Waiting for the local server to become ready...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$deadline = (Get-Date).AddSeconds(20); do { try { $r = Invoke-WebRequest -Uri '%HEALTH_URL%' -UseBasicParsing -TimeoutSec 1; if ($r.StatusCode -ge 200) { exit 0 } } catch { Start-Sleep -Milliseconds 500 } } while ((Get-Date) -lt $deadline); exit 1"
-if errorlevel 1 (
+set /a HEALTH_TRIES=0
+:wait_loop
+curl -s -f --max-time 1 -o nul "%HEALTH_URL%" >nul 2>nul
+if not errorlevel 1 goto open_browser
+set /a HEALTH_TRIES+=1
+if %HEALTH_TRIES% geq 20 (
   echo WARNING: The browser did not open because the local server did not respond within 20 seconds.
   echo A server window may still be starting. Leave it open and browse to:
   echo %APP_URL%
@@ -49,7 +66,10 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+timeout /t 1 /nobreak >nul
+goto wait_loop
 
+:open_browser
 echo Local server is ready. Opening browser...
 start "" "%APP_URL%"
 exit /b 0
