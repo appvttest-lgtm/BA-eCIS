@@ -82,7 +82,7 @@ This checklist enumerates every label conformance rule in the specification. Eac
 | ST-FRT-01 | Freight item barcode present on every article (mandatory element) | M | AUTO | ✅ `ST_FREIGHT_BARCODE_PRESENT` | p11, 1.022 |
 | ST-FRT-02 | 20-character format `XXXZ99999999AAA99999`: 4-char alphanumeric Despatch ID + 8-digit consignment sequence + 3-char product code + 5-digit item sequence | M | AUTO | ✅ `parseStarTrackFreightItemBarcode`, `ST_CONNOTE_STRUCTURE`, `ST_ITEM_SEQUENCE` | p12 |
 | ST-FRT-03 | Product code segment is a valid StarTrack product (TSE, RET, RE2, APT, PRM, FPP, ARL, FPA, EXP) | M | AUTO | ✅ `ST_PRODUCT_KNOWN` | p7, p12 |
-| ST-FRT-04 | Code 128 subset pattern: 4 chars Code B + 8 Code C + 4 Code B + 4 Code C | M | PARTIAL (decoder abstracts) | ⛔ decoder-level | p12 |
+| ST-FRT-04 | Code 128 subset pattern: 4 chars Code B + 8 Code C + 4 Code B + 4 Code C | M | PARTIAL (decoder abstracts) | 🟡 `ST-FRT-04` asserts the character-class consequence (4 alnum + 8 digits + 3 alnum + 5 digits); physical subset switching needs a print-time verifier | p12 |
 | ST-FRT-05 | Symbol: picket-fence orientation; min bar width 0.38 mm; min height 25 mm; min length 83 mm; quiet zone 5 mm each side; resolution 6 dots/mm | M | PARTIAL (crop geometry vs page mm) | ❌ gap | p12 |
 | ST-FRT-06 | ANSI print grade A–B preferred, C minimum, D–F fail | M | MANUAL (verifier) | ⛔ physical | p12 |
 | ST-FRT-07 | Human-readable 20-char Article ID beneath the barcode under heading `Article ID`; Arial Bold 8pt | M | PARTIAL (text) | ❌ gap — visible article ID not compared with decoded value | 1.022 |

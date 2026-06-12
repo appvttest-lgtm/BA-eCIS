@@ -134,14 +134,17 @@ export const STARTRACK_LABEL_CODE_MAP = Object.entries(STARTRACK_PRODUCT_CODE_MA
 
 // Unit types accepted for each StarTrack product family when the fixed-width QR payload
 // includes unit data.
+// Spec-exact per MOS v9 Appendix A. TSE and APT are deliberately absent: the spec
+// does not list them for any unit type ("non-standard units must be defined by
+// arrangement with StarTrack"), so those labels surface as manual review.
 export const STARTRACK_UNIT_TYPE_MAP = {
-  BAG: ['EXP','PRM','RET','RE2','FPP','ARL','FPA','TSE','APT'],
-  CTN: ['EXP','PRM','RET','RE2','FPP','ARL','FPA','TSE','APT'],
-  ITM: ['EXP','PRM','RET','RE2','FPP','ARL','FPA','TSE','APT'],
-  JIF: ['EXP','PRM','RET','RE2','FPP','ARL','FPA','TSE','APT'],
-  PAL: ['EXP','PRM','RET','RE2','TSE','APT'],
+  BAG: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
+  CTN: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
+  ITM: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
+  JIF: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
+  PAL: ['EXP','PRM','RET','RE2'],
   SAT: ['FPP','FPA'],
-  SKI: ['EXP','PRM','RET','RE2','TSE','APT']
+  SKI: ['EXP','PRM','RET','RE2']
 };
 
 const STATE_REGEX = '(?:ACT|NSW|NT|QLD|SA|TAS|VIC|WA)';
@@ -652,9 +655,10 @@ function extractPostcodeLines(lines) {
   return [...new Set(found)];
 }
 
-// Matches a valid eParcel article ID: 3- or 5-char MLID followed by exactly 18 digits.
-// This is tighter than a generic [A-Z0-9]{21|23} and avoids capturing watermark text.
-const EPARCEL_ARTICLE_RE = /\b([A-Z0-9]{3}\d{18}|[A-Z0-9]{5}\d{18})\b/g;
+// Matches a visible article ID: AI 00 SSCC (00 + 18 digits), or an eParcel article
+// (3- or 5-char MLID followed by exactly 18 digits). This is tighter than a generic
+// [A-Z0-9]{21|23} and avoids capturing watermark text.
+const EPARCEL_ARTICLE_RE = /\b(00\d{18}|[A-Z0-9]{3}\d{18}|[A-Z0-9]{5}\d{18})\b/g;
 
 function extractArticleIdsFromLines(lines) {
   const ids = [];
@@ -1582,7 +1586,10 @@ function stripAiDecorations(raw) {
 /** Parses a GS1 AI 00 SSCC barcode and validates the embedded check digit. */
 export function parseSsccBarcode(raw) {
   const compact = stripAiDecorations(raw).replace(/\(00\)/g, '00');
-  const match = compact.match(/(?:^|[^0-9])?00(\d{18})(?:$|[^0-9])?/);
+  // AI 00 is the leading AI of an SSCC barcode, so anchor at the start. A floating
+  // match would hit "00" + 18 digits inside unrelated payloads (e.g. zero-padded
+  // account fields in the StarTrack QR data) and report false check-digit failures.
+  const match = compact.match(/^00(\d{18})/);
   if (!match) return { valid: false, raw, reason: 'No AI 00 + 18 digit SSCC found.' };
   const sscc = match[1];
   const body = sscc.slice(0, -1);

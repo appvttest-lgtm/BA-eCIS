@@ -252,6 +252,22 @@
       "assert": { "op": "in", "value": "$constants.productCodes" }
     },
     {
+      "id": "ST-FRT-04",
+      "title": "Code 128 compression structure",
+      "description": "The freight item barcode must use mixed Code 128 character sets: the first 4 characters in Code B (despatch ID), the next 8 in Code C (consignment sequence), the next 4 in Code B (product code + first item digit) and the final 4 in Code C. The decoded text must therefore read as 4 alphanumeric + 8 digits + 3 alphanumeric + 5 digits. The physical subset switching inside the symbol can only be confirmed with a barcode verifier at print time.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-freight",
+      "source": { "doc": "MOS v9", "page": 12 },
+      "forEach": "barcodes.freight",
+      "input": "item.freightItemId",
+      "assert": { "op": "matches", "value": "^[A-Z0-9]{4}\\d{8}[A-Z0-9]{3}\\d{5}$" },
+      "messages": {
+        "pass": "Decoded freight barcode structure is consistent with the required Code B/C compression pattern: {actual}.",
+        "fail": "Decoded freight barcode structure does not match the Code B/C compression pattern (4 alphanumeric + 8 digits + 3 alphanumeric + 5 digits): {actual}."
+      }
+    },
+    {
       "id": "ST-PRD-01",
       "title": "Product matches the audited label type",
       "description": "The product code in the freight barcode must belong to the product family selected for this audit.",

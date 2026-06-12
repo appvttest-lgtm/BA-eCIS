@@ -123,6 +123,7 @@ expect('ST-QR-F21 fails when not-before exceeds not-after', byId(stResults, 'ST-
 expect('ST-HDR-06 flags missing return indicator', ['fail', 'manual_review'].includes(byId(stResults, 'ST-HDR-06')[0]?.status));
 expect('ST-QR-F11 passes on valid despatch date', byId(stResults, 'ST-QR-F11')[0]?.status === 'pass');
 expect('ST-FRT-02B passes on 8-digit sequence', byId(stResults, 'ST-FRT-02B')[0]?.status === 'pass');
+expect('ST-FRT-04 compression structure passes', byId(stResults, 'ST-FRT-04')[0]?.status === 'pass');
 
 console.log('StarTrack SSCC variant');
 const ssccContext = JSON.parse(JSON.stringify(stContext));
