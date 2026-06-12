@@ -16,6 +16,9 @@ const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'X-Permitted-Cross-Domain-Policies': 'none',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
   'Content-Security-Policy': [
     "default-src 'none'",
@@ -77,9 +80,22 @@ function sendFile(res, filePath) {
   });
 }
 
+// DNS rebinding protection: a malicious website can point its own domain at
+// 127.0.0.1 and drive requests to local servers from the victim's browser. Such
+// requests carry the attacker's domain in the Host header, so only loopback
+// hostnames are accepted.
+function isAllowedHost(hostHeader) {
+  const host = String(hostHeader || '').toLowerCase().replace(/:\d+$/, '');
+  return host === '127.0.0.1' || host === 'localhost' || host === '[::1]';
+}
+
 const server = http.createServer((req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return send(res, 405, 'Method not allowed');
+  }
+
+  if (!isAllowedHost(req.headers.host)) {
+    return send(res, 403, 'Forbidden: this local-only server accepts loopback hostnames only.');
   }
 
   const url = new URL(req.url || '/', `http://${HOST}:${PORT}`);

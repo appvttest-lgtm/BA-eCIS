@@ -1,10 +1,18 @@
 ﻿
-BarcodeAuditer v1.7.3 Release Notes
+BarcodeAuditer v1.7.4 Release Notes
 ===================================
 
 Release focus
 -------------
-The v1.7.1 to v1.7.3 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, and introduces input preprocessing for rotated and multi-label uploads. The local-only security design is unchanged.
+The v1.7.1 to v1.7.4 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server and exported reports. The local-only security design is unchanged.
+
+v1.7.4 - security hardening
+---------------------------
+- DNS rebinding protection: server.mjs now rejects requests whose Host header is not a loopback hostname (127.0.0.1, localhost, [::1]), blocking malicious websites from driving a victim's browser at the local server via rebound DNS.
+- Added Cross-Origin-Opener-Policy: same-origin, Cross-Origin-Resource-Policy: same-origin and X-Permitted-Cross-Domain-Policies: none response headers.
+- The HTML report builders now emit a Content-Security-Policy meta tag (default-src 'none'; img-src data:; style-src 'unsafe-inline') so no script can execute in a downloaded or shared report document. Review finding: the report download functions are currently not wired to any UI control (the in-browser rule report replaced them), so they are tree-shaken from the shipped bundle; the CSP protects them if reinstated.
+- pdf.js document loading sets isEvalSupported: false, closing the font/PostScript eval path (CVE-2024-4367 class) as defense in depth for untrusted PDF uploads.
+- Review confirmed: path-traversal containment (plain, percent-encoded and backslash vectors all serve the app shell), GET/HEAD-only methods, comprehensive HTML escaping in all three report builders, no dangerouslySetInnerHTML, guarded JSON parsing of pasted payloads, and npm audit --omit=dev reporting 0 production vulnerabilities. Two moderate advisories remain in dev-only tooling (esbuild via Vite 5 dev server); they do not affect the shipped app and the pinned-dependency policy defers the breaking Vite major bump.
 
 v1.7.3 - input preprocessing (issue #7)
 ---------------------------------------
