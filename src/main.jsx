@@ -33,7 +33,8 @@ prepareZXingModule({
 const barcodeFormats = ['code_128', 'data_matrix', 'qr_code', 'pdf417', 'ean_13', 'ean_8'];
 
 const APP_TITLE = 'Australia Post - eCommerce Integration Label Auditor';
-const APP_VERSION = 'v1.7.2';
+// eslint-disable-next-line no-undef
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'v?';
 const FEEDBACK_URL = 'https://github.com/appvttest-lgtm/BA-eCIS/issues/new/choose';
 const ACCEPTED_LABEL_FILE_TYPES = 'application/pdf,image/png,image/jpeg,image/webp,image/bmp';
 const LABEL_FAMILY_NAMES = { eparcel: 'eParcel', startrack: 'StarTrack' };

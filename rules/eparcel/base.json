@@ -323,7 +323,7 @@
     {
       "id": "EP-ART-07",
       "title": "Visible consignment matches barcode",
-      "description": "The visible Cons No must match the consignment embedded in the decoded article.",
+      "description": "The visible Cons No must match the consignment embedded in the decoded article. Text extraction is heuristic and may be affected by watermarks or label overlays.",
       "obligation": "mandatory",
       "severity": "ERROR",
       "category": "barcode-structure",
@@ -332,12 +332,17 @@
       "forEach": "articles",
       "itemWhen": { "path": "item.type", "op": "equals", "value": "eparcel-standard" },
       "input": "item.consignmentId",
-      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "text.consignmentIds", "normalize": ["stripSpaces", "upper"] } }
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "text.consignmentIds", "normalize": ["stripSpaces", "upper"] } },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Visible Cons No matches the decoded barcode consignment.",
+        "fail": "Visible Cons No does not match the decoded barcode consignment. Confirm visually — text extraction may be affected by watermarks or overlays."
+      }
     },
     {
       "id": "EP-ART-08",
       "title": "Visible article ID matches barcode",
-      "description": "The human-readable AP Article ID must equal the decoded barcode article once spacing is removed.",
+      "description": "The human-readable AP Article ID must equal the decoded barcode article once spacing is removed. Text extraction is heuristic and may be affected by watermarks or label overlays.",
       "obligation": "mandatory",
       "severity": "ERROR",
       "category": "barcode-structure",
@@ -346,7 +351,12 @@
       "forEach": "articles",
       "itemWhen": { "path": "item.type", "op": "equals", "value": "eparcel-standard" },
       "input": "item.articleId",
-      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "text.articleIds", "normalize": ["stripSpaces", "upper"] } }
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "text.articleIds", "normalize": ["stripSpaces", "upper"] } },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Visible AP Article ID matches the decoded barcode article.",
+        "fail": "Visible AP Article ID does not match the decoded barcode article. Confirm visually — text extraction may be affected by watermarks or overlays."
+      }
     },
     {
       "id": "EP-SVC-01",

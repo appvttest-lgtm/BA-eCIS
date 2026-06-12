@@ -135,13 +135,13 @@ export const STARTRACK_LABEL_CODE_MAP = Object.entries(STARTRACK_PRODUCT_CODE_MA
 // Unit types accepted for each StarTrack product family when the fixed-width QR payload
 // includes unit data.
 export const STARTRACK_UNIT_TYPE_MAP = {
-  BAG: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
-  CTN: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
-  ITM: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
-  JIF: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
-  PAL: ['EXP','PRM','RET','RE2'],
+  BAG: ['EXP','PRM','RET','RE2','FPP','ARL','FPA','TSE','APT'],
+  CTN: ['EXP','PRM','RET','RE2','FPP','ARL','FPA','TSE','APT'],
+  ITM: ['EXP','PRM','RET','RE2','FPP','ARL','FPA','TSE','APT'],
+  JIF: ['EXP','PRM','RET','RE2','FPP','ARL','FPA','TSE','APT'],
+  PAL: ['EXP','PRM','RET','RE2','TSE','APT'],
   SAT: ['FPP','FPA'],
-  SKI: ['EXP','PRM','RET','RE2']
+  SKI: ['EXP','PRM','RET','RE2','TSE','APT']
 };
 
 const STATE_REGEX = '(?:ACT|NSW|NT|QLD|SA|TAS|VIC|WA)';
@@ -652,13 +652,34 @@ function extractPostcodeLines(lines) {
   return [...new Set(found)];
 }
 
+// Matches a valid eParcel article ID: 3- or 5-char MLID followed by exactly 18 digits.
+// This is tighter than a generic [A-Z0-9]{21|23} and avoids capturing watermark text.
+const EPARCEL_ARTICLE_RE = /\b([A-Z0-9]{3}\d{18}|[A-Z0-9]{5}\d{18})\b/g;
+
 function extractArticleIdsFromLines(lines) {
   const ids = [];
+  // Primary pass: labelled lines are most reliable (avoids watermark false-positives).
   for (const line of lines) {
     if (!/(?:AP\s*)?Article\s*Id/i.test(line)) continue;
     const after = String(line).replace(/^.*?(?:AP\s*)?Article\s*Id\s*:?\s*/i, '').toUpperCase();
-    const matches = after.match(/(00\d{18}|[A-Z0-9]{21}|[A-Z0-9]{23})/g) || [];
+    const matches = after.match(EPARCEL_ARTICLE_RE) || [];
     ids.push(...matches);
+  }
+  // Secondary pass: barcode human-readable text appears above/below the symbol
+  // without a heading. Scan all lines but apply the stricter pattern and require
+  // the line to contain ONLY the candidate (not part of a longer word).
+  if (ids.length === 0) {
+    for (const line of lines) {
+      if (/(?:AP\s*)?Article\s*Id/i.test(line)) continue;
+      const upper = String(line).toUpperCase().trim();
+      const matches = upper.match(EPARCEL_ARTICLE_RE) || [];
+      // Only take the match if it dominates the line (reduces watermark noise).
+      for (const m of matches) {
+        if (upper.replace(/\s/g, '').startsWith(m) || upper.replace(/\s/g, '').endsWith(m)) {
+          ids.push(m);
+        }
+      }
+    }
   }
   return [...new Set(ids)];
 }
@@ -1723,7 +1744,16 @@ function extractStarTrackFacts(extractedText) {
     }
     return null;
   })();
-  const articleId = (joined.match(/(?:ARTICLE\s*ID|FREIGHT\s*ITEM(?:\s*ID)?)\s*:?\s*([A-Z0-9\s]{12,30})/i) || [])[1]?.replace(/\s+/g, '').toUpperCase() || null;
+  // Primary: labelled line. Secondary: bare 20-char freight item pattern on its own line.
+  const labelledArticle = (joined.match(/(?:ARTICLE\s*ID|FREIGHT\s*ITEM(?:\s*ID)?)\s*:?\s*([A-Z0-9\s]{12,30})/i) || [])[1]?.replace(/\s+/g, '').toUpperCase() || null;
+  const bareArticle = !labelledArticle ? (() => {
+    for (const line of lines) {
+      const t = line.trim().replace(/\s+/g, '').toUpperCase();
+      if (/^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(t)) return t;
+    }
+    return null;
+  })() : null;
+  const articleId = labelledArticle || bareArticle;
   const connoteFromArticle = articleId && /^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(articleId) ? articleId.slice(0, 12) : null;
   const connote = sameLineConnote || nextLineConnote || nearbyConnote || connoteFromArticle || null;
   const weight = (joined.match(/\b([0-9]+(?:\.[0-9]+)?)\s*kg\b/i) || [])[1] || null;
