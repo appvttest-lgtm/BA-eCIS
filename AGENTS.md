@@ -133,6 +133,8 @@ SSCC values, account references.
 - Dependency versions are deliberately pinned with documented CVE assessments in
   `README.md` — do not bump dependencies casually; if you do, refresh the
   "Dependency Vulnerability Assessment" section.
+- Regenerate the SBOM with every release: `npm run sbom` rewrites
+  `docs/security/sbom.cyclonedx.json` from the lockfile.
 - Portable Windows release: `build-portable-release.bat` (uses `wrapper/windows/`).
   No admin rights, services, Docker, WSL, or registry changes — keep that true.
 

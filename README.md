@@ -110,6 +110,7 @@ The local HTTP server is used so browser modules, PDF workers, WebAssembly asset
 - zxing-wasm version 3.0.3 has no known direct vulnerabilities, with no issues found in the direct dependency or Snyk database for this version.
 - tesseract.js version 7.0.0 and @tesseract.js-data/eng version 1.0.0 (in-browser OCR engine and English training data, both pinned exact and served from local assets) have no known direct vulnerabilities.
 - Development-only tooling (eslint, prettier and plugins, pinned exact) never ships in dist/. Two moderate advisories exist in Vite 5's dev-server esbuild; they affect npm run dev only and the fix is deferred because it requires a breaking Vite major upgrade (see release notes v1.7.4).
+- A CycloneDX SBOM covering the full build-time dependency tree is committed at `docs/security/sbom.cyclonedx.json` and regenerated each release with `npm run sbom`.
 
 ## Rule Sets
 

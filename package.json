@@ -12,6 +12,7 @@
     "build": "vite build",
     "test": "node --test",
     "lint": "eslint .",
+    "sbom": "npm sbom --sbom-format cyclonedx > docs/security/sbom.cyclonedx.json",
     "format": "prettier --write \"src/**/*.{js,jsx}\" \"tests/**/*.mjs\" server.mjs rules/index.js eslint.config.mjs",
     "format:check": "prettier --check \"src/**/*.{js,jsx}\" \"tests/**/*.mjs\" server.mjs rules/index.js eslint.config.mjs",
     "start": "node server.mjs",
