@@ -2,10 +2,10 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:e996e6d0-0a1f-4029-ad24-27f5a6261e02",
+  "serialNumber": "urn:uuid:6319a2af-a527-405b-8a82-183d4d3149fe",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-06-12T06:24:50.784Z",
+    "timestamp": "2026-06-12T06:27:04.687Z",
     "lifecycles": [
       {
         "phase": "build"
@@ -19,13 +19,13 @@
       }
     ],
     "component": {
-      "bom-ref": "ecommerce-integration-label-auditor-local@1.7.5",
+      "bom-ref": "ecommerce-integration-label-auditor-local@1.7.6",
       "type": "library",
       "name": "BarcodeAuditer",
-      "version": "1.7.5",
+      "version": "1.7.6",
       "scope": "required",
       "description": "Local-only Australia Post eParcel and StarTrack digital label audit web app with barcode, SSCC, QR, routing and visible label checks.",
-      "purl": "pkg:npm/ecommerce-integration-label-auditor-local@1.7.5",
+      "purl": "pkg:npm/ecommerce-integration-label-auditor-local@1.7.6",
       "properties": [
         {
           "name": "cdx:npm:package:private",
@@ -12001,7 +12001,7 @@
   ],
   "dependencies": [
     {
-      "ref": "ecommerce-integration-label-auditor-local@1.7.5",
+      "ref": "ecommerce-integration-label-auditor-local@1.7.6",
       "dependsOn": [
         "@eslint/js@9.39.1",
         "@tesseract.js-data/eng@1.0.0",

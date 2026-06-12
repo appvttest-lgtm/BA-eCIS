@@ -6,16 +6,17 @@ Tag items with #security #feature #marketing #logging #infra for colored chips.
 ## Planned - future build requirements
 - [ ] Capture the next batch of build requirements here #feature
 
-## In progress — senior review readiness (targeting v1.7.6)
+## Done — senior review readiness (shipped as v1.7.6)
 One commit per item. Source: review-prep assessment 2026-06-12.
-- [ ] R01 README corrections: drop stale TypeScript + HTML-report-export claims, refresh project file map #infra
-- [ ] R02 Pin GitHub Actions to commit SHAs (supply-chain hardening) #security
-- [ ] R03 Adversarial input tests: hostile markup, ReDoS-length lines, malformed/deep JSON payloads #security
-- [ ] R04 Threat model + data-handling statement (docs/security/threat-model.md) #security
-- [ ] R05 security-assessment-v1.7.6.md with disposition of every v1.6.8 finding #security
-- [ ] R06 SBOM: npm run sbom script + committed CycloneDX for the release #security
-- [ ] R07 Resources/ example-label PII sweep (report only) #security
-- [ ] R08 Close out: version 1.7.6 + release notes + rebuilt dist #infra
+- [x] R01 README corrections: drop stale TypeScript + HTML-report-export claims, refresh project file map #infra
+- [x] R02 Pin GitHub Actions to commit SHAs (supply-chain hardening) #security
+- [x] R03 Adversarial input hardening + tests: fixed quadratic regex backtracking (line caps) and a payload deep-nesting stack overflow (iterative flatten); hostile markup, ReDoS and payload tests #security
+- [x] R04 Threat model + data-handling statement (docs/security/threat-model.md) #security
+- [x] R05 security-assessment-v1.7.6.md with disposition of every v1.6.8 finding #security
+- [x] R06 SBOM: npm run sbom script + committed CycloneDX for the release #security
+- [x] R07 Resources/ example-label PII sweep: synthetic throughout; flagged PP.pdf recipient name + EXP.pdf mobile number for owner confirmation #security
+- [x] R08 Close out: version 1.7.6 + release notes + rebuilt dist #infra
+- [x] Bonus: launcher PowerShell ExecutionPolicy bypass removed (curl.exe health checks); S12 regex regression fixed (first CI failure) #security
 
 Out of scope for the repo (owner decisions): code-signing the launcher EXE,
 repo visibility / carrier-spec redistribution rights confirmation.

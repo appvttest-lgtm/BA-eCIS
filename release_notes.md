@@ -4,7 +4,17 @@ BarcodeAuditer v1.7.5 Release Notes
 
 Release focus
 -------------
-The v1.7.1 to v1.7.5 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server and exported reports. The local-only security design is unchanged.
+The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
+
+v1.7.6 - senior review readiness
+--------------------------------
+Prepares the repository for senior application and security review (board items R01-R08 in BOARD.md):
+- Adversarial input hardening, found by probing and fixed: extracted-text lines are now capped in length and count (the postcode regex backtracked quadratically - a crafted 40k-character line took about a second); pasted payload flattening is iterative with a 20k-entry cap (a JSON payload nested 5k deep previously crashed with an uncaught RangeError). Both behaviors are pinned by the new tests/adversarial.test.mjs (90 tests total).
+- Fixed an S12 regression where the dangerous-goods prefix-stripping regex lost its escape characters when converted to a template string; this was also the cause of the first CI failure on main.
+- start-auditer.bat no longer invokes PowerShell with -ExecutionPolicy Bypass: health checks use curl.exe (Windows 10 1803+) with a plain batch retry loop, and the stale hardcoded version banner is gone.
+- Supply chain: GitHub Actions pinned to commit SHAs; a CycloneDX SBOM for the full build-time tree is committed at docs/security/sbom.cyclonedx.json and regenerated each release via npm run sbom.
+- Documentation: docs/security/threat-model.md (data flow, trust boundaries, data-handling statement, accepted risks) and security-assessment-v1.7.6.md with a disposition of every v1.6.8 finding. README corrections: stale TypeScript and HTML-report-export claims removed, project file map updated to the current module layout.
+- Resources/ example labels swept for customer data: synthetic test data throughout; two low-risk items flagged for owner confirmation (a real-looking recipient name in PP.pdf and a mobile number in EXP.pdf, both consistent with internal test accounts).
 
 v1.7.5 - coding standards uplift
 --------------------------------
