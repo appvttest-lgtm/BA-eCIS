@@ -26,7 +26,7 @@ One commit per item. Source: code-standards evaluation 2026-06-12.
 - [x] S10 Route stray console.* through gated debug logging #logging
 - [x] S11 Name remaining magic numbers in the scan pipeline #infra
 - [x] S12 Single-source the AU state list shared by auditEngine and rule JSON #infra
-- [ ] S13 JSDoc all exported functions; @ts-check pure engine modules (covers type-safety item) #infra
+- [x] S13 JSDoc all exported functions (ts-check deferred: needs a tsc-verified annotation pass to be honest) #infra
 
 ### P4 — Hygiene
 - [ ] S14 server.mjs: drop sync fs calls from the request path #infra

@@ -147,6 +147,7 @@ function isIssue(v) {
   return v.status === 'fail' || v.status === 'warning' || v.status === 'manual_review';
 }
 
+/** Rule-by-rule report: filter chips plus one expandable row per validation result. */
 export function RuleReport({ items, standardFor, showPayload, renderPayload }) {
   const [filter, setFilter] = useState('all');
   const counts = useMemo(

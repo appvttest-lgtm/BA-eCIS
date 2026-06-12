@@ -23,6 +23,7 @@ export const STARTRACK_LINEAR_TARGETS = {
   sweep: { x: 0.02, y: 0.36, w: 0.96, h: 0.58 }
 };
 
+/** Uppercases and strips spacing so decoded values compare by role reliably. */
 export function normalizeBarcodeValueForRole(value) {
   return String(value || '')
     .replace(/[()\s]/g, '')
@@ -30,16 +31,19 @@ export function normalizeBarcodeValueForRole(value) {
     .toUpperCase();
 }
 
+/** True when a decoded value matches the 20-character StarTrack freight item format. */
 export function isStarTrackFreightItemValue(value) {
   const v = normalizeBarcodeValueForRole(value);
   return /^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(v) || /^00\d{18}$/.test(v);
 }
 
+/** True when a decoded value matches the C999999999 ATL format. */
 export function isStarTrackAtlValue(value) {
   const v = normalizeBarcodeValueForRole(value);
   return /^C\d{9}$/.test(v);
 }
 
+/** True when a decoded value matches the StarTrack routing barcode format. */
 export function isStarTrackRoutingValue(value) {
   const v = normalizeBarcodeValueForRole(value);
   const route = v.match(/^([A-Z0-9]{3})\d{4}[A-Z0-9]{2,3}$/);
@@ -55,6 +59,7 @@ export function barcodeKindLabel(b) {
   return b?.format || 'Barcode';
 }
 
+/** Crops the evidence image for the first decoded barcode of the given kind. */
 export function cropForDecodedBarcode(canvas, barcodes, kind) {
   const list = barcodes.filter(
     b =>
@@ -78,6 +83,7 @@ export function cropForDecodedBarcode(canvas, barcodes, kind) {
   };
 }
 
+/** Crops the evidence image for the first decoded barcode matching a predicate. */
 export function cropForDecodedBarcodeMatch(canvas, barcodes, predicate, marginPx = BARCODE_BOX_MARGIN_PX) {
   const list = (barcodes || []).filter(b => b.pageBoundingBox && predicate(b));
   if (!list.length) return null;
@@ -91,6 +97,7 @@ export function cropForDecodedBarcodeMatch(canvas, barcodes, predicate, marginPx
   };
 }
 
+/** Converts a fractional box spec into pixel coordinates on the given canvas. */
 export function relativeCanvasBox(canvas, spec) {
   return clampBox(
     {
@@ -104,6 +111,7 @@ export function relativeCanvasBox(canvas, spec) {
   );
 }
 
+/** Builds dashed candidate boxes for expected StarTrack barcode zones not yet decoded. */
 export function buildStarTrackPreviewCandidateBoxes(canvas, detectedBarcodes = []) {
   const hasRouting = detectedBarcodes.some(b => isLinearBarcode(b) && isStarTrackRoutingValue(b.rawValue));
   const hasAtl = detectedBarcodes.some(b => isLinearBarcode(b) && isStarTrackAtlValue(b.rawValue));
@@ -127,6 +135,7 @@ export function buildStarTrackPreviewCandidateBoxes(canvas, detectedBarcodes = [
   ].filter(Boolean);
 }
 
+/** Draws one labelled barcode box onto the preview overlay context. */
 export function drawPreviewBarcodeBox(ctx, scale, outputWidth, box, label, style) {
   const x = box.x * scale;
   const y = box.y * scale;
@@ -152,6 +161,7 @@ export function drawPreviewBarcodeBox(ctx, scale, outputWidth, box, label, style
   ctx.restore();
 }
 
+/** Renders the label preview with decoded/candidate barcode boxes burned in. */
 export function canvasToDataUrlWithBarcodeBoxes(sourceCanvas, barcodes = [], maxWidth = 820, candidateBoxes = []) {
   if (!sourceCanvas?.width || !sourceCanvas?.height) return '';
   const scale = Math.min(1, maxWidth / sourceCanvas.width);
@@ -188,6 +198,7 @@ export function canvasToDataUrlWithBarcodeBoxes(sourceCanvas, barcodes = [], max
   return out.toDataURL('image/jpeg', 0.88);
 }
 
+/** Builds the full set of preview and evidence crop images for one audited label. */
 export function createLabelImages(canvas, detectedBarcodes = [], labelFamily = 'eparcel') {
   const w = canvas.width;
   const h = canvas.height;

@@ -61,6 +61,7 @@ function normaliseOcrText(text) {
     .join('\n');
 }
 
+/** Merges text from multiple extraction sources, deduplicating repeated lines. */
 export function mergeExtractedText(...texts) {
   const lines = [];
   const seen = new Set();
@@ -77,6 +78,7 @@ export function mergeExtractedText(...texts) {
   return lines.join('\n');
 }
 
+/** Runs Tesseract OCR over a rendered canvas and returns the recognized text. */
 export async function recognizeCanvasText(canvas, mark, label) {
   const ocrStart = performance.now();
   try {

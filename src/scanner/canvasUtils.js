@@ -46,6 +46,7 @@ export function expandBox(box, canvasWidth, canvasHeight, marginPx = BARCODE_BOX
   );
 }
 
+/** Returns a new canvas rotated by 0/90/180/270 degrees clockwise. */
 export function rotateCanvas(sourceCanvas, degrees) {
   if (degrees === 0) return sourceCanvas;
   const out = document.createElement('canvas');
@@ -60,6 +61,7 @@ export function rotateCanvas(sourceCanvas, degrees) {
   return out;
 }
 
+/** Returns a new canvas holding the given source rectangle. */
 export function cropCanvas(sourceCanvas, x, y, width, height) {
   const out = document.createElement('canvas');
   out.width = Math.max(1, Math.floor(width));
@@ -69,6 +71,7 @@ export function cropCanvas(sourceCanvas, x, y, width, height) {
   return out;
 }
 
+/** Returns a nearest-neighbour upscaled copy (keeps barcode edges crisp). */
 export function scaleCanvas(sourceCanvas, factor = 2) {
   const out = document.createElement('canvas');
   out.width = Math.max(1, Math.round(sourceCanvas.width * factor));
@@ -79,6 +82,7 @@ export function scaleCanvas(sourceCanvas, factor = 2) {
   return out;
 }
 
+/** Returns a black/white binarized copy using a fixed luminance threshold. */
 export function thresholdCanvas(sourceCanvas, threshold = BINARY_THRESHOLD_DEFAULT) {
   const out = document.createElement('canvas');
   out.width = sourceCanvas.width;
@@ -98,6 +102,7 @@ export function thresholdCanvas(sourceCanvas, threshold = BINARY_THRESHOLD_DEFAU
   return out;
 }
 
+/** Returns a copy with a white quiet-zone border added on all sides. */
 export function addWhiteBorder(sourceCanvas, borderRatio = 0.1) {
   const border = Math.max(12, Math.round(Math.min(sourceCanvas.width, sourceCanvas.height) * borderRatio));
   const out = document.createElement('canvas');
@@ -115,6 +120,7 @@ export const TRIM_DARK_PADDING_PX = 14;
 export const TRIM_DARK_INK_THRESHOLD = 205;
 export const BINARY_THRESHOLD_DEFAULT = 150;
 
+/** Crops the canvas to its dark-content bounding box plus padding. */
 export function trimDarkBounds(sourceCanvas, padding = TRIM_DARK_PADDING_PX, threshold = TRIM_DARK_INK_THRESHOLD) {
   const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
   const { width, height } = sourceCanvas;
@@ -144,6 +150,7 @@ export function trimDarkBounds(sourceCanvas, padding = TRIM_DARK_PADDING_PX, thr
   return cropCanvas(sourceCanvas, minX, minY, Math.max(1, maxX - minX), Math.max(1, maxY - minY));
 }
 
+/** Returns the image centred on a white square canvas (helps 2D decoders). */
 export function squareCanvas(sourceCanvas, paddingRatio = 0.08) {
   const size = Math.max(sourceCanvas.width, sourceCanvas.height);
   const pad = Math.round(size * paddingRatio);
@@ -157,6 +164,7 @@ export function squareCanvas(sourceCanvas, paddingRatio = 0.08) {
   return out;
 }
 
+/** Returns a smoothly downscaled copy capped at maxDim on the long edge. */
 export function downscaleCanvasSmooth(sourceCanvas, maxDim) {
   const scale = Math.min(1, maxDim / Math.max(sourceCanvas.width, sourceCanvas.height));
   if (scale >= 1) return sourceCanvas;
@@ -172,6 +180,7 @@ export function downscaleCanvasSmooth(sourceCanvas, maxDim) {
 
 export const SEGMENT_LUMINANCE_MAX_DIM = 360;
 
+/** Returns a downscaled row-major Uint8 luminance array for segmentation. */
 export function canvasLuminanceSample(canvas, maxDim = SEGMENT_LUMINANCE_MAX_DIM) {
   const sample = downscaleCanvasSmooth(canvas, maxDim);
   const ctx = sample.getContext('2d', { willReadFrequently: true });
@@ -184,6 +193,7 @@ export function canvasLuminanceSample(canvas, maxDim = SEGMENT_LUMINANCE_MAX_DIM
   return { lum, width: sample.width, height: sample.height };
 }
 
+/** Encodes the canvas as a bounded-width JPEG/PNG data URL for report embedding. */
 export function canvasToDataUrl(sourceCanvas, maxWidth = 700, mime = 'image/jpeg', quality = 0.86) {
   if (!sourceCanvas?.width || !sourceCanvas?.height) return '';
   const scale = Math.min(1, maxWidth / sourceCanvas.width);

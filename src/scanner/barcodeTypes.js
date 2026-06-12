@@ -6,6 +6,7 @@ export const FORMAT_KIND = {
   mixed: 'mixed'
 };
 
+/** True when a decoded barcode entry is a DataMatrix symbol. */
 export function isDataMatrixBarcode(barcode) {
   const fmt = String(barcode?.format || barcode?.symbology || '').toLowerCase();
   const raw = String(barcode?.rawValue || '');
@@ -18,11 +19,13 @@ export function isDataMatrixBarcode(barcode) {
   );
 }
 
+/** True when a decoded barcode entry is a QR symbol. */
 export function isQrBarcode(barcode) {
   const fmt = String(barcode?.format || barcode?.symbology || '').toLowerCase();
   return fmt.includes('qr') || barcode?.kind === FORMAT_KIND.qr;
 }
 
+/** True when a decoded barcode entry is a linear (Code 128 family) symbol. */
 export function isLinearBarcode(barcode) {
   const fmt = String(barcode?.format || barcode?.symbology || '').toLowerCase();
   if (isQrBarcode(barcode) || isDataMatrixBarcode(barcode)) return false;

@@ -50,10 +50,12 @@ export const ORIENTATION_PROBE_MAX_DIM = 1500;
 
 export const SEGMENT_MARGIN_FRAC = 0.012;
 
+/** Yields to the event loop so long scans keep the UI responsive. */
 export function yieldToBrowser() {
   return new Promise(resolve => setTimeout(resolve, 0));
 }
 
+/** Builds the preprocessed canvas variants (trim, threshold, scale...) for one target. */
 export function makeScanVariants(baseCanvas, kind, labels = null) {
   const allowed = labels ? new Set(labels) : null;
   const variants = [];
@@ -88,11 +90,13 @@ export function makeScanVariants(baseCanvas, kind, labels = null) {
   return variants;
 }
 
+/** Chooses which scan variants apply for the given barcode kind. */
 export function selectScanVariants(baseCanvas, kind) {
   const preferred = SCAN_VARIANT_LABELS[kind] || SCAN_VARIANT_LABELS.mixed;
   return makeScanVariants(baseCanvas, kind, preferred);
 }
 
+/** True once a targeted scan already produced the kind it was looking for. */
 export function shouldStopTargetScan(target, found) {
   if (!found.length) return false;
   if (target.kind === FORMAT_KIND.datamatrix || target.kind === FORMAT_KIND.qr) return true;
@@ -100,6 +104,7 @@ export function shouldStopTargetScan(target, found) {
   return found.length >= 2;
 }
 
+/** Truncates long decoded values for log readability. */
 export function shortenBarcodeValue(value, maxLength = 42) {
   const text = String(value || '')
     .replace(/\s+/g, ' ')
@@ -108,6 +113,7 @@ export function shortenBarcodeValue(value, maxLength = 42) {
   return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
 }
 
+/** One-line summary of decoded values for the scan debug log. */
 export function detectorResultSummary(decoded) {
   if (!decoded.length) return 'no detector results';
   return decoded
@@ -120,6 +126,7 @@ export function detectorResultSummary(decoded) {
     .join('; ');
 }
 
+/** Formats decoder/region/variant provenance for a decoded barcode. */
 export function decodedSourceEvidence(decoded) {
   return decoded.map(d => ({
     source: d.source || 'Unknown detector',
@@ -129,6 +136,7 @@ export function decodedSourceEvidence(decoded) {
   }));
 }
 
+/** Normalized per-target scan record kept for the diagnostics panel. */
 export function scanDiagnostic(target, decoded, pageNumber, durationMs, extra = {}) {
   return {
     pageNumber,
@@ -145,6 +153,7 @@ export function scanDiagnostic(target, decoded, pageNumber, durationMs, extra = 
   };
 }
 
+/** Defines one crop region scan target with its expected formats. */
 export function makeTarget(sourceCanvas, kind, label, x, y, w, h, formats) {
   const targetCanvas =
     x === 0 && y === 0 && w === sourceCanvas.width && h === sourceCanvas.height
@@ -153,6 +162,7 @@ export function makeTarget(sourceCanvas, kind, label, x, y, w, h, formats) {
   return { kind, label, x, y, w, h, canvas: targetCanvas, formats };
 }
 
+/** True when any decoded barcode matches the given kind. */
 export function hasBarcodeKind(barcodes, kind) {
   return (barcodes || []).some(barcode =>
     kind === FORMAT_KIND.qr
@@ -165,6 +175,7 @@ export function hasBarcodeKind(barcodes, kind) {
   );
 }
 
+/** Skips the expensive full-page scan when targeted scans already found everything. */
 export function shouldSkipFullPageSafetyScan(found, labelFamily = 'eparcel') {
   const unique = dedupeBarcodes(found);
   if (labelFamily === 'startrack') {
@@ -173,6 +184,7 @@ export function shouldSkipFullPageSafetyScan(found, labelFamily = 'eparcel') {
   return unique.length >= 2;
 }
 
+/** Plans the ordered list of crop scan targets for the carrier label family. */
 export function buildCategorizedScanTargets(canvas, labelFamily = 'eparcel') {
   const w = canvas.width;
   const h = canvas.height;
@@ -238,6 +250,7 @@ export function buildCategorizedScanTargets(canvas, labelFamily = 'eparcel') {
   ];
 }
 
+/** Measures ink density and transition stats for a canvas region. */
 export function imageStats(canvas, label) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const { width, height } = canvas;
@@ -272,6 +285,7 @@ export function imageStats(canvas, label) {
   };
 }
 
+/** Returns the strongest barcode-like cell stats over an n-by-n grid. */
 export function bestStatsOverGrid(canvas, label, cellsX = 5, cellsY = 5) {
   let best = null;
   const minCell = 40;
@@ -290,6 +304,7 @@ export function bestStatsOverGrid(canvas, label, cellsX = 5, cellsY = 5) {
   return best || imageStats(canvas, `${label} grid empty`);
 }
 
+/** Heuristically checks whether barcode-like ink exists even if undecodable. */
 export function detectVisualBarcodeEvidence(canvas) {
   const w = canvas.width;
   const h = canvas.height;
@@ -361,6 +376,7 @@ export function mapBarcodeToPage(barcode, target, variantLabel = '') {
   return base;
 }
 
+/** Runs every available decode engine over one scan target until something reads. */
 export async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
   const found = [];
   const categoryFormats = target.formats || ['Code128', 'DataMatrix'];
@@ -427,6 +443,7 @@ export async function scanTargetWithAllEngines(target, detector, pageNumber = 1)
   return found;
 }
 
+/** Scans one label canvas through all planned targets and dedupes the results. */
 export async function detectOnCanvas(canvas, detector, pageNumber = 1, onDebug = null, labelFamily = 'eparcel') {
   const found = [];
   const scanDiagnostics = [];
@@ -542,6 +559,7 @@ export function segmentLabelCanvases(canvas, mark = null, contextLabel = 'input'
   return segments;
 }
 
+/** Groups pdf.js text items into reading-order lines. */
 export function textContentItemsToLines(items) {
   const entries = [];
   for (const item of items || []) {
@@ -592,11 +610,13 @@ export function textContentItemsToLines(items) {
     .filter(Boolean);
 }
 
+/** True when the PDF text layer is too sparse to audit and OCR should run. */
 export function pdfTextLayerNeedsOcr(lines) {
   const usefulChars = lines.join(' ').replace(/[^A-Za-z0-9]/g, '').length;
   return usefulChars < PDF_TEXT_LAYER_MIN_USEFUL_CHARS;
 }
 
+/** Image upload pipeline: orient, segment and scan; returns one entry per label. */
 export async function processImageLabels(file, detector, onDebug = null, labelFamily = 'eparcel') {
   const fileStart = performance.now();
   const mark = (message, startedAt = fileStart) => onDebug?.(message, performance.now() - startedAt);
@@ -680,6 +700,7 @@ export async function processImageLabels(file, detector, onDebug = null, labelFa
   }
 }
 
+/** PDF upload pipeline: render, orient, segment and scan every page; one entry per label. */
 export async function processPdfLabels(file, detector, onDebug = null, labelFamily = 'eparcel') {
   const fileStart = performance.now();
   const mark = (message, startedAt = fileStart) => onDebug?.(message, performance.now() - startedAt);

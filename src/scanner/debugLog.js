@@ -10,6 +10,7 @@ function debugEnabled() {
   }
 }
 
+/** console.warn that is silent unless debug logging is enabled. */
 export function debugWarn(...args) {
   if (debugEnabled()) console.warn(...args);
 }

@@ -11,10 +11,12 @@
 
 const CUSTOM_FNS = {};
 
+/** Registers a named assert function callable from rule JSON via { "op": "fn", "name": ... }. */
 export function registerRuleFunction(name, fn) {
   CUSTOM_FNS[name] = fn;
 }
 
+/** Looks up a registered rule function by name. */
 export function getRuleFunction(name) {
   return CUSTOM_FNS[name];
 }
