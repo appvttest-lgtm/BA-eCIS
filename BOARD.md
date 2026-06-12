@@ -23,7 +23,7 @@ One commit per item. Source: code-standards evaluation 2026-06-12.
 
 ### P3 — Consistency
 - [x] S09 Stable React keys in barcode/QR list renders #feature
-- [ ] S10 Route stray console.* through gated debug logging #logging
+- [x] S10 Route stray console.* through gated debug logging #logging
 - [ ] S11 Name remaining magic numbers in the scan pipeline #infra
 - [ ] S12 Single-source the AU state list shared by auditEngine and rule JSON #infra
 - [ ] S13 JSDoc all exported functions; @ts-check pure engine modules (covers type-safety item) #infra

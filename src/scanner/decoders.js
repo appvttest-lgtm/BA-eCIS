@@ -11,6 +11,7 @@ import { readBarcodes as readWasmBarcodes, prepareZXingModule } from 'zxing-wasm
 import zxingReaderWasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
 import { FORMAT_KIND } from './barcodeTypes.js';
 import { pointsToBox } from './canvasUtils.js';
+import { debugWarn } from './debugLog.js';
 
 prepareZXingModule({
   overrides: {
@@ -122,7 +123,7 @@ export async function detectWithBrowserBarcodeDetector(canvas, detector, pageNum
         : null
     }));
   } catch (error) {
-    console.warn('BarcodeDetector failed on canvas', error);
+    debugWarn('BarcodeDetector failed on canvas', error);
     return [];
   }
 }
@@ -276,7 +277,7 @@ export async function wasmDecodeCanvas(
           : null
       }));
   } catch (error) {
-    console.warn('ZXing-WASM scan failed', regionLabel, variantLabel, error);
+    debugWarn('ZXing-WASM scan failed', regionLabel, variantLabel, error);
     return [];
   }
 }

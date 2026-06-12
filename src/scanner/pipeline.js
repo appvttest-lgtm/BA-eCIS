@@ -6,6 +6,7 @@ import { readBarcodes as readWasmBarcodes } from 'zxing-wasm/reader';
 import { mergeExtractedText, recognizeCanvasText } from '../ocrText.js';
 import { isUprightOrientation, pickRotationCandidates, findLabelRegions } from '../preprocess.js';
 import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from './barcodeTypes.js';
+import { debugWarn } from './debugLog.js';
 import {
   clampBox,
   rotateCanvas,
@@ -446,9 +447,6 @@ export async function detectOnCanvas(canvas, detector, pageNumber = 1, onDebug =
         durationMs
       );
     }
-    if (decoded.length && target.kind !== FORMAT_KIND.mixed) {
-      console.info(`Decoded ${decoded.length} barcode(s) from ${target.label}`);
-    }
   }
 
   const barcodes = dedupeBarcodes(found).map((b, index) => ({ ...b, index }));
@@ -474,7 +472,7 @@ export async function quickSymbolProbe(canvas) {
       .filter(r => r && r.text && r.isValid !== false && Number.isFinite(r.orientation))
       .map(r => ({ format: r.format, orientation: r.orientation }));
   } catch (error) {
-    console.warn('Orientation probe failed', error);
+    debugWarn('Orientation probe failed', error);
     return [];
   }
 }

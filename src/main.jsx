@@ -1867,10 +1867,6 @@ function App() {
         detector ? 'Native BarcodeDetector ready' : 'Native BarcodeDetector unavailable; using ZXing-WASM/JS scanning',
         performance.now() - scannerStart
       );
-      if (!detector) {
-        console.info('Native BarcodeDetector unavailable; using ZXing-C++ WASM crop scanning.');
-      }
-
       const nextAudits = [];
       const nextScanDatas = [];
       for (let i = 0; i < batches.length; i += 1) {
