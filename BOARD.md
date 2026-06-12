@@ -18,7 +18,7 @@ One commit per item. Source: code-standards evaluation 2026-06-12.
 
 ### P2 — Structure
 - [x] S06 Split main.jsx scanner/canvas/pipeline code into src/scanner/ modules #infra
-- [ ] S07 Split auditEngine.js into parser/ruleFunction/payload modules behind a facade #infra
+- [x] S07 Split auditEngine.js into parser/ruleFunction/payload modules behind a facade #infra
 - [ ] S08 App component: consolidate workflow state with useReducer, extract panels #feature
 
 ### P3 — Consistency
