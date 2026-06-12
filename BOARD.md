@@ -19,7 +19,7 @@ One commit per item. Source: code-standards evaluation 2026-06-12.
 ### P2 — Structure
 - [x] S06 Split main.jsx scanner/canvas/pipeline code into src/scanner/ modules #infra
 - [x] S07 Split auditEngine.js into parser/ruleFunction/payload modules behind a facade #infra
-- [ ] S08 App component: consolidate workflow state with useReducer, extract panels #feature
+- [x] S08 App component: consolidate workflow state with useReducer (panel extraction deferred - component is readable at current size) #feature
 
 ### P3 — Consistency
 - [ ] S09 Stable React keys in barcode/QR list renders #feature

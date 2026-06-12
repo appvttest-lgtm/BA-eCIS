@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { auditLabel, groupValidations, SERVICE_CODE_MAP, STARTRACK_PRODUCT_CODE_MAP } from './auditEngine.js';
 import { RuleReport } from './reportView.jsx';
@@ -1711,6 +1711,61 @@ function TextContentSection({ audit, items, otherItems }) {
   );
 }
 
+// Newest-first cap for the on-screen scan timing log.
+const MAX_SCAN_DEBUG_LINES = 220;
+
+const INITIAL_WORKFLOW = {
+  // Locks upload controls while the local render -> scan -> audit pipeline is active.
+  processing: false,
+  scanDebugLines: [],
+  // Short status/error text shown above the timing log and report.
+  message: '',
+  // Raw rendered label data is kept so payload comparison can be refreshed without
+  // rescanning PDFs/images.
+  scanDatas: [],
+  // Completed audit objects rendered by the report UI.
+  audits: [],
+  // Index of the label currently selected in the tabbed report view.
+  activeIndex: 0
+};
+
+/** Audit workflow state: every transition of the scan/audit lifecycle in one place. */
+function workflowReducer(state, action) {
+  switch (action.type) {
+    case 'message':
+      return { ...state, message: action.message };
+    case 'debug':
+      return { ...state, scanDebugLines: [action.line, ...state.scanDebugLines].slice(0, MAX_SCAN_DEBUG_LINES) };
+    case 'batch-start':
+      return {
+        ...state,
+        processing: true,
+        scanDebugLines: [],
+        message: 'Preparing barcode scanner…',
+        audits: [],
+        scanDatas: [],
+        activeIndex: 0
+      };
+    case 'append-result':
+      return {
+        ...state,
+        audits: [...state.audits, action.audit],
+        scanDatas: [...state.scanDatas, action.data],
+        activeIndex: state.audits.length
+      };
+    case 'batch-complete':
+      return { ...state, activeIndex: 0, message: '' };
+    case 'processing-finished':
+      return { ...state, processing: false };
+    case 'set-active':
+      return { ...state, activeIndex: action.index };
+    case 'replace-audits':
+      return { ...state, audits: action.audits, message: action.message };
+    default:
+      return state;
+  }
+}
+
 function App() {
   // Optional Get Shipments payload pasted by the user. It is never sent anywhere; it is
   // parsed locally and compared only after the label identity appears to match.
@@ -1719,19 +1774,11 @@ function App() {
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('standard');
   const [ssccExtensionDigit, setSsccExtensionDigit] = useState('');
   const [ssccCompanyPrefix, setSsccCompanyPrefix] = useState('');
-  // Locks upload controls while the local render -> scan -> audit pipeline is active.
-  const [processing, setProcessing] = useState(false);
-  const [scanDebugLines, setScanDebugLines] = useState([]);
-  // Short status/error text shown above the timing log and report.
-  const [message, setMessage] = useState('');
-  // Raw rendered label data is kept so payload comparison can be refreshed without
-  // rescanning PDFs/images.
-  const [scanDatas, setScanDatas] = useState([]);
-  // Completed audit objects rendered by the report UI.
-  const [audits, setAudits] = useState([]);
-  // Index of the label currently selected in the tabbed report view.
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [workflow, dispatch] = useReducer(workflowReducer, INITIAL_WORKFLOW);
   const [zoomImage, setZoomImage] = useState(null);
+
+  const { processing, scanDebugLines, message, scanDatas, audits, activeIndex } = workflow;
+  const setMessage = text => dispatch({ type: 'message', message: text });
 
   const activeAudit = audits[activeIndex] || null;
   const activeScanData = scanDatas[activeIndex] || null;
@@ -1784,15 +1831,13 @@ function App() {
     const now = new Date();
     const time = now.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const duration = Number.isFinite(durationMs) ? ` +${formatDurationMs(durationMs)}` : '';
-    setScanDebugLines(prev =>
-      [
-        {
-          text: `[${time}]${duration} ${message}`,
-          durationMs: Number.isFinite(durationMs) ? durationMs : null
-        },
-        ...prev
-      ].slice(0, 220)
-    );
+    dispatch({
+      type: 'debug',
+      line: {
+        text: `[${time}]${duration} ${message}`,
+        durationMs: Number.isFinite(durationMs) ? durationMs : null
+      }
+    });
   }
 
   const scanDebugText = scanDebugLines.map(line => line.text).join('\n');
@@ -1812,12 +1857,7 @@ function App() {
       );
       return;
     }
-    setProcessing(true);
-    setScanDebugLines([]);
-    setMessage('Preparing barcode scanner…');
-    setAudits([]);
-    setScanDatas([]);
-    setActiveIndex(0);
+    dispatch({ type: 'batch-start' });
     try {
       const auditStart = performance.now();
       appendScanDebug(`Started audit batch (${batches.length} file${batches.length === 1 ? '' : 's'})`);
@@ -1879,22 +1919,19 @@ function App() {
           nextAudit.sourcePageIndex = pageIndex;
           nextAudits.push(nextAudit);
           nextScanDatas.push(data);
-          setAudits([...nextAudits]);
-          setScanDatas([...nextScanDatas]);
-          setActiveIndex(nextAudits.length - 1);
+          dispatch({ type: 'append-result', audit: nextAudit, data });
           await yieldToBrowser();
         }
       }
-      setActiveIndex(0);
       appendScanDebug('Completed audit batch', performance.now() - auditStart);
-      setMessage('');
+      dispatch({ type: 'batch-complete' });
       setTimeout(() => document.getElementById('audit-result')?.scrollIntoView({ block: 'start' }), 0);
     } catch (error) {
       console.error(error);
       appendScanDebug(`Stopped with error: ${error.message || String(error)}`);
       setMessage(`Error: ${error.message || String(error)}`);
     } finally {
-      setProcessing(false);
+      dispatch({ type: 'processing-finished' });
     }
   }
 
@@ -1925,8 +1962,11 @@ function App() {
       nextAudit.batchIndex = idx;
       return nextAudit;
     });
-    setAudits(refreshed);
-    setMessage('Optional payload and SSCC prefix checks refreshed for all uploaded labels.');
+    dispatch({
+      type: 'replace-audits',
+      audits: refreshed,
+      message: 'Optional payload and SSCC prefix checks refreshed for all uploaded labels.'
+    });
   }
 
   return (
@@ -2118,7 +2158,7 @@ function App() {
                     role="tab"
                     aria-selected={idx === activeIndex}
                     className={`label-tab ${idx === activeIndex ? 'active' : ''}`}
-                    onClick={() => setActiveIndex(idx)}
+                    onClick={() => dispatch({ type: 'set-active', index: idx })}
                   >
                     <span className="tab-index">{idx + 1}</span>
                     <span className="tab-main">
