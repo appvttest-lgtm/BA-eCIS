@@ -29,7 +29,7 @@ One commit per item. Source: code-standards evaluation 2026-06-12.
 - [x] S13 JSDoc all exported functions (ts-check deferred: needs a tsc-verified annotation pass to be honest) #infra
 
 ### P4 — Hygiene
-- [ ] S14 server.mjs: drop sync fs calls from the request path #infra
+- [x] S14 server.mjs: drop sync fs calls from the request path #infra
 - [ ] S15 README dependency assessment covers tesseract.js; note security-doc drift #security
 - [ ] S16 Migrate smoke tests to node:test runner (zero new deps) #infra
 - [ ] S17 Close out: version bump + release notes + rebuilt dist #infra

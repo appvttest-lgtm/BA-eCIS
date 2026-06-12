@@ -61,20 +61,24 @@ function send(res, statusCode, body, contentType = 'text/plain; charset=utf-8') 
   res.end(body);
 }
 
-function sendFile(res, filePath) {
+function serveFile(res, filePath, stat) {
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = mimeTypes.get(ext) || 'application/octet-stream';
+  res.writeHead(200, {
+    'Content-Type': contentType,
+    'Content-Length': stat.size,
+    ...securityHeaders,
+    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600'
+  });
+  fs.createReadStream(filePath).pipe(res);
+}
+
+/** Stats and serves a file asynchronously; runs the fallback (or 404s) when it is not a file. */
+function sendFileOrFallback(res, filePath, fallback) {
   fs.stat(filePath, (statErr, stat) => {
-    if (statErr || !stat.isFile()) {
-      return send(res, 404, 'Not found');
-    }
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = mimeTypes.get(ext) || 'application/octet-stream';
-    res.writeHead(200, {
-      'Content-Type': contentType,
-      'Content-Length': stat.size,
-      ...securityHeaders,
-      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600'
-    });
-    fs.createReadStream(filePath).pipe(res);
+    if (!statErr && stat.isFile()) return serveFile(res, filePath, stat);
+    if (fallback) return fallback();
+    return send(res, 404, 'Not found');
   });
 }
 
@@ -104,10 +108,6 @@ const server = http.createServer((req, res) => {
     return send(res, 200, JSON.stringify({ status: 'ok', mode: 'local-only' }), 'application/json; charset=utf-8');
   }
 
-  if (!fs.existsSync(path.join(distDir, 'index.html'))) {
-    return send(res, 500, 'The prebuilt app was not found. Expected dist/index.html in the application folder.');
-  }
-
   let requestedPath;
   try {
     requestedPath = decodeURIComponent(url.pathname);
@@ -125,12 +125,8 @@ const server = http.createServer((req, res) => {
     return send(res, 403, 'Forbidden');
   }
 
-  if (fs.existsSync(absolutePath) && fs.statSync(absolutePath).isFile()) {
-    return sendFile(res, absolutePath);
-  }
-
   // React owns client-side routing, so unknown static paths fall back to the app shell.
-  return sendFile(res, path.join(distDir, 'index.html'));
+  return sendFileOrFallback(res, absolutePath, () => sendFileOrFallback(res, indexHtmlPath, null));
 });
 
 server.on('error', err => {
@@ -141,6 +137,13 @@ server.on('error', err => {
   }
   process.exit(1);
 });
+
+// One-time startup check instead of per-request sync filesystem calls.
+const indexHtmlPath = path.join(distDir, 'index.html');
+if (!fs.existsSync(indexHtmlPath)) {
+  console.error('The prebuilt app was not found. Expected dist/index.html in the application folder.');
+  process.exit(1);
+}
 
 server.listen(PORT, HOST, () => {
   console.log(`eParcel Auditor Local running at http://${HOST}:${PORT}`);
