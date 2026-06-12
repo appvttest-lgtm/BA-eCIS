@@ -355,12 +355,6 @@ function mapBarcodeToPage(barcode, target, variantLabel = '') {
   return base;
 }
 
-function pageBoxInfo(b) {
-  const box = b?.pageBoundingBox;
-  if (!box) return '';
-  return `${Math.round(box.x)},${Math.round(box.y)} ${Math.round(box.width)}×${Math.round(box.height)} px`;
-}
-
 function imageBoxCaption(images = {}, kind = FORMAT_KIND.datamatrix) {
   if (kind === FORMAT_KIND.qr) {
     const box = images.qrBarcodeBox;
@@ -619,21 +613,6 @@ function buildCategorizedScanTargets(canvas, labelFamily = 'eparcel') {
     makeTarget(canvas, FORMAT_KIND.mixed, 'Full page safety scan', 0, 0, w, h, ['Code128', 'DataMatrix'])
   ];
 }
-function buildScanRegions(canvas) {
-  const w = canvas.width;
-  const h = canvas.height;
-  const regions = [
-    { label: 'full page', x: 0, y: 0, w, h },
-    { label: 'top right DataMatrix zone', x: w * 0.55, y: 0, w: w * 0.45, h: h * 0.35 },
-    { label: 'right barcode stripe', x: w * 0.68, y: 0, w: w * 0.32, h },
-    { label: 'lower barcode zone', x: 0, y: h * 0.42, w, h: h * 0.40 },
-    { label: 'middle barcode zone', x: 0, y: h * 0.30, w, h: h * 0.45 },
-    { label: 'bottom half', x: 0, y: h * 0.50, w, h: h * 0.50 },
-    { label: 'upper half', x: 0, y: 0, w, h: h * 0.55 }
-  ];
-  return regions.map(r => ({ ...r, canvas: cropCanvas(canvas, r.x, r.y, r.w, r.h) }));
-}
-
 
 function imageStats(canvas, label) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -721,17 +700,6 @@ function detectVisualBarcodeEvidence(canvas) {
     dataMatrixEvidence: [dmBroadStats.evidence, dmExactStats.evidence, dmGridStats.evidence].join('; '),
     linearEvidence: `${rightStats.evidence}; ${lowerStats.evidence}`,
     regions: [dmBroadStats, dmExactStats, dmGridStats, rightStats, lowerStats]
-  };
-}
-
-function mergeVisualEvidence(existing, next) {
-  if (!existing) return next;
-  return {
-    dataMatrixVisible: Boolean(existing.dataMatrixVisible || next.dataMatrixVisible),
-    linearBarcodeVisible: Boolean(existing.linearBarcodeVisible || next.linearBarcodeVisible),
-    dataMatrixEvidence: [existing.dataMatrixEvidence, next.dataMatrixEvidence].filter(Boolean).join('\n'),
-    linearEvidence: [existing.linearEvidence, next.linearEvidence].filter(Boolean).join('\n'),
-    regions: [...(existing.regions || []), ...(next.regions || [])]
   };
 }
 
@@ -1013,32 +981,6 @@ function standardForValidation(v) {
   return v?.expected || 'Follow the Australia Post eParcel label/barcode rule for this field.';
 }
 
-function sectionId(category) {
-  return `section-${String(category || 'general').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-}
-
-function cropForCategory(category, audit) {
-  const images = audit?.labelImages || {};
-  if (category === 'datamatrix' || category === 'DataMatrix barcode analysis') {
-    return { title: 'DataMatrix crop', src: images.dataMatrixFocusedCrop || images.dataMatrixCrop };
-  }
-  if (category === 'gs1-128' || category === 'barcode-structure' || category === 'check-digit' || category === 'linear barcode analysis') {
-    return { title: 'Linear barcode crop', src: images.linearBarcodeCrop || images.rightLinearBarcodeCrop };
-  }
-  return null;
-}
-
-function validationTone(v) {
-  if (v.status === 'fail') return 'row-fail';
-  if (v.status === 'manual_review' || v.status === 'warning') return 'row-review';
-  if (v.status === 'pass') return 'row-pass';
-  return '';
-}
-
-function humanFlag(value) {
-  return value ? 'Yes' : 'No';
-}
-
 function selectedServiceCodes(audit) {
   return [...new Set((audit?.articles || []).map(a => a.serviceCode).filter(Boolean))];
 }
@@ -1055,17 +997,6 @@ function auditHasSsccOnly(audit) {
 function isSsccArticle(article) {
   return article?.type === 'sscc';
 }
-
-function productOrLabelTypeForAudit(audit) {
-  if (auditHasSsccOnly(audit)) return 'SSCC label';
-  return productFamilyForArticle(getPrimaryArticle(audit));
-}
-
-function serviceCodeForAudit(audit) {
-  if (auditHasSsccOnly(audit)) return 'Not applicable';
-  return getPrimaryArticle(audit)?.serviceCode || '';
-}
-
 
 const SERVICE_REFERENCE_ROWS = [
   {
@@ -1208,10 +1139,6 @@ function barcodeDisplayName(b) {
   return b?.format || b?.symbology || 'barcode';
 }
 
-function rawBarcodeListHtml(items, esc) {
-  return (items || []).map(b => `<li><strong>${esc(barcodeDisplayName(b))}</strong> page ${esc(b.pageNumber || '')}: <code class="raw-code">${esc(b.rawValue || '')}</code></li>`).join('');
-}
-
 function formatDurationMs(ms) {
   if (!Number.isFinite(ms)) return '';
   if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -1220,110 +1147,6 @@ function formatDurationMs(ms) {
 
 function yieldToBrowser() {
   return new Promise(resolve => setTimeout(resolve, 0));
-}
-
-const VALIDATION_TABLE_REPORT_CSS = `
-.validation-table th:nth-child(1),.validation-table td:nth-child(1){width:38%}.validation-table th:nth-child(2),.validation-table td:nth-child(2){width:44%}.validation-table th:last-child,.validation-table td:last-child{width:120px;text-align:center;vertical-align:top}.validation-table.has-payload-column th:nth-child(1),.validation-table.has-payload-column td:nth-child(1){width:34%}.validation-table.has-payload-column th:nth-child(2),.validation-table.has-payload-column td:nth-child(2){width:30%}.validation-table.has-payload-column th:nth-child(3),.validation-table.has-payload-column td:nth-child(3){width:22%}.validation-table.has-payload-column th:last-child,.validation-table.has-payload-column td:last-child{width:140px}.criteria-cell,.measurement-cell,.status-stack{display:grid;gap:6px;align-content:start}.criteria-cell strong{font-size:12px}.criteria-standard,.criteria-expected{display:block;color:#53606d;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0}.criteria-expected{color:#344054}.measurement-label{display:block;color:#53606d;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.02em}.measurement-cell code{display:inline-block;margin-top:2px}.badge{display:inline-block;border-radius:999px;padding:4px 9px;font-size:10.5px;font-weight:900;text-transform:uppercase;white-space:nowrap;background:#eee}.badge-fail,.badge-error,.badge-critical{background:#ffe1e5;color:#a00018}.badge-warning,.badge-review{background:#fff0c2;color:#7a4b00}.badge-info,.badge-not_applicable,.badge-manual_review{background:#e7f0ff;color:#0d4f9b}.badge-pass{background:#dff5e7;color:#087a2e}.payload-status{display:grid;gap:4px;justify-items:center;margin-top:4px}.payload-status>span{color:#53606d;font-size:10px;font-weight:800;text-transform:uppercase}.payload-status .payload-evidence{display:none}
-`;
-
-
-// Exported reports are opened from file:// or shared onward, outside the local
-// server's CSP headers. This meta policy blocks all script execution in the
-// report document while allowing its inline styles and data: label images.
-const REPORT_CSP_META = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'">';
-
-const REPORT_CSS = `
-body{font-family:Inter,Segoe UI,Arial,sans-serif;margin:18px;color:#17202a;background:#f6f7f9;font-size:13px;line-height:1.45}.wrap{max-width:1220px;margin:0 auto}.hero,.card,.section,.toc{background:white;border:1px solid #e3e8ef;border-radius:16px;margin:12px 0;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.035)}h1{margin:0;color:#c40018}.hero-startrack h1{color:#007dbb}h2{margin:0 0 12px}.status{font-size:24px;font-weight:900}.status-inline{font-weight:900}.FAIL{color:#b00020}.PASS{color:#147a2e}.REVIEW{color:#9a5a00}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.nav a{background:#f0f4f8;border:1px solid #dce4ee;border-radius:999px;padding:7px 10px}table{border-collapse:collapse;width:100%;font-size:11.5px;table-layout:fixed}td,th{border:1px solid #dce2e8;padding:7px;vertical-align:top;text-align:left;overflow-wrap:anywhere}th{background:#f2f5f8}.row-fail{background:#fff0f2}.row-review{background:#fff8e6}.row-pass{background:#f1fbf4}.selected{background:#e8f3ff!important}.startrack-report .selected{background:#dff3ff!important}.pill{display:inline-block;border-radius:99px;background:#e8f3ff;color:#124a7a;padding:2px 7px;font-size:10px;font-weight:800;text-transform:uppercase}.preview{max-width:460px;border:1px solid #ccd3dc;border-radius:10px}.crop img{max-width:420px;border:1px solid #ccd3dc;border-radius:10px;background:white}.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.facts>div{background:#f8fafc;border:1px solid #e3e8ef;border-radius:12px;padding:9px}.two-col{display:grid;grid-template-columns:minmax(320px,.9fr) 1.1fr;gap:16px}.metric{display:inline-block;background:#f5f7fa;border:1px solid #e5e9ef;border-radius:12px;padding:8px 10px;margin:4px 5px 4px 0}.raw-code,code{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;font-size:12px}pre{background:#f7f9fb;border:1px solid #e3e8ef;border-radius:10px;padding:10px;overflow:auto;max-height:280px;white-space:pre-wrap}.muted{color:#666}a{color:#0b5cad;text-decoration:none}a:hover{text-decoration:underline}.service-matrix-wrap{overflow-x:auto;border-radius:12px;border:1px solid #111}.service-matrix-table{min-width:980px;border-collapse:collapse;table-layout:fixed;font-size:11px;background:#d9d9d9}.service-matrix-table th{background:#c40000;color:white;border:1px solid #111;text-align:center;vertical-align:middle;padding:7px 5px;font-weight:800}.service-matrix-table td{background:#d9d9d9;border:1px solid #111;color:#000;vertical-align:middle;padding:6px;overflow-wrap:anywhere}.startrack-matrix th{background:#dff3ff;color:#063c5a}.flag-cell{font-weight:900;font-size:14px;text-align:center}.payload-cell pre{margin:0;padding:0;border:0;background:transparent;font-size:10.5px;max-height:none;white-space:pre-wrap;overflow:visible}.service-selected-row td,.service-selected-row .payload-cell pre{background:#fff7c2!important}.selected-combination-row td,.product-selected-cell{background:#dff5e7!important}@media(max-width:800px){.two-col,.facts{grid-template-columns:1fr}.preview{max-width:100%}}
-.service-matrix-table{min-width:1280px;font-size:11px;line-height:1.25}.service-matrix-table th,.service-matrix-table td{padding:7px 6px;vertical-align:middle}.service-matrix-table th{line-height:1.15;overflow-wrap:normal;word-break:normal}.service-matrix-table th:nth-child(1),.service-matrix-table td:nth-child(1){width:64px;text-align:center}.service-matrix-table th:nth-child(2),.service-matrix-table td:nth-child(2){width:58px;text-align:center}.service-matrix-table th:nth-child(3),.service-matrix-table td:nth-child(3){width:82px;text-align:center}.service-matrix-table th:nth-child(4),.service-matrix-table td:nth-child(4){width:76px;text-align:center}.service-matrix-table th:nth-child(5),.service-matrix-table td:nth-child(5){width:76px;text-align:center}.service-matrix-table th:nth-child(6),.service-matrix-table td:nth-child(6){width:88px;text-align:center}.service-matrix-table th:nth-child(7),.service-matrix-table td:nth-child(7){width:220px}.service-matrix-table th:nth-child(8),.service-matrix-table td:nth-child(8){width:82px;text-align:center}.service-matrix-table th:nth-child(9),.service-matrix-table td:nth-child(9){width:145px}.service-matrix-table th:nth-child(10),.service-matrix-table td:nth-child(10){width:145px;text-align:center}.flag-cell{font-size:14px;text-align:center;vertical-align:middle}.service-code-cell{vertical-align:middle;text-align:center}.payload-cell pre{font-size:10.5px;line-height:1.3}.payload-match{font-size:10px;letter-spacing:.02em;padding:3px 7px}.payload-match-na{background:#eef1f5;color:#53606d;border:1px solid #d7dde5}
-.payload-match-cell{display:grid;gap:6px;justify-items:center;align-content:start}.payload-evidence{width:100%;text-align:left;font-size:11px}.payload-evidence summary{cursor:pointer;color:#475467;font-weight:700;text-align:center}.payload-evidence pre{margin:6px 0 0;max-height:180px;font-size:11px;line-height:1.35;white-space:pre-wrap;overflow-wrap:anywhere}@media print{body{background:white}.card,.section,.toc{break-inside:avoid}}
-${VALIDATION_TABLE_REPORT_CSS}
-`;
-
-
-function starTrackProductMatrixRowsHtml(audit, esc) {
-  const selectedProducts = new Set([...(audit?.startrack?.freightParses || []).map(f => f.productCode), ...(audit?.startrack?.qrParses || []).map(q => q.productCode)].filter(Boolean));
-  const selectedLabelCodes = new Set([...(audit?.startrack?.routingParses || []).map(r => r.labelCode), audit?.labelFacts?.labelCode].filter(Boolean));
-  const showPayloadColumn = auditHasApiPayload(audit);
-  return Object.entries(STARTRACK_PRODUCT_CODE_MAP).map(([code, meta]) => {
-    const selected = selectedProducts.has(code) || selectedLabelCodes.has(meta.labelCode);
-    const payloadStatus = selectedStarTrackProductPayloadStatus(audit, code, meta.labelCode);
-    return `<tr class="${selected ? 'row-pass selected' : ''}"><td><strong>${esc(code)}</strong>${selectedProducts.has(code) ? ' <span class="pill">selected</span>' : ''}</td><td>${esc(meta.name)}</td><td>${esc(meta.group)}</td><td><strong>${esc(meta.labelCode)}</strong>${selectedLabelCodes.has(meta.labelCode) ? ' <span class="pill">selected</span>' : ''}</td>${showPayloadColumn ? `<td>${esc(payloadStatus || '')}</td>` : ''}</tr>`;
-  }).join('');
-}
-
-function starTrackProductMatrixHtml(audit, esc) {
-  const payloadHeader = auditHasApiPayload(audit) ? '<th>Get Shipments match</th>' : '';
-  return `<h3>StarTrack product and label-code reference</h3><div class="table-wrap"><table class="startrack-matrix"><thead><tr><th>Product Code</th><th>Product Name</th><th>Group</th><th>Label Code</th>${payloadHeader}</tr></thead><tbody>${starTrackProductMatrixRowsHtml(audit, esc)}</tbody></table></div>`;
-}
-
-function buildStarTrackReportHtml(audit) {
-  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const grouped = groupValidations(audit.validations || []);
-  const qrItems = grouped['StarTrack QR barcode'] || [];
-  const routingItems = grouped['StarTrack routing barcode'] || [];
-  const atlItems = grouped['StarTrack ATL barcode'] || [];
-  const freightItems = grouped['StarTrack freight item barcode'] || [];
-  const serviceItems = grouped['StarTrack product/article data'] || [];
-  const labelItems = grouped['label-layout'] || [];
-  const textItems = grouped['address-format'] || [];
-  const used = new Set(['StarTrack QR barcode', 'StarTrack routing barcode', 'StarTrack ATL barcode', 'StarTrack freight item barcode', 'StarTrack product/article data', 'label-layout', 'address-format']);
-  const otherItems = Object.entries(grouped).filter(([key]) => !used.has(key)).flatMap(([, items]) => items);
-  const reviewItems = (audit.validations || []).filter(v => v.status === 'manual_review' || v.status === 'warning' || v.status === 'fail');
-  const h = auditDisplayHeader(audit, 0);
-  const qrBarcodes = decodedBarcodeList(audit, 'qr');
-  const routingBarcodes = starTrackRoutingBarcodeList(audit);
-  const atlBarcodes = starTrackAtlBarcodeList(audit);
-  const freightBarcodes = starTrackFreightBarcodeList(audit);
-  const qrParses = audit?.startrack?.qrParses || [];
-  const freightParses = audit?.startrack?.freightParses || [];
-  const routingParses = audit?.startrack?.routingParses || [];
-  const atlParses = audit?.startrack?.atlParses || [];
-  const ssccs = audit?.startrack?.ssccParses || [];
-  const navLinks = [
-    ['full-label-image', 'Full label image'],
-    ['datamatrix-section', 'StarTrack QR barcode'],
-    ['routing-section', 'Routing barcode'],
-    ['atl-section', 'ATL barcode'],
-    ['freight-section', 'Freight item barcode'],
-    ['service-article-section', 'Product and article data'],
-    ['text-content-section', 'Visible label text']
-  ].map(([id, label]) => `<a href="#${id}">${label}</a>`).join('');
-  const reviewNav = reviewItems.length ? `<section class="toc"><h2 id="review-items">Review bookmarks</h2><ol>${reviewItems.map(v => `<li><a href="#rule-${esc(v.id)}">${esc(v.title)}</a> <span class="pill">${esc(v.status)}</span></li>`).join('')}</ol></section>` : '';
-  return `<!doctype html><html><head><meta charset="utf-8">${REPORT_CSP_META}<title>Australia Post - eCommerce Integration Label Auditor — StarTrack Report</title><style>${REPORT_CSS}</style></head><body><div class="wrap startrack-report">
-<section class="hero hero-startrack"><h1>Australia Post - eCommerce Integration Label Auditor — StarTrack Label Report</h1><p><strong>Generated:</strong> ${esc(audit.generatedAt)} | <strong>File:</strong> ${esc(audit.fileInfo?.filename)}${audit.fileInfo?.sourcePdfPage ? ` — page ${esc(audit.fileInfo.sourcePdfPage)} of ${esc(audit.fileInfo.sourcePdfPageCount || '?')}` : ''}</p><p class="status ${esc(audit.summary.overallStatus)}">Overall: ${esc(audit.summary.overallStatus)}</p><div><span class="metric">Passed ${audit.summary.passed}</span><span class="metric">Failed ${audit.summary.failed}</span><span class="metric">Review ${audit.summary.manualReview}</span><span class="metric">Total ${audit.summary.total}</span></div><nav class="nav">${navLinks}</nav></section>
-${reviewNav}
-<section id="full-label-image" class="section"><h2><a href="#full-label-image">Full label image</a></h2><div class="two-col"><div>${audit.labelImages?.labelPreview ? `<img class="preview" src="${audit.labelImages.labelPreview}" alt="label preview">` : '<p>No label preview captured.</p>'}</div><div><h3>Visible label facts</h3><div class="facts"><div><strong>Freight Item / Article ID</strong><br>${esc((audit.labelFacts?.articleIds || []).join(', ') || h.articleNumber || 'not extracted')}</div><div><strong>Connote</strong><br>${esc((audit.labelFacts?.consignmentIds || []).join(', ') || 'not extracted')}</div><div><strong>Weight</strong><br>${esc(audit.labelFacts?.weightKg ? `${audit.labelFacts.weightKg}kg` : 'not extracted')}</div><div><strong>Carrier / label code</strong><br>${esc(audit.labelFacts?.labelCode || 'StarTrack')}</div></div>${renderReportValidationTable(labelItems, esc)}</div></div></section>
-<section id="datamatrix-section" class="section"><h2><a href="#datamatrix-section">StarTrack 2D QR Barcode</a></h2>${audit.labelImages?.qrBarcodeCrop ? `<figure class="crop"><img src="${audit.labelImages.qrBarcodeCrop}" alt="StarTrack QR crop"><figcaption>${esc(imageBoxCaption(audit.labelImages, FORMAT_KIND.qr))}</figcaption></figure>` : '<p class="muted">No QR barcode crop captured.</p>'}<h3>Raw decoded QR string</h3><ul>${rawBarcodeListHtml(qrBarcodes, esc) || '<li>No StarTrack QR string decoded from this file.</li>'}</ul>${qrParses.length ? `<h3>QR fixed-width field breakdown</h3>${qrParses.map(q => `<div class="facts"><div><strong>Receiver suburb/postcode</strong><br>${esc(q.fields.receiverSuburb)} ${esc(q.fields.receiverPostcode)}</div><div><strong>Connote</strong><br><code>${esc(q.fields.connoteNumber)}</code></div><div><strong>Freight item</strong><br><code>${esc(q.fields.freightItemNumber)}</code></div><div><strong>Product</strong><br>${esc(q.productCode)} — ${esc(q.productName)}</div><div><strong>Quantity / weight</strong><br>${esc(q.fields.consignmentQuantity)} / ${esc(q.fields.consignmentWeight)}</div><div><strong>DG / movement</strong><br>${esc(q.fields.dangerousGoodsIndicator)} / ${esc(q.fields.movementTypeIndicator)}</div></div>`).join('')}` : ''}${renderReportValidationTable(qrItems, esc)}</section>
-<section id="routing-section" class="section"><h2><a href="#routing-section">StarTrack Routing Barcode</a></h2>${audit.labelImages?.routingBarcodeCrop ? `<figure class="crop"><img src="${audit.labelImages.routingBarcodeCrop}" alt="StarTrack routing crop"><figcaption>${esc(imageBoxCaption(audit.labelImages, 'startrack-routing'))}</figcaption></figure>` : '<p class="muted">No routing barcode crop captured.</p>'}<h3>Raw decoded routing barcode string</h3><ul>${rawBarcodeListHtml(routingBarcodes, esc) || '<li>No StarTrack routing barcode string decoded from this file.</li>'}</ul>${routingParses.length ? `<h3>Routing barcode breakdown</h3>${routingParses.map(r => `<div class="facts"><div><strong>Routing format</strong><br>${esc(r.formatDescription)}</div><div><strong>Label code</strong><br>${esc(r.labelCode)}</div><div><strong>Postcode</strong><br>${esc(r.postcode)}</div><div><strong>Depot / port</strong><br>${esc(r.depotOrPort || 'not applicable')}</div></div>`).join('')}` : ''}${renderReportValidationTable(routingItems, esc)}</section>
-<section id="freight-section" class="section"><h2><a href="#freight-section">StarTrack Freight Item Barcode</a></h2>${audit.labelImages?.freightBarcodeCrop ? `<figure class="crop"><img src="${audit.labelImages.freightBarcodeCrop}" alt="StarTrack freight item crop"><figcaption>${esc(imageBoxCaption(audit.labelImages, 'startrack-freight'))}</figcaption></figure>` : '<p class="muted">No freight item barcode crop captured.</p>'}<h3>Raw decoded freight item barcode string</h3><ul>${rawBarcodeListHtml(freightBarcodes, esc) || '<li>No StarTrack freight item / SSCC barcode string decoded from this file.</li>'}</ul>${freightParses.length ? `<h3>Freight item breakdown</h3>${freightParses.map(f => `<div class="facts"><div><strong>Freight item ID</strong><br><code>${esc(f.freightItemId)}</code></div><div><strong>Despatch ID</strong><br>${esc(f.despatchId)}</div><div><strong>Connote</strong><br>${esc(f.connoteNumber)}</div><div><strong>Product</strong><br>${esc(f.productCode)} — ${esc(f.productName)}</div><div><strong>Expected label code</strong><br>${esc(f.expectedLabelCode || '')}</div><div><strong>Item sequence</strong><br>${esc(f.itemNumber)}</div></div>`).join('')}` : ''}${ssccs.length ? `<h3>SSCC breakdown</h3>${ssccs.map(s => `<div class="facts"><div><strong>SSCC</strong><br><code>00${esc(s.sscc)}</code></div><div><strong>Extension digit</strong><br>${esc(s.extensionDigit)}</div><div><strong>Check digit</strong><br>${esc(s.checkDigit)}</div><div><strong>Expected check digit</strong><br>${esc(s.expectedCheckDigit)}</div></div>`).join('')}` : ''}${renderReportValidationTable(freightItems, esc)}</section>
-<section id="service-article-section" class="section"><h2><a href="#service-article-section">StarTrack Product, Routing and Article Data</a></h2>${audit?.startrack?.ssccOnly ? '<p class="muted"><strong>StarTrack SSCC label detected.</strong> Product is not embedded in the SSCC article identifier; product context is assessed from QR/routing/manifest data when available.</p>' : ''}${renderReportValidationTable(serviceItems, esc)}${starTrackProductMatrixHtml(audit, esc)}</section>
-<section id="text-content-section" class="section"><h2><a href="#text-content-section">Visible label text</a></h2><div class="facts"><div><strong>Receiver / To</strong><pre>${esc((audit.labelFacts?.toBlock || []).join('\n') || 'not extracted')}</pre></div><div><strong>Sender / From</strong><pre>${esc((audit.labelFacts?.fromBlock || []).join('\n') || 'not extracted')}</pre></div><div><strong>Dangerous Goods text</strong><pre>${esc((audit.labelFacts?.dgBlock || []).join('\n') || (audit.labelFacts?.dangerousGoodsDeclarationPresent ? 'Present' : 'not extracted'))}</pre></div><div><strong>Raw extracted text</strong><pre>${esc(audit.extractedText || '')}</pre></div></div>${renderReportValidationTable(textItems, esc)}${otherItems.length ? `<h3>Other checks</h3>${renderReportValidationTable(otherItems, esc)}` : ''}</section>
-</div></body></html>`;
-}
-
-
-function serviceMatrixRowsHtml(audit, esc) {
-  const selectedServices = selectedServiceCodes(audit);
-  const selectedProducts = selectedProductCodes(audit);
-  const showPayloadColumn = auditHasApiPayload(audit);
-  return SERVICE_REFERENCE_ROWS.map(row => {
-    const matchedService = selectedServices.includes(serviceRowMatchCode(row));
-    return row.products.map(([productCode, productName], productIndex) => {
-      const matchedProduct = selectedProducts.includes(productCode);
-      const rowClass = `${matchedService ? 'selected service-selected-row' : ''} ${matchedService && matchedProduct ? 'selected-combination-row' : ''}`.trim();
-      const payloadStatus = selectedEparcelServiceRowPayloadStatus(audit, row, productCode);
-      const serviceCells = productIndex === 0 ? [
-        `<td rowspan="${row.products.length}" class="service-code-cell"><strong>${esc(row.serviceCode)}</strong>${matchedService ? ' <span class="pill">selected</span>' : ''}</td>`,
-        `<td rowspan="${row.products.length}" class="flag-cell">${esc(xMark(row.flags.safeDrop))}</td>`,
-        `<td rowspan="${row.products.length}" class="flag-cell">${esc(xMark(row.flags.signature))}</td>`,
-        `<td rowspan="${row.products.length}" class="flag-cell">${esc(xMark(row.flags.atl))}</td>`,
-        `<td rowspan="${row.products.length}" class="flag-cell">${esc(xMark(row.flags.partial))}</td>`,
-        `<td rowspan="${row.products.length}" class="flag-cell">${esc(xMark(row.flags.noSignature))}</td>`,
-        `<td rowspan="${row.products.length}" class="payload-cell"><pre>${esc(servicePayloadText(row))}</pre></td>`
-      ].join('') : '';
-      return `<tr class="${rowClass}">${serviceCells}<td class="${matchedProduct ? 'product-selected-cell' : ''}"><strong>${esc(productCode)}</strong>${matchedProduct ? ' <span class="pill">selected</span>' : ''}</td><td class="${matchedProduct ? 'product-selected-cell' : ''}">${esc(productName)}</td>${showPayloadColumn ? `<td>${esc(payloadStatus || '')}</td>` : ''}</tr>`;
-    }).join('');
-  }).join('');
 }
 
 function textContentItemsToLines(items) {
@@ -1779,73 +1602,6 @@ async function processPdfLabels(file, detector, onDebug = null, labelFamily = 'e
   return labels;
 }
 
-function renderReportValidationTable(items, esc) {
-  if (!items || !items.length) return '<p class="muted">No checks in this section.</p>';
-  const showPayloadColumn = hasApiPayloadComparison(items);
-  const rows = items.map(v => `<tr class="${esc(validationTone(v))}" id="rule-${esc(v.id)}">
-    <td>${validationCriteriaHtml(v, esc)}</td>
-    <td>${labelMeasurementHtml(v, esc)}</td>
-    ${showPayloadColumn ? `<td>${apiPayloadEvidenceHtml(v.apiPayloadMatch, esc)}</td>` : ''}
-    <td>${validationStatusHtml(v, showPayloadColumn, esc)}</td>
-  </tr>`).join('');
-  return `<table class="validation-table ${showPayloadColumn ? 'has-payload-column' : ''}"><thead><tr><th>Required</th><th>Decoded / label value</th>${showPayloadColumn ? '<th>Get Shipments value</th>' : ''}<th>Result</th></tr></thead><tbody>${rows}</tbody></table>`;
-}
-
-function buildReportHtml(audit) {
-  if (audit?.carrier === 'startrack') return buildStarTrackReportHtml(audit);
-  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const grouped = groupValidations(audit.validations || []);
-  const selectedServices = selectedServiceCodes(audit);
-  const selectedProducts = selectedProductCodes(audit);
-  const reviewItems = (audit.validations || []).filter(v => v.status === 'manual_review' || v.status === 'warning' || v.status === 'fail');
-
-  const dataMatrixItems = grouped['DataMatrix barcode analysis'] || [];
-  const linearItems = grouped['linear barcode analysis'] || [];
-  const serviceItems = [...(grouped['service-code'] || []), ...(grouped['sscc'] || [])];
-  const labelItems = grouped['label-layout'] || [];
-  const textItems = grouped['address-format'] || [];
-  const otherItems = Object.entries(grouped)
-    .filter(([key]) => !['DataMatrix barcode analysis','linear barcode analysis','service-code','sscc','label-layout','address-format'].includes(key))
-    .flatMap(([, items]) => items);
-
-  const navLinks = [
-    ['full-label-image', 'Full label image'],
-    ['datamatrix-section', 'GS1 DataMatrix barcode'],
-    ['linear-section', 'GS1-128 linear barcode'],
-    ['service-article-section', 'Article and barcode data'],
-    ['text-content-section', 'Visible label text']
-  ].map(([id, label]) => `<a href="#${id}">${label}</a>`).join('');
-
-  const serviceRows = serviceMatrixRowsHtml(audit, esc);
-  const ssccOnly = auditHasSsccOnly(audit);
-  const serviceMatrixHtml = ssccOnly
-    ? '<div class="info-panel"><strong>SSCC label detected.</strong><p>Service/product matrix is not shown because SSCC barcodes encode AI 00 SSCC data, not eParcel product/service fields.</p></div>'
-    : `<h3>Service code and product matrix</h3><div class="table-wrap service-matrix-wrap"><table class="service-matrix-table"><thead><tr><th>Service Code</th><th>Safe Drop</th><th>Signature on Delivery required</th><th>Authority To Leave (ATL)</th><th>Partial delivery allowed</th><th>No signature allowed</th><th>API payload / manifest flags</th><th>Product Code</th><th>Product Name</th>${auditHasApiPayload(audit) ? '<th>Get Shipments match</th>' : ''}</tr></thead><tbody>${serviceRows}</tbody></table></div>`;
-
-  const dmBarcodes = decodedBarcodeList(audit, audit.carrier === 'startrack' ? 'qr' : 'datamatrix');
-  const linearBarcodes = decodedBarcodeList(audit, 'linear');
-  const dmParses = dmParseList(audit);
-  const dmBarcodeHtml = rawBarcodeListHtml(dmBarcodes, esc);
-  const linearBarcodeHtml = rawBarcodeListHtml(linearBarcodes, esc);
-  const reviewNav = reviewItems.length ? `<section class="toc"><h2 id="review-items">Review bookmarks</h2><ol>${reviewItems.map(v => `<li><a href="#rule-${esc(v.id)}">${esc(v.title)}</a> <span class="pill">${esc(v.status)}</span></li>`).join('')}</ol></section>` : '';
-
-  return `<!doctype html>
-<html><head><meta charset="utf-8">${REPORT_CSP_META}<title>Australia Post - eCommerce Integration Label Auditor Report</title>
-<style>
-body{font-family:Inter,Segoe UI,Arial,sans-serif;margin:18px;color:#17202a;background:#f6f7f9;font-size:13px;line-height:1.45}.wrap{max-width:1180px;margin:0 auto}.hero,.card,.section,.toc{background:white;border:1px solid #e3e8ef;border-radius:16px;margin:12px 0;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.035)}h1{margin:0;color:#c40018}h2{margin:0 0 12px}.status{font-size:24px;font-weight:900}.FAIL{color:#b00020}.PASS{color:#147a2e}.REVIEW{color:#9a5a00}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.nav a{background:#f0f4f8;border:1px solid #dce4ee;border-radius:999px;padding:7px 10px}table{border-collapse:collapse;width:100%;font-size:11.5px;table-layout:fixed}td,th{border:1px solid #dce2e8;padding:7px;vertical-align:top;text-align:left;overflow-wrap:anywhere}th{background:#f2f5f8}.row-fail{background:#fff0f2}.row-review{background:#fff8e6}.row-pass{background:#f1fbf4}.selected{background:#e8f3ff!important}.pill{display:inline-block;border-radius:99px;background:#e8f3ff;color:#124a7a;padding:2px 7px;font-size:10px;font-weight:800;text-transform:uppercase}.preview{max-width:460px;border:1px solid #ccd3dc;border-radius:10px}.crop img{max-width:420px;border:1px solid #ccd3dc;border-radius:10px;background:white}.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.facts>div{background:#f8fafc;border:1px solid #e3e8ef;border-radius:12px;padding:9px}.two-col{display:grid;grid-template-columns:minmax(320px,.9fr) 1.1fr;gap:16px}.metric{display:inline-block;background:#f5f7fa;border:1px solid #e5e9ef;border-radius:12px;padding:8px 10px;margin:4px 5px 4px 0}.raw-code,code{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;font-size:12px}pre{background:#f7f9fb;border:1px solid #e3e8ef;border-radius:10px;padding:10px;overflow:auto;max-height:280px;white-space:pre-wrap}.muted{color:#666}a{color:#0b5cad;text-decoration:none}a:hover{text-decoration:underline}@media(max-width:800px){.two-col,.facts{grid-template-columns:1fr}.preview{max-width:100%}}.service-matrix-wrap{overflow-x:auto;border-radius:12px;border:1px solid #111}.service-matrix-table{min-width:980px;border-collapse:collapse;table-layout:fixed;font-size:11px;background:#d9d9d9}.service-matrix-table th{background:#c40000;color:white;border:1px solid #111;text-align:center;vertical-align:middle;padding:7px 5px;font-weight:800}.service-matrix-table td{background:#d9d9d9;border:1px solid #111;color:#000;vertical-align:middle;padding:6px;overflow-wrap:anywhere}.service-matrix-table th:nth-child(1),.service-matrix-table td:nth-child(1){width:58px;text-align:center}.service-matrix-table th:nth-child(2),.service-matrix-table td:nth-child(2){width:55px;text-align:center}.service-matrix-table th:nth-child(3),.service-matrix-table td:nth-child(3){width:70px;text-align:center}.service-matrix-table th:nth-child(4),.service-matrix-table td:nth-child(4){width:70px;text-align:center}.service-matrix-table th:nth-child(5),.service-matrix-table td:nth-child(5){width:64px;text-align:center}.service-matrix-table th:nth-child(6),.service-matrix-table td:nth-child(6){width:92px;text-align:center}.service-matrix-table th:nth-child(7),.service-matrix-table td:nth-child(7){width:170px}.service-matrix-table th:nth-child(8),.service-matrix-table td:nth-child(8){width:74px;text-align:center}.service-matrix-table th:nth-child(9),.service-matrix-table td:nth-child(9){width:116px}.flag-cell{font-weight:900;font-size:14px;text-align:center}.payload-cell pre{margin:0;padding:0;border:0;background:transparent;font-size:10.5px;max-height:none;white-space:pre-wrap;overflow:visible}.service-selected-row td,.service-selected-row .payload-cell pre{background:#fff7c2!important}.selected-combination-row td,.product-selected-cell{background:#dff5e7!important}@media print{body{background:white}.card,.section,.toc{break-inside:avoid}}
-${VALIDATION_TABLE_REPORT_CSS}
-</style>
-</head><body><div class="wrap">
-<section class="hero"><h1>Australia Post - eCommerce Integration Label Auditor Report</h1><p><strong>Generated:</strong> ${esc(audit.generatedAt)} | <strong>File:</strong> ${esc(audit.fileInfo?.filename)}${audit.fileInfo?.sourcePdfPage ? ` — page ${esc(audit.fileInfo.sourcePdfPage)} of ${esc(audit.fileInfo.sourcePdfPageCount || '?')}` : ''}</p><p class="status ${esc(audit.summary.overallStatus)}">Overall: ${esc(audit.summary.overallStatus)}</p><div><span class="metric">Passed ${audit.summary.passed}</span><span class="metric">Failed ${audit.summary.failed}</span><span class="metric">Review ${audit.summary.manualReview}</span><span class="metric">Total ${audit.summary.total}</span></div><nav class="nav">${navLinks}</nav></section>
-${reviewNav}
-<section id="full-label-image" class="section"><h2><a href="#full-label-image">Full label image</a></h2><div class="two-col"><div>${audit.labelImages?.labelPreview ? `<img class="preview" src="${audit.labelImages.labelPreview}" alt="label preview">` : '<p>No label preview captured.</p>'}</div><div><h3>Visible label facts</h3><div class="facts"><div><strong>AP Article ID:</strong><br>${esc((audit.labelFacts?.articleIds || []).join(', ') || 'not extracted')}</div><div><strong>Con No:</strong><br>${esc((audit.labelFacts?.consignmentIds || []).join(', ') || 'not extracted')}</div><div><strong>Weight:</strong><br>${esc(audit.labelFacts?.weightKg ? `${audit.labelFacts.weightKg}kg` : 'not extracted')}</div><div><strong>Label type:</strong><br>${esc(audit.labelFacts?.labelType || 'not extracted')}</div></div>${renderReportValidationTable(labelItems, esc)}</div></div></section>
-<section id="datamatrix-section" class="section"><h2><a href="#datamatrix-section">GS1 DataMatrix Barcode</a></h2>${audit.labelImages?.dataMatrixFocusedCrop || audit.labelImages?.dataMatrixCrop ? `<figure class="crop"><img src="${audit.labelImages.dataMatrixFocusedCrop || audit.labelImages.dataMatrixCrop}" alt="GS1 DataMatrix crop"><figcaption>${esc(imageBoxCaption(audit.labelImages, FORMAT_KIND.datamatrix))}</figcaption></figure>` : ''}<h3>Raw decoded DataMatrix string</h3><ul>${dmBarcodeHtml || '<li>No GS1 DataMatrix string decoded from the uploaded file.</li>'}</ul>${dmParses.length ? `<h3>DataMatrix AI breakdown</h3>${dmParses.map(dm => `<div class="facts"><div><strong>AI 01 GTIN</strong><br>${esc(dm.compact?.slice(2,16) || 'not parsed')}</div><div><strong>AI 91 article</strong><br><code>${esc(dm.article?.articleId || dm.base?.article?.articleId || 'not parsed')}</code></div><div><strong>AI 420 postcode</strong><br>${esc(dm.postcode || 'not present')}</div><div><strong>AI 92 DPID</strong><br>${esc(dm.dpid || 'not present / omitted')}</div><div><strong>AI 8008 date/time</strong><br>${esc(dm.dateTime || 'not present')}</div></div>`).join('')}` : ''}${renderReportValidationTable(dataMatrixItems, esc)}</section>
-<section id="linear-section" class="section"><h2><a href="#linear-section">GS1-128 Linear Barcode</a></h2>${audit.labelImages?.linearBarcodeCrop || audit.labelImages?.rightLinearBarcodeCrop ? `<figure class="crop"><img src="${audit.labelImages.linearBarcodeCrop || audit.labelImages.rightLinearBarcodeCrop}" alt="GS1-128 crop"><figcaption>${esc(imageBoxCaption(audit.labelImages, FORMAT_KIND.linear))}</figcaption></figure>` : ''}<h3>Raw decoded linear barcode string</h3><ul>${linearBarcodeHtml || '<li>No Code128 / GS1-128 string decoded from the uploaded file.</li>'}</ul>${renderReportValidationTable(linearItems, esc)}</section>
-<section id="service-article-section" class="section"><h2><a href="#service-article-section">Article and barcode data</a></h2>${(audit.articles || []).map(a => a.type === 'sscc' ? `<div class="facts"><div><strong>Barcode type</strong><br>SSCC / AI 00</div><div><strong>SSCC value</strong><br><code>${esc(a.sscc)}</code></div><div><strong>Product code</strong><br>Not encoded in SSCC</div><div><strong>Service code</strong><br>Not encoded in SSCC</div></div>` : `<div class="facts"><div><strong>Article ID</strong><br><code>${esc(a.articleId)}</code></div><div><strong>MLID</strong><br>${esc(a.mlid)}</div><div><strong>Consignment ID</strong><br>${esc(a.consignmentId)}</div><div><strong>Article count</strong><br>${esc(a.articleCount)}</div><div><strong>Product</strong><br>${esc(a.productCode)} — ${esc(a.productDescription)}</div><div><strong>Service</strong><br>${esc(a.serviceCode)} — ${esc(a.serviceDescription)}</div><div><strong>Postage paid</strong><br>${esc(a.postagePaidIndicator)}</div><div><strong>Check digit</strong><br>${esc(a.checkDigit)}</div></div>`).join('') || '<p>No article details parsed.</p>'}${renderReportValidationTable(serviceItems, esc)}${serviceMatrixHtml}</section>
-<section id="text-content-section" class="section"><h2><a href="#text-content-section">Visible label text</a></h2><div class="facts"><div><strong>TO block</strong><pre>${esc((audit.labelFacts?.toBlock || []).join('\n') || 'not extracted')}</pre></div><div><strong>FROM/SENDER block</strong><pre>${esc((audit.labelFacts?.fromBlock || []).join('\n') || 'not extracted')}</pre></div><div><strong>DG declaration</strong><pre>${esc((audit.labelFacts?.dgBlock || []).join('\n') || (audit.labelFacts?.dangerousGoodsDeclarationPresent ? 'Present' : 'not extracted'))}</pre></div><div><strong>Extracted raw text</strong><pre>${esc(audit.extractedText || '')}</pre></div></div>${renderReportValidationTable(textItems, esc)}${otherItems.length ? `<h3>Other checks</h3>${renderReportValidationTable(otherItems, esc)}` : ''}</section>
-</div></body></html>`;
-}
-
 function getPrimaryArticle(audit) {
   return (audit?.articles || []).find(a => a?.type === 'eparcel-standard') || (audit?.articles || [])[0] || null;
 }
@@ -1856,12 +1612,6 @@ function productFamilyForArticle(article) {
   if (desc.includes('express')) return 'Express Post';
   if (desc.includes('parcel')) return 'Parcel Post';
   return article?.productDescription || 'Product not parsed';
-}
-
-function serviceLabelForArticle(article) {
-  if (!article?.serviceCode) return 'Service code not parsed';
-  const name = SERVICE_CODE_MAP[article.serviceCode]?.name || article.serviceDescription || 'Unknown service code';
-  return `${article.serviceCode} — ${name}`;
 }
 
 function auditDisplayHeader(audit, index = 0) {
@@ -1927,103 +1677,6 @@ function combinedAuditSummary(audits = []) {
   return totals;
 }
 
-function buildConsolidatedReportHtml(audits = []) {
-  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const summary = combinedAuditSummary(audits);
-  const navLinks = audits.map((audit, idx) => {
-    const h = auditDisplayHeader(audit, idx);
-    return `<a href="#label-${idx + 1}">${esc(h.articleNumber)} · ${esc(h.product)} · ${esc(h.serviceCode || 'no service')}</a>`;
-  }).join('');
-
-  const summaryRows = audits.map((audit, idx) => {
-    const h = auditDisplayHeader(audit, idx);
-    return `<tr class="row-${esc(String(audit.summary?.overallStatus || '').toLowerCase())}">
-      <td>${idx + 1}</td>
-      <td><a href="#label-${idx + 1}"><code>${esc(h.articleNumber)}</code></a></td>
-      <td>${esc(h.product)}${h.productCode ? `<br><small>${esc(h.productCode)} — ${esc(h.productName)}</small>` : ''}</td>
-      <td>${esc(h.serviceCode || 'not parsed')}${h.serviceName ? `<br><small>${esc(h.serviceName)}</small>` : ''}</td>
-      <td>${esc(audit.detectedBarcodes?.length || 0)}</td>
-      <td>${esc(h.displayFile || h.filename)}</td>
-      <td><strong>${esc(audit.summary?.overallStatus || 'UNKNOWN')}</strong></td>
-    </tr>`;
-  }).join('');
-
-  const labelSections = audits.map((audit, idx) => {
-    const h = auditDisplayHeader(audit, idx);
-    const grouped = groupValidations(audit.validations || []);
-    const dataMatrixItems = audit.carrier === 'startrack' ? (grouped['StarTrack QR barcode'] || []) : (grouped['DataMatrix barcode analysis'] || []);
-    const routingItems = grouped['StarTrack routing barcode'] || [];
-    const atlItems = grouped['StarTrack ATL barcode'] || [];
-    const freightItems = grouped['StarTrack freight item barcode'] || [];
-    const linearItems = grouped['linear barcode analysis'] || [];
-    const serviceItems = audit.carrier === 'startrack' ? (grouped['StarTrack product/article data'] || []) : ([...(grouped['service-code'] || []), ...(grouped['sscc'] || [])]);
-    const labelItems = grouped['label-layout'] || [];
-    const textItems = grouped['address-format'] || [];
-    const usedSectionKeys = audit.carrier === 'startrack'
-      ? ['StarTrack QR barcode','StarTrack routing barcode','StarTrack ATL barcode','StarTrack freight item barcode','StarTrack product/article data','label-layout','address-format']
-      : ['DataMatrix barcode analysis','linear barcode analysis','service-code','sscc','label-layout','address-format'];
-    const otherItems = Object.entries(grouped)
-      .filter(([key]) => !usedSectionKeys.includes(key))
-      .flatMap(([, items]) => items);
-    const dmBarcodes = decodedBarcodeList(audit, audit.carrier === 'startrack' ? 'qr' : 'datamatrix');
-    const linearBarcodes = decodedBarcodeList(audit, 'linear');
-    const routingBarcodes = starTrackRoutingBarcodeList(audit);
-    const atlBarcodes = starTrackAtlBarcodeList(audit);
-    const freightBarcodes = starTrackFreightBarcodeList(audit);
-    const serviceRows = serviceMatrixRowsHtml(audit, esc);
-    const ssccOnly = auditHasSsccOnly(audit);
-    const serviceMatrixHtml = ssccOnly
-      ? '<p class="muted"><strong>SSCC label detected.</strong> eParcel product/service matrix is not applicable and has been intentionally omitted.</p>'
-      : `<details><summary>Service code and product matrix</summary><div class="table-wrap service-matrix-wrap"><table class="service-matrix-table"><thead><tr><th>Service Code</th><th>Safe Drop</th><th>Signature on Delivery required</th><th>Authority To Leave (ATL)</th><th>Partial delivery allowed</th><th>No signature allowed</th><th>API payload / manifest flags</th><th>Product Code</th><th>Product Name</th>${auditHasApiPayload(audit) ? '<th>Get Shipments match</th>' : ''}</tr></thead><tbody>${serviceRows}</tbody></table></div></details>`;
-    const barcodeSections = audit.carrier === 'startrack'
-      ? `<h3>StarTrack 2D QR barcode</h3>${audit.labelImages?.qrBarcodeCrop ? `<figure class="crop"><img src="${audit.labelImages.qrBarcodeCrop}" alt="StarTrack QR crop"><figcaption>${esc(imageBoxCaption(audit.labelImages, FORMAT_KIND.qr))}</figcaption></figure>` : ''}<ul>${rawBarcodeListHtml(dmBarcodes, esc) || '<li>No StarTrack QR string decoded from this file.</li>'}</ul>${renderReportValidationTable(dataMatrixItems, esc)}
-      <h3>StarTrack routing barcode</h3>${audit.labelImages?.routingBarcodeCrop ? `<figure class="crop"><img src="${audit.labelImages.routingBarcodeCrop}" alt="StarTrack routing crop"><figcaption>${esc(imageBoxCaption(audit.labelImages, 'startrack-routing'))}</figcaption></figure>` : ''}<ul>${rawBarcodeListHtml(routingBarcodes, esc) || '<li>No StarTrack routing barcode string decoded from this file.</li>'}</ul>${renderReportValidationTable(routingItems, esc)}
-      <h3>StarTrack ATL barcode</h3>${audit.labelImages?.atlBarcodeCrop ? `<figure class="crop"><img src="${audit.labelImages.atlBarcodeCrop}" alt="StarTrack ATL crop"><figcaption>${esc(imageBoxCaption(audit.labelImages, 'startrack-atl'))}</figcaption></figure>` : ''}<ul>${rawBarcodeListHtml(atlBarcodes, esc) || '<li>No StarTrack ATL barcode string decoded from this file.</li>'}</ul>${renderReportValidationTable(atlItems, esc)}
-      <h3>StarTrack freight item barcode</h3>${audit.labelImages?.freightBarcodeCrop ? `<figure class="crop"><img src="${audit.labelImages.freightBarcodeCrop}" alt="StarTrack freight item crop"><figcaption>${esc(imageBoxCaption(audit.labelImages, 'startrack-freight'))}</figcaption></figure>` : ''}<ul>${rawBarcodeListHtml(freightBarcodes, esc) || '<li>No StarTrack freight item / SSCC barcode string decoded from this file.</li>'}</ul>${renderReportValidationTable(freightItems, esc)}`
-      : `<h3>GS1 DataMatrix barcode</h3>${audit.labelImages?.dataMatrixFocusedCrop || audit.labelImages?.dataMatrixCrop ? `<figure class="crop"><img src="${audit.labelImages.dataMatrixFocusedCrop || audit.labelImages.dataMatrixCrop}" alt="GS1 DataMatrix crop"><figcaption>${esc(imageBoxCaption(audit.labelImages, FORMAT_KIND.datamatrix))}</figcaption></figure>` : ''}<ul>${rawBarcodeListHtml(dmBarcodes, esc) || '<li>No GS1 DataMatrix string decoded from this file.</li>'}</ul>${renderReportValidationTable(dataMatrixItems, esc)}
-      <h3>GS1-128 linear barcode</h3>${audit.labelImages?.linearBarcodeCrop || audit.labelImages?.rightLinearBarcodeCrop ? `<figure class="crop"><img src="${audit.labelImages.linearBarcodeCrop || audit.labelImages.rightLinearBarcodeCrop}" alt="GS1-128 crop"><figcaption>${esc(imageBoxCaption(audit.labelImages, FORMAT_KIND.linear))}</figcaption></figure>` : ''}<ul>${rawBarcodeListHtml(linearBarcodes, esc) || '<li>No GS1-128 linear barcode string decoded from this file.</li>'}</ul>${renderReportValidationTable(linearItems, esc)}`;
-    return `<section id="label-${idx + 1}" class="section label-report-section">
-      <h2>Article Number: <code>${esc(h.articleNumber)}</code> · Product: ${esc(h.product)} · Service Code: ${esc(h.serviceCode || 'not parsed')}</h2>
-      <p><strong>File:</strong> ${esc(h.displayFile || h.filename)} | <strong>Status:</strong> <span class="status-inline ${esc(audit.summary?.overallStatus || '')}">${esc(audit.summary?.overallStatus || 'UNKNOWN')}</span></p>
-      <div class="two-col"><div>${audit.labelImages?.labelPreview ? `<img class="preview" src="${audit.labelImages.labelPreview}" alt="label preview">` : '<p>No label preview captured.</p>'}</div><div><h3>Key label facts</h3><div class="facts"><div><strong>Article number</strong><br><code>${esc(h.articleNumber)}</code></div><div><strong>Product</strong><br>${esc(h.productCode ? `${h.productCode} — ${h.productName}` : h.product)}</div><div><strong>Service code</strong><br>${esc(h.serviceCode || 'not parsed')} ${h.serviceName ? `— ${esc(h.serviceName)}` : ''}</div><div><strong>Decoded barcodes</strong><br>${esc(audit.detectedBarcodes?.length || 0)}</div></div>${renderReportValidationTable(labelItems, esc)}</div></div>
-      ${barcodeSections}
-      <h3>Article and barcode data</h3>${(audit.articles || []).map(a => a.type === 'sscc' ? `<div class="facts"><div><strong>Barcode type</strong><br>SSCC / AI 00</div><div><strong>SSCC value</strong><br><code>${esc(a.sscc)}</code></div><div><strong>Product code</strong><br>Not encoded in SSCC</div><div><strong>Service code</strong><br>Not encoded in SSCC</div></div>` : `<div class="facts"><div><strong>Article ID</strong><br><code>${esc(a.articleId)}</code></div><div><strong>Product</strong><br>${esc(a.productCode)} — ${esc(a.productDescription)}</div><div><strong>Service code</strong><br>${esc(a.serviceCode)} — ${esc(SERVICE_CODE_MAP[a.serviceCode]?.name || a.serviceDescription)}</div><div><strong>Check digit</strong><br>${esc(a.checkDigit)}</div></div>`).join('') || '<p>No article details parsed from decoded barcode.</p>'}${renderReportValidationTable(serviceItems, esc)}
-      ${serviceMatrixHtml}
-      <h3>Visible label text</h3><div class="facts"><div><strong>Deliver to</strong><pre>${esc((audit.labelFacts?.toBlock || []).join('\n') || 'not extracted')}</pre></div><div><strong>Sender / From</strong><pre>${esc((audit.labelFacts?.fromBlock || []).join('\n') || 'not extracted')}</pre></div><div><strong>Dangerous Goods declaration</strong><pre>${esc((audit.labelFacts?.dgBlock || []).join('\n') || (audit.labelFacts?.dangerousGoodsDeclarationPresent ? 'Present' : 'not extracted'))}</pre></div><div><strong>Raw extracted text</strong><pre>${esc(audit.extractedText || '')}</pre></div></div>${renderReportValidationTable(textItems, esc)}${otherItems.length ? `<h3>Other checks</h3>${renderReportValidationTable(otherItems, esc)}` : ''}
-    </section>`;
-  }).join('');
-
-  return `<!doctype html><html><head><meta charset="utf-8">${REPORT_CSP_META}<title>Consolidated Australia Post - eCommerce Integration Label Auditor Report</title><style>
-body{font-family:Inter,Segoe UI,Arial,sans-serif;margin:18px;color:#17202a;background:#f6f7f9;font-size:13px;line-height:1.45}.wrap{max-width:1220px;margin:0 auto}.hero,.section,.toc{background:white;border:1px solid #e3e8ef;border-radius:16px;margin:12px 0;padding:16px;box-shadow:0 6px 20px rgba(0,0,0,.035)}h1{margin:0;color:#c40018}h2{margin:0 0 12px}.status{font-size:24px;font-weight:900}.status-inline{font-weight:900}.FAIL{color:#b00020}.PASS{color:#147a2e}.REVIEW{color:#9a5a00}.nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.nav a{background:#f0f4f8;border:1px solid #dce4ee;border-radius:999px;padding:7px 10px}table{border-collapse:collapse;width:100%;font-size:11.5px;table-layout:fixed}td,th{border:1px solid #dce2e8;padding:7px;vertical-align:top;text-align:left;overflow-wrap:anywhere}th{background:#f2f5f8}.row-fail{background:#fff0f2}.row-review{background:#fff8e6}.row-pass{background:#f1fbf4}.preview{max-width:460px;border:1px solid #ccd3dc;border-radius:10px}.crop img{max-width:420px;border:1px solid #ccd3dc;border-radius:10px;background:white}.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.facts>div{background:#f8fafc;border:1px solid #e3e8ef;border-radius:12px;padding:9px}.two-col{display:grid;grid-template-columns:minmax(320px,.8fr) 1.2fr;gap:16px}.metric{display:inline-block;background:#f5f7fa;border:1px solid #e5e9ef;border-radius:12px;padding:8px 10px;margin:4px 5px 4px 0}.raw-code,code{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;font-size:12px}pre{background:#f7f9fb;border:1px solid #e3e8ef;border-radius:10px;padding:10px;overflow:auto;max-height:280px;white-space:pre-wrap}.pill{display:inline-block;border-radius:99px;background:#e8f3ff;color:#124a7a;padding:2px 7px;font-size:10px;font-weight:800;text-transform:uppercase}.service-matrix-wrap{overflow-x:auto;border-radius:12px;border:1px solid #111}.service-matrix-table{min-width:980px;border-collapse:collapse;table-layout:fixed;font-size:11px;background:#d9d9d9}.service-matrix-table th{background:#c40000;color:white;border:1px solid #111;text-align:center;vertical-align:middle;padding:7px 5px;font-weight:800}.service-matrix-table td{background:#d9d9d9;border:1px solid #111;color:#000;vertical-align:middle;padding:6px;overflow-wrap:anywhere}.flag-cell{font-weight:900;font-size:14px;text-align:center}.payload-cell pre{margin:0;padding:0;border:0;background:transparent;font-size:10.5px;max-height:none;white-space:pre-wrap;overflow:visible}.service-selected-row td,.service-selected-row .payload-cell pre{background:#fff7c2!important}.selected-combination-row td,.product-selected-cell{background:#dff5e7!important}@media(max-width:800px){.two-col,.facts{grid-template-columns:1fr}.preview{max-width:100%}}
-.service-matrix-table{min-width:1280px;font-size:11px;line-height:1.25}.service-matrix-table th,.service-matrix-table td{padding:7px 6px;vertical-align:middle}.service-matrix-table th{line-height:1.15;overflow-wrap:normal;word-break:normal}.service-matrix-table th:nth-child(1),.service-matrix-table td:nth-child(1){width:64px;text-align:center}.service-matrix-table th:nth-child(2),.service-matrix-table td:nth-child(2){width:58px;text-align:center}.service-matrix-table th:nth-child(3),.service-matrix-table td:nth-child(3){width:82px;text-align:center}.service-matrix-table th:nth-child(4),.service-matrix-table td:nth-child(4){width:76px;text-align:center}.service-matrix-table th:nth-child(5),.service-matrix-table td:nth-child(5){width:76px;text-align:center}.service-matrix-table th:nth-child(6),.service-matrix-table td:nth-child(6){width:88px;text-align:center}.service-matrix-table th:nth-child(7),.service-matrix-table td:nth-child(7){width:220px}.service-matrix-table th:nth-child(8),.service-matrix-table td:nth-child(8){width:82px;text-align:center}.service-matrix-table th:nth-child(9),.service-matrix-table td:nth-child(9){width:145px}.service-matrix-table th:nth-child(10),.service-matrix-table td:nth-child(10){width:145px;text-align:center}.flag-cell{font-size:14px;text-align:center;vertical-align:middle}.service-code-cell{vertical-align:middle;text-align:center}.payload-cell pre{font-size:10.5px;line-height:1.3}.payload-match{font-size:10px;letter-spacing:.02em;padding:3px 7px}.payload-match-na{background:#eef1f5;color:#53606d;border:1px solid #d7dde5}
-@media print{body{background:white}.section,.hero,.toc{break-inside:avoid}}
-${VALIDATION_TABLE_REPORT_CSS}
-</style></head><body><div class="wrap"><section class="hero"><h1>Australia Post - eCommerce Integration Label Auditor — Consolidated Report</h1><p><strong>Generated:</strong> ${esc(new Date().toISOString())} | <strong>Labels audited:</strong> ${summary.labelCount}</p><p class="status ${esc(summary.overallStatus)}">Overall: ${esc(summary.overallStatus)}</p><div><span class="metric">Labels ${summary.labelCount}</span><span class="metric">Passed checks ${summary.passed}</span><span class="metric">Failed checks ${summary.failed}</span><span class="metric">Review checks ${summary.manualReview}</span><span class="metric">Decoded barcodes ${summary.decoded}</span></div><nav class="nav">${navLinks}</nav></section><section class="toc"><h2>Consolidated label summary</h2><table><thead><tr><th>#</th><th>Article Number</th><th>Product</th><th>Service Code</th><th>Decoded Barcodes</th><th>File</th><th>Status</th></tr></thead><tbody>${summaryRows}</tbody></table></section>${labelSections}</div></body></html>`;
-}
-
-function downloadHtmlReport(audit) {
-  const html = buildReportHtml(audit);
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const safeName = (audit.fileInfo?.filename || 'audit').replace(/[^a-z0-9_.-]/gi, '_');
-  a.href = url;
-  a.download = `${safeName}-ecommerce-integration-label-auditor-report.html`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function downloadConsolidatedHtmlReport(audits) {
-  const html = buildConsolidatedReportHtml(audits);
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `consolidated-ecommerce-integration-label-auditor-report.html`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 function StatusBadge({ status }) {
   return <span className={`badge badge-${String(status).toLowerCase()}`}>{status}</span>;
 }
@@ -2034,22 +1687,6 @@ function SectionTitle({ id, children }) {
 
 function StandardLine({ children }) {
   return <p className="standard-line"><strong>Specification standard / example:</strong> {children}</p>;
-}
-
-function ReviewBookmarks({ audit }) {
-  const reviewItems = (audit?.validations || []).filter(v => v.status === 'manual_review' || v.status === 'warning' || v.status === 'fail');
-  if (!reviewItems.length) return null;
-  return (
-    <section className="card review-nav">
-      <SectionTitle id="review-bookmarks">Review bookmarks</SectionTitle>
-      <p className="muted small">Jump directly to the items that need review or failed assessment.</p>
-      <ul>
-        {reviewItems.map(v => (
-          <li key={v.id}><a href={`#rule-${v.id}`}>{v.title}</a> <StatusBadge status={v.status} /></li>
-        ))}
-      </ul>
-    </section>
-  );
 }
 
 function ServiceCodeMatrix({ audit }) {
@@ -2103,42 +1740,6 @@ function ServiceCodeMatrix({ audit }) {
       <StandardLine>Service code and product code must be a valid supported combination from the Australia Post eParcel service matrix. Example: service 09 supports product 00091 Parcel Post (Non-Signature) and 00087 Express Post (Non-Signature).</StandardLine>
     </section>
   );
-}
-
-function ProductCodeMatrix({ audit }) {
-  const selected = selectedProductCodes(audit);
-  return (
-    <section className="card compact-card">
-      <SectionTitle id="product-code-reference">Product code reference</SectionTitle>
-      <div className="product-chip-row">
-        {Object.entries(PRODUCT_CODE_MAP).map(([code, name]) => (
-          <div key={code} className={`product-chip ${selected.includes(code) ? 'selected-chip' : ''}`}>
-            <strong>{code}</strong><span>{name}</span>{selected.includes(code) && <em>selected</em>}
-          </div>
-        ))}
-      </div>
-      <StandardLine>Example: product 00091 means Parcel Post (Non-Signature).</StandardLine>
-    </section>
-  );
-}
-
-function LabelPreview({ audit }) {
-  const images = audit?.labelImages || {};
-  if (!images.labelPreview) return null;
-  return (
-    <section className="card compact-card">
-      <SectionTitle id="label-image">Label image</SectionTitle>
-      <div className="image-grid">
-        <figure><img className="label-preview" src={images.labelPreview} alt="Full label preview"/><figcaption>Full label preview</figcaption></figure>
-        {images.dataMatrixFocusedCrop && <figure><img className="crop-preview" src={images.dataMatrixFocusedCrop} alt="DataMatrix crop"/><figcaption>DataMatrix crop</figcaption></figure>}
-        {images.linearBarcodeCrop && <figure><img className="crop-preview wide" src={images.linearBarcodeCrop} alt="Linear barcode crop"/><figcaption>Linear barcode crop</figcaption></figure>}
-      </div>
-    </section>
-  );
-}
-
-function sectionItems(audit, displayCategory) {
-  return (audit ? groupValidations(audit.validations || [])[displayCategory] : []) || [];
 }
 
 function getAuditSections(audit) {
@@ -2262,30 +1863,6 @@ function formatApiPayloadEvidence(match) {
   return lines.join('\n').trim();
 }
 
-function ApiPayloadMatchBadge({ match }) {
-  if (!match) return null;
-  const status = match.status || 'na';
-  const evidence = formatApiPayloadEvidence(match);
-  return (
-    <div className="payload-match-cell">
-      <span className={`payload-match payload-match-${status}`}>{match.label || 'N/A'}</span>
-      {evidence && (
-        <details className="payload-evidence">
-          <summary>JSON evidence</summary>
-          <pre>{evidence}</pre>
-        </details>
-      )}
-    </div>
-  );
-}
-
-function apiPayloadMatchHtml(match, esc) {
-  if (!match) return '';
-  const status = match.status || 'na';
-  const evidence = formatApiPayloadEvidence(match);
-  return `<div class="payload-match-cell"><span class="payload-match payload-match-${esc(status)}">${esc(match.label || 'N/A')}</span>${evidence ? `<details class="payload-evidence"><summary>JSON evidence</summary><pre>${esc(evidence)}</pre></details>` : ''}</div>`;
-}
-
 function auditHasApiPayload(audit) {
   return Boolean(audit?.apiPayload?.provided);
 }
@@ -2325,41 +1902,6 @@ function selectedStarTrackProductPayloadStatus(audit, productCode, labelCode) {
 }
 
 
-function canonicalFieldLabel(v) {
-  const field = v?.apiPayloadMatch?.field || '';
-  if (!field) return null;
-  return field;
-}
-
-function CriteriaCell({ validation }) {
-  const canonical = canonicalFieldLabel(validation);
-  const standard = standardForValidation(validation);
-  const showSpecificExpected = validation.expected && validation.expected !== standard;
-  return (
-    <div className="criteria-cell">
-      {canonical && <code className="canonical-field">{canonical}</code>}
-      <strong>{validation.title}</strong>
-      <span className="criteria-standard">{standard}</span>
-      {showSpecificExpected && <span className="criteria-expected">Expected: {validation.expected}</span>}
-    </div>
-  );
-}
-
-function LabelMeasurementCell({ validation }) {
-  return (
-    <div className="measurement-cell">
-      {validation.actual && <div><span className="measurement-label">Label value</span><code>{validation.actual}</code></div>}
-      <div><span className="measurement-label">Finding</span>{validation.message}</div>
-      {validation.evidence && (
-        <details>
-          <summary>Label evidence</summary>
-          <pre>{validation.evidence}</pre>
-        </details>
-      )}
-    </div>
-  );
-}
-
 function ApiPayloadEvidenceCell({ match }) {
   if (!match) return <span className="muted small">No payload comparison.</span>;
   const evidence = formatApiPayloadEvidence(match);
@@ -2375,41 +1917,6 @@ function ApiPayloadEvidenceCell({ match }) {
       )}
     </div>
   );
-}
-
-function ValidationStatusCell({ validation, showPayloadColumn }) {
-  return (
-    <div className="status-stack">
-      <StatusBadge status={validation.status} />
-      {showPayloadColumn && validation.apiPayloadMatch && (
-        <div className="payload-status">
-          <span>Payload</span>
-          <ApiPayloadMatchBadge match={validation.apiPayloadMatch} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function validationCriteriaHtml(v, esc) {
-  const canonical = canonicalFieldLabel(v);
-  const standard = standardForValidation(v);
-  const showSpecificExpected = v?.expected && v.expected !== standard;
-  return `<div class="criteria-cell">${canonical ? `<code class="canonical-field">${esc(canonical)}</code>` : ''}<strong>${esc(v.title)}</strong><span class="criteria-standard">${esc(standard)}</span>${showSpecificExpected ? `<span class="criteria-expected">Expected: ${esc(v.expected)}</span>` : ''}</div>`;
-}
-
-function labelMeasurementHtml(v, esc) {
-  return `<div class="measurement-cell">${v.actual ? `<div><span class="measurement-label">Label value</span><code>${esc(v.actual)}</code></div>` : ''}<div><span class="measurement-label">Finding</span>${esc(v.message)}</div>${v.evidence ? `<details><summary>Label evidence</summary><pre>${esc(v.evidence)}</pre></details>` : ''}</div>`;
-}
-
-function apiPayloadEvidenceHtml(match, esc) {
-  if (!match) return '<span class="muted small">No payload comparison.</span>';
-  const evidence = formatApiPayloadEvidence(match);
-  return `<div class="measurement-cell payload-measurement-cell">${match.field ? `<div><span class="measurement-label">Payload field</span><code>${esc(match.field)}</code></div>` : ''}${match.detail ? `<div><span class="measurement-label">Payload comparison</span>${esc(match.detail)}</div>` : ''}${evidence ? `<details class="payload-evidence"><summary>JSON evidence</summary><pre>${esc(evidence)}</pre></details>` : ''}</div>`;
-}
-
-function validationStatusHtml(v, showPayloadColumn, esc) {
-  return `<div class="status-stack"><span class="badge badge-${esc(String(v.status).toLowerCase())}">${esc(v.status)}</span>${showPayloadColumn && v.apiPayloadMatch ? `<div class="payload-status"><span>Payload</span>${apiPayloadMatchHtml(v.apiPayloadMatch, esc)}</div>` : ''}</div>`;
 }
 
 function ValidationTable({ items }) {
