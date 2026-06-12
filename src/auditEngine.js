@@ -1909,16 +1909,21 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
     evidence: modeEvidence || decodedValues.join('\n')
   }));
   validations.push(...validateStarTrackTextFacts(facts));
-  validations.push(...validateExpectedSsccPrefix({ expectedSscc, validSsccs, invalidSsccs, category: 'startrack-sscc', idPrefix: 'ST_SSCC_EXPECTED' }));
-
-  for (const [i, sscc] of validSsccs.entries()) {
-    validations.push(result(`ST_SSCC_${i}`, 'SSCC freight item detected', 'INFO', 'startrack-sscc', 'pass', `Valid AI 00 SSCC detected: 00${sscc.sscc}.`, { actual: `00${sscc.sscc}` }));
-  }
-  for (const [i, sscc] of invalidSsccs.entries()) {
-    validations.push(result(`ST_SSCC_INVALID_${i}`, 'SSCC check digit', 'CRITICAL', 'startrack-sscc', 'fail', sscc.reason, { expected: sscc.expectedCheckDigit, actual: sscc.checkDigit }));
-  }
-  if (ssccOnly && selectedFormat !== 'sscc') {
-    validations.push(result('ST_SSCC_PRODUCT_RULE', 'SSCC product handling', 'INFO', 'startrack-sscc', 'pass', 'SSCC freight labels encode AI 00 SSCC data. StarTrack product may be supplied by QR/routing data, but it is not embedded in the SSCC article identifier.'));
+  // SSCC validation only runs when the user explicitly selected SSCC mode, or when
+  // auto-detection found only SSCC barcodes (no freight item barcodes). On standard
+  // labels, parseSsccBarcode can match digit sequences inside the QR payload, producing
+  // false CRITICAL failures — so we suppress those results here.
+  if (ssccOnly) {
+    validations.push(...validateExpectedSsccPrefix({ expectedSscc, validSsccs, invalidSsccs, category: 'startrack-sscc', idPrefix: 'ST_SSCC_EXPECTED' }));
+    for (const [i, sscc] of validSsccs.entries()) {
+      validations.push(result(`ST_SSCC_${i}`, 'SSCC freight item detected', 'INFO', 'startrack-sscc', 'pass', `Valid AI 00 SSCC detected: 00${sscc.sscc}.`, { actual: `00${sscc.sscc}` }));
+    }
+    for (const [i, sscc] of invalidSsccs.entries()) {
+      validations.push(result(`ST_SSCC_INVALID_${i}`, 'SSCC check digit', 'CRITICAL', 'startrack-sscc', 'fail', sscc.reason, { expected: sscc.expectedCheckDigit, actual: sscc.checkDigit }));
+    }
+    if (selectedFormat !== 'sscc') {
+      validations.push(result('ST_SSCC_PRODUCT_RULE', 'SSCC product handling', 'INFO', 'startrack-sscc', 'pass', 'SSCC freight labels encode AI 00 SSCC data. StarTrack product may be supplied by QR/routing data, but it is not embedded in the SSCC article identifier.'));
+    }
   }
 
   const ruleContext = buildStarTrackRuleContext({ fileInfo, facts, selectedFormat, qrParses, freightParses, routingParses, atlParses, validSsccs, invalidSsccs, expectedAtlNumbers, atlExpected, visualEvidence });
