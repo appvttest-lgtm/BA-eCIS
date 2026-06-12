@@ -6,7 +6,7 @@ import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from '
 import { createDetector } from './scanner/decoders.js';
 import { isStarTrackFreightItemValue, isStarTrackAtlValue, isStarTrackRoutingValue } from './scanner/labelImages.js';
 import { processImageLabels, processPdfLabels, yieldToBrowser } from './scanner/pipeline.js';
-import australiaPostLogoUrl from '../Australia_Post_logo_logotype.png';
+import australiaPostLogoUrl from './assets/Australia_Post_logo_logotype.png';
 import './styles.css';
 
 const APP_TITLE = 'Australia Post - eCommerce Integration Label Auditor';
