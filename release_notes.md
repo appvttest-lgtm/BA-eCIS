@@ -1,4 +1,36 @@
 ﻿
+BarcodeAuditer v1.7.3 Release Notes
+===================================
+
+Release focus
+-------------
+The v1.7.1 to v1.7.3 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, and introduces input preprocessing for rotated and multi-label uploads. The local-only security design is unchanged.
+
+v1.7.3 - input preprocessing (issue #7)
+---------------------------------------
+- Auto-orientation: rotated or upside-down uploads are detected from decoded barcode symbol orientation and corrected before validation. Each rotation candidate is verified by re-decoding a downscaled probe before the full-resolution page is rotated.
+- Multi-label sheets: pages larger than any single label format (A4 and up) are scanned for white gutters; each detected label region is cropped with a small margin and audited as an individual label with proportional physical dimensions. Aspect-ratio and ink-share guards prevent single labels from being split.
+- Rotated or segmented PDF pages fall back to per-label OCR because the page-level PDF text layer cannot be trusted after those transforms.
+- New tests/smoke-preprocess.mjs covers orientation selection and segmentation; verified against rotated and composited real label samples.
+
+v1.7.2 - image input guidance and rule review corrections (issues #2-#6)
+------------------------------------------------------------------------
+- Low-resolution raster uploads now produce an explicit warning (EP-IMG-01 / ST-IMG-01) with estimated DPI and guidance to upload the original PDF or a 300 DPI export, instead of opaque decode failures.
+- Visible article ID extraction tightened against watermark interference; visible-text vs barcode mismatches report as manual review rather than hard fails (issue #4).
+- ST-FRT-04 added: validates the freight barcode character structure implied by the Code 128 B/C/B/C compression pattern (issue #5).
+- SSCC parsing anchored to the start of the payload so zero-padded digit runs inside StarTrack QR data can no longer produce false SSCC check-digit failures (issue #6).
+- StarTrack unit-type map confirmed spec-exact against MOS v9 Appendix A.
+- App version is injected from package.json at build time, so the page version always matches the release (issue #3).
+
+v1.7.1 - JSON rule sets and rule-by-rule report
+-----------------------------------------------
+- Validation rules externalised to declarative JSON rule sets under rules/ (eParcel and StarTrack, base plus per-product variants) evaluated by a generic rule engine.
+- New report UI shows each rule with its input data, plain-English logic, expandable JSON definition, and outcome; tags are reserved for failures and review items.
+- Spec-derived audit checklists added under docs/checklists/ for both carriers.
+- Prebuilt dist/ committed so the target environment only needs node server.mjs.
+
+---
+
 BarcodeAuditer v1.7.0 Release Notes
 ===================================
 
