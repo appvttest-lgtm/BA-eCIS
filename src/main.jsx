@@ -15,6 +15,7 @@ import zxingReaderWasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
 import { auditLabel, groupValidations, SERVICE_CODE_MAP, SERVICE_TO_PRODUCT_MAP, PRODUCT_CODE_MAP, STARTRACK_PRODUCT_CODE_MAP, STARTRACK_LABEL_CODE_MAP } from './auditEngine.js';
 import { RuleReport } from './reportView.jsx';
 import { mergeExtractedText, recognizeCanvasText } from './ocrText.js';
+import { isUprightOrientation, pickRotationCandidates, findLabelRegions } from './preprocess.js';
 import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from './scanner/barcodeTypes.js';
 import australiaPostLogoUrl from '../Australia_Post_logo_logotype.png';
 import './styles.css';
@@ -1459,7 +1460,110 @@ async function detectOnCanvas(canvas, detector, pageNumber = 1, onDebug = null, 
   return { barcodes, scanDiagnostics };
 }
 
-async function processImage(file, detector, onDebug = null, labelFamily = 'eparcel') {
+// --- Issue #7 preprocessing: orientation normalization & multi-label sheets ---
+
+const ORIENTATION_PROBE_MAX_DIM = 1500;
+const SEGMENT_LUMINANCE_MAX_DIM = 360;
+const SEGMENT_MARGIN_FRAC = 0.012;
+
+function downscaleCanvasSmooth(sourceCanvas, maxDim) {
+  const scale = Math.min(1, maxDim / Math.max(sourceCanvas.width, sourceCanvas.height));
+  if (scale >= 1) return sourceCanvas;
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.round(sourceCanvas.width * scale));
+  out.height = Math.max(1, Math.round(sourceCanvas.height * scale));
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
+  return out;
+}
+
+/** Fast full-page decode used only to read symbol orientation, not values. */
+async function quickSymbolProbe(canvas) {
+  try {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const results = await readWasmBarcodes(imageData, {
+      formats: ['QRCode', 'DataMatrix', 'Code128'],
+      tryHarder: true,
+      tryRotate: true,
+      tryInvert: false,
+      tryDownscale: true,
+      maxNumberOfSymbols: 8,
+      returnErrors: false
+    });
+    return (results || [])
+      .filter(r => r && r.text && r.isValid !== false && Number.isFinite(r.orientation))
+      .map(r => ({ format: r.format, orientation: r.orientation }));
+  } catch (error) {
+    console.warn('Orientation probe failed', error);
+    return [];
+  }
+}
+
+/**
+ * Detects sideways/upside-down input from decoded symbol orientation and returns
+ * an upright canvas. Each rotation candidate is verified by re-probing a rotated
+ * downscale, so no assumption is made about the decoder's angle sign convention.
+ */
+async function normalizeCanvasOrientation(canvas, mark = null, contextLabel = 'input') {
+  const probeStart = performance.now();
+  const probe = downscaleCanvasSmooth(canvas, ORIENTATION_PROBE_MAX_DIM);
+  const symbols = await quickSymbolProbe(probe);
+  if (!symbols.length || isUprightOrientation(symbols)) {
+    mark?.(`Orientation check (${contextLabel}): upright or undetermined from ${symbols.length} reference symbol${symbols.length === 1 ? '' : 's'}`, performance.now() - probeStart);
+    return { canvas, rotation: 0 };
+  }
+  for (const candidate of pickRotationCandidates(symbols)) {
+    const verify = await quickSymbolProbe(rotateCanvas(probe, candidate));
+    if (verify.length && isUprightOrientation(verify)) {
+      mark?.(`Orientation check (${contextLabel}): rotated input detected; auto-corrected by ${candidate} degrees`, performance.now() - probeStart);
+      return { canvas: rotateCanvas(canvas, candidate), rotation: candidate };
+    }
+  }
+  mark?.(`Orientation check (${contextLabel}): rotation suspected but could not be verified; continuing with the original orientation`, performance.now() - probeStart);
+  return { canvas, rotation: 0 };
+}
+
+function canvasLuminanceSample(canvas, maxDim = SEGMENT_LUMINANCE_MAX_DIM) {
+  const sample = downscaleCanvasSmooth(canvas, maxDim);
+  const ctx = sample.getContext('2d', { willReadFrequently: true });
+  const { data } = ctx.getImageData(0, 0, sample.width, sample.height);
+  const lum = new Uint8Array(sample.width * sample.height);
+  for (let i = 0; i < lum.length; i += 1) {
+    const o = i * 4;
+    lum[i] = Math.round(data[o] * 0.299 + data[o + 1] * 0.587 + data[o + 2] * 0.114);
+  }
+  return { lum, width: sample.width, height: sample.height };
+}
+
+/**
+ * Splits a sheet carrying multiple labels (e.g. A4 with 2 or 4 labels) into
+ * per-label canvases with a small margin. Returns a single full-canvas segment
+ * when no confident multi-label layout is found.
+ */
+function segmentLabelCanvases(canvas, mark = null, contextLabel = 'input') {
+  const segStart = performance.now();
+  const { lum, width, height } = canvasLuminanceSample(canvas);
+  const regions = findLabelRegions(lum, width, height);
+  if (regions.length < 2) {
+    return [{ canvas, region: null }];
+  }
+  const margin = Math.round(Math.min(canvas.width, canvas.height) * SEGMENT_MARGIN_FRAC);
+  const segments = regions.map(region => {
+    const x = Math.max(0, Math.round(region.x * canvas.width) - margin);
+    const y = Math.max(0, Math.round(region.y * canvas.height) - margin);
+    const w = Math.min(canvas.width - x, Math.round(region.w * canvas.width) + margin * 2);
+    const h = Math.min(canvas.height - y, Math.round(region.h * canvas.height) + margin * 2);
+    return { canvas: cropCanvas(canvas, x, y, w, h), region: { x, y, w, h } };
+  });
+  segments.sort((a, b) => (a.region.y - b.region.y) || (a.region.x - b.region.x));
+  mark?.(`Multi-label sheet detected (${contextLabel}): split into ${segments.length} label regions`, performance.now() - segStart);
+  return segments;
+}
+
+async function processImageLabels(file, detector, onDebug = null, labelFamily = 'eparcel') {
   const fileStart = performance.now();
   const mark = (message, startedAt = fileStart) => onDebug?.(message, performance.now() - startedAt);
   const imgUrl = URL.createObjectURL(file);
@@ -1474,47 +1578,67 @@ async function processImage(file, detector, onDebug = null, labelFamily = 'eparc
     }
     mark(`Decoded image ${file.name} (${img.naturalWidth}x${img.naturalHeight}px)`, decodeStart);
 
-    const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const baseCanvas = document.createElement('canvas');
+    baseCanvas.width = img.naturalWidth;
+    baseCanvas.height = img.naturalHeight;
+    const ctx = baseCanvas.getContext('2d', { willReadFrequently: true });
     const drawStart = performance.now();
     ctx.drawImage(img, 0, 0);
     mark('Rendered image to canvas', drawStart);
     await yieldToBrowser();
-    const ocrText = await recognizeCanvasText(canvas, mark, `image ${file.name}`);
-    await yieldToBrowser();
-    const visualStart = performance.now();
-    const visualEvidence = detectVisualBarcodeEvidence(canvas);
-    mark('Checked visual barcode evidence', visualStart);
-    await yieldToBrowser();
-    const scanStart = performance.now();
-    const scanResult = await detectOnCanvas(canvas, detector, 1, mark, labelFamily);
-    const detected = scanResult.barcodes;
-    mark(`Decoded barcode candidates (${detected.length})`, scanStart);
-    await yieldToBrowser();
-    const imageStart = performance.now();
-    const labelImages = createLabelImages(canvas, detected, labelFamily);
-    mark('Generated label preview and barcode crops', imageStart);
-    mark(`Completed image ${file.name}`, fileStart);
 
-    return {
-      fileInfo: {
-        filename: file.name,
-        fileType: file.type || 'image',
-        pageCount: 1,
-        pixelWidth: img.naturalWidth,
-        pixelHeight: img.naturalHeight,
-        widthMm: null,
-        heightMm: null,
-        note: 'Raster images do not reliably expose physical DPI. A6 dimensions are assumed for layout heuristics.',
-        textSources: ocrText ? ['ocr'] : []
-      },
-      detectedBarcodes: detected,
-      visualEvidence,
-      labelImages,
-      extractedText: ocrText
-    };
+    const oriented = await normalizeCanvasOrientation(baseCanvas, mark, `image ${file.name}`);
+    await yieldToBrowser();
+    const segments = segmentLabelCanvases(oriented.canvas, mark, `image ${file.name}`);
+
+    const labels = [];
+    for (let segIndex = 0; segIndex < segments.length; segIndex += 1) {
+      const canvas = segments[segIndex].canvas;
+      const segLabel = segments.length > 1 ? `label ${segIndex + 1} of ${segments.length}` : null;
+      const segContext = `image ${file.name}${segLabel ? ` ${segLabel}` : ''}`;
+      const ocrText = await recognizeCanvasText(canvas, mark, segContext);
+      await yieldToBrowser();
+      const visualStart = performance.now();
+      const visualEvidence = detectVisualBarcodeEvidence(canvas);
+      mark(`Checked visual barcode evidence (${segContext})`, visualStart);
+      await yieldToBrowser();
+      const scanStart = performance.now();
+      const scanResult = await detectOnCanvas(canvas, detector, 1, mark, labelFamily);
+      const detected = scanResult.barcodes;
+      mark(`Decoded barcode candidates (${detected.length}) for ${segContext}`, scanStart);
+      await yieldToBrowser();
+      const imageStart = performance.now();
+      const labelImages = createLabelImages(canvas, detected, labelFamily);
+      mark(`Generated label preview and barcode crops (${segContext})`, imageStart);
+
+      labels.push({
+        fileInfo: {
+          filename: file.name,
+          fileType: file.type || 'image',
+          pageCount: 1,
+          pixelWidth: canvas.width,
+          pixelHeight: canvas.height,
+          widthMm: null,
+          heightMm: null,
+          pageLabel: segLabel || undefined,
+          preprocess: {
+            rotationApplied: oriented.rotation,
+            segmentIndex: segIndex + 1,
+            segmentCount: segments.length
+          },
+          note: 'Raster images do not reliably expose physical DPI. A6 dimensions are assumed for layout heuristics.',
+          textSources: ocrText ? ['ocr'] : []
+        },
+        detectedBarcodes: detected,
+        visualEvidence,
+        labelImages,
+        scanDiagnostics: scanResult.scanDiagnostics || [],
+        extractedText: ocrText
+      });
+      await yieldToBrowser();
+    }
+    mark(`Completed image ${file.name} (${labels.length} label${labels.length === 1 ? '' : 's'})`, fileStart);
+    return labels;
   } finally {
     URL.revokeObjectURL(imgUrl);
   }
@@ -1554,70 +1678,98 @@ async function processPdfLabels(file, detector, onDebug = null, labelFamily = 'e
     // PDF pages are rendered at high scale so small barcode modules survive rasterization.
     // Raising this improves decode odds but increases memory and CPU cost.
     const viewport = page.getViewport({ scale: 4.0 });
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const renderCanvas = document.createElement('canvas');
+    renderCanvas.width = Math.floor(viewport.width);
+    renderCanvas.height = Math.floor(viewport.height);
+    const ctx = renderCanvas.getContext('2d', { willReadFrequently: true });
     const renderStart = performance.now();
     await page.render({ canvasContext: ctx, viewport }).promise;
-    mark(`Rendered page ${pageNumber} to canvas (${canvas.width}x${canvas.height}px)`, renderStart);
-
+    mark(`Rendered page ${pageNumber} to canvas (${renderCanvas.width}x${renderCanvas.height}px)`, renderStart);
     await yieldToBrowser();
-    const shouldOcrPage = pdfTextLayerNeedsOcr(pageLines);
-    const ocrText = shouldOcrPage ? await recognizeCanvasText(canvas, mark, `PDF page ${pageNumber}`) : '';
-    if (!shouldOcrPage) {
-      mark(`Skipped OCR on page ${pageNumber}; selectable PDF text layer provided sufficient audit text`, performance.now());
+
+    const oriented = await normalizeCanvasOrientation(renderCanvas, mark, `page ${pageNumber}`);
+    const rotatedQuarter = oriented.rotation === 90 || oriented.rotation === 270;
+    const orientedMm = rotatedQuarter
+      ? { widthMm: pageMm.heightMm, heightMm: pageMm.widthMm }
+      : pageMm;
+    // Only hunt for multiple labels when the sheet is bigger than any single
+    // label format (A4 portrait/landscape and larger).
+    const attemptSegmentation = Math.min(orientedMm.widthMm, orientedMm.heightMm) > 170;
+    const segments = attemptSegmentation
+      ? segmentLabelCanvases(oriented.canvas, mark, `page ${pageNumber}`)
+      : [{ canvas: oriented.canvas, region: null }];
+    await yieldToBrowser();
+
+    for (let segIndex = 0; segIndex < segments.length; segIndex += 1) {
+      const canvas = segments[segIndex].canvas;
+      const region = segments[segIndex].region;
+      const isSegmented = segments.length > 1;
+      const segLabel = isSegmented ? `label ${segIndex + 1} of ${segments.length}` : null;
+      const segContext = `PDF page ${pageNumber}${segLabel ? ` ${segLabel}` : ''}`;
+      // The PDF text layer covers the whole page, so it cannot be trusted once
+      // the page was rotated (line order scrambles) or split into multiple
+      // labels (facts from one label would contaminate another) - OCR instead.
+      const useTextLayer = !isSegmented && oriented.rotation === 0;
+      const segLines = useTextLayer ? pageLines : [];
+      const shouldOcrPage = useTextLayer ? pdfTextLayerNeedsOcr(segLines) : true;
+      const ocrText = shouldOcrPage ? await recognizeCanvasText(canvas, mark, segContext) : '';
+      if (!shouldOcrPage) {
+        mark(`Skipped OCR on page ${pageNumber}; selectable PDF text layer provided sufficient audit text`, performance.now());
+      }
+      const extractedText = mergeExtractedText(segLines.join('\n'), ocrText);
+      await yieldToBrowser();
+      const visualStart = performance.now();
+      const visualEvidence = detectVisualBarcodeEvidence(canvas);
+      mark(`Checked visual barcode evidence on ${segContext}`, visualStart);
+      await yieldToBrowser();
+      const scanStart = performance.now();
+      const pageScan = await detectOnCanvas(canvas, detector, pageNumber, mark, labelFamily);
+      const detected = dedupeBarcodes(pageScan.barcodes || []);
+      mark(`Decoded ${segContext} barcode candidates (${detected.length})`, scanStart);
+      await yieldToBrowser();
+      const imageStart = performance.now();
+      const labelImages = createLabelImages(canvas, detected, labelFamily);
+      mark(`Generated ${segContext} label preview and barcode crops`, imageStart);
+
+      const basePageLabel = pdf.numPages > 1 ? `page ${pageNumber} of ${pdf.numPages}` : 'page 1';
+      labels.push({
+        fileInfo: {
+          filename: file.name,
+          fileType: file.type || 'application/pdf',
+          pageCount: 1,
+          sourcePdfPage: pageNumber,
+          sourcePdfPageCount: pdf.numPages,
+          pageLabel: segLabel ? `${basePageLabel}, ${segLabel}` : basePageLabel,
+          widthMm: isSegmented && region ? orientedMm.widthMm * (region.w / oriented.canvas.width) : orientedMm.widthMm,
+          heightMm: isSegmented && region ? orientedMm.heightMm * (region.h / oriented.canvas.height) : orientedMm.heightMm,
+          pixelWidth: canvas.width,
+          pixelHeight: canvas.height,
+          preprocess: {
+            rotationApplied: oriented.rotation,
+            segmentIndex: segIndex + 1,
+            segmentCount: segments.length
+          },
+          note: isSegmented
+            ? 'Label region cropped from a multi-label sheet and audited as an individual label.'
+            : 'PDF page rendered locally in the browser and audited as an individual label.',
+          textSources: [
+            ...(segLines.length ? ['pdf-text-layer'] : []),
+            ...(ocrText ? ['ocr'] : [])
+          ]
+        },
+        detectedBarcodes: detected,
+        visualEvidence,
+        labelImages,
+        scanDiagnostics: pageScan.scanDiagnostics || [],
+        extractedText
+      });
+      await yieldToBrowser();
     }
-    const extractedText = mergeExtractedText(pageLines.join('\n'), ocrText);
-    await yieldToBrowser();
-    const visualStart = performance.now();
-    const visualEvidence = detectVisualBarcodeEvidence(canvas);
-    mark(`Checked visual barcode evidence on page ${pageNumber}`, visualStart);
-    await yieldToBrowser();
-    const scanStart = performance.now();
-    const pageScan = await detectOnCanvas(canvas, detector, pageNumber, mark, labelFamily);
-    const detected = dedupeBarcodes(pageScan.barcodes || []);
-    mark(`Decoded page ${pageNumber} barcode candidates (${detected.length})`, scanStart);
-    await yieldToBrowser();
-    const imageStart = performance.now();
-    const labelImages = createLabelImages(canvas, detected, labelFamily);
-    mark(`Generated page ${pageNumber} label preview and barcode crops`, imageStart);
-
-    labels.push({
-      fileInfo: {
-        filename: file.name,
-        fileType: file.type || 'application/pdf',
-        pageCount: 1,
-        sourcePdfPage: pageNumber,
-        sourcePdfPageCount: pdf.numPages,
-        pageLabel: pdf.numPages > 1 ? `page ${pageNumber} of ${pdf.numPages}` : 'page 1',
-        widthMm: pageMm.widthMm,
-        heightMm: pageMm.heightMm,
-        pixelWidth: canvas.width,
-        pixelHeight: canvas.height,
-        note: 'PDF page rendered locally in the browser and audited as an individual label.',
-        textSources: [
-          ...(pageLines.length ? ['pdf-text-layer'] : []),
-          ...(ocrText ? ['ocr'] : [])
-        ]
-      },
-      detectedBarcodes: detected,
-      visualEvidence,
-      labelImages,
-      scanDiagnostics: pageScan.scanDiagnostics || [],
-      extractedText
-    });
     mark(`Completed page ${pageNumber} of ${pdf.numPages}`, pageStart);
-    await yieldToBrowser();
   }
 
   mark(`Completed PDF ${file.name}`, fileStart);
   return labels;
-}
-
-async function processPdf(file, detector, onDebug = null) {
-  const labels = await processPdfLabels(file, detector, onDebug);
-  return labels[0];
 }
 
 function renderReportValidationTable(items, esc) {
@@ -2752,12 +2904,12 @@ function App() {
         setMessage(`Scanning ${carrierLabel} ${formatLabel} file ${i + 1} of ${batches.length}: ${currentFile.name}`);
         const dataItems = currentFile.type === 'application/pdf' || currentFile.name.toLowerCase().endsWith('.pdf')
           ? await processPdfLabels(currentFile, detector, fileDebug, labelFamily)
-          : [await processImage(currentFile, detector, fileDebug, labelFamily)];
+          : await processImageLabels(currentFile, detector, fileDebug, labelFamily);
         appendScanDebug(`${fileDebugPrefix} - finished render/scan phase`, performance.now() - fileTimer);
 
         for (let pageIndex = 0; pageIndex < dataItems.length; pageIndex += 1) {
           const data = { ...dataItems[pageIndex], labelFamily, labelFormat, fileInfo: { ...(dataItems[pageIndex].fileInfo || {}), labelFamily, labelFormat } };
-          const itemLabel = data.fileInfo?.sourcePdfPage ? `page ${data.fileInfo.sourcePdfPage}` : 'image';
+          const itemLabel = data.fileInfo?.pageLabel || (data.fileInfo?.sourcePdfPage ? `page ${data.fileInfo.sourcePdfPage}` : 'image');
           setMessage(`Auditing ${currentFile.name} — ${itemLabel}`);
           const auditRuleStart = performance.now();
           const nextAudit = auditLabel({ ...data, manifestJson, ssccCompanyPrefix, ssccExtensionDigit, labelFamily, labelFormat });
