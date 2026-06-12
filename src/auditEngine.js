@@ -655,7 +655,7 @@ function extractDgBlock(lines) {
       // Remove the address prefix so DG evidence stays in the declaration block only.
       dgLine = dgLine.replace(/^Australia Postal Corporation\s+/i, '');
       dgLine = dgLine.replace(/^Level\s+[^\t]{1,40}?\s{2,}/i, '');
-      dgLine = dgLine.replace(new RegExp(`^[A-Z][A-Z\s'-]+\s+${STATE_REGEX}\s+\d{4}\s{2,}`, 'i'), '');
+      dgLine = dgLine.replace(new RegExp(`^[A-Z][A-Z\\s'-]+\\s+${STATE_REGEX}\\s+\\d{4}\\s{2,}`, 'i'), '');
       dgLine = dgLine.trim();
       if (dgLine && isDgText(dgLine)) out.push(dgLine);
       if (/criminal offence/i.test(dgLine)) break;
