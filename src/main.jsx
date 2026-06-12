@@ -12,7 +12,7 @@ import {
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { readBarcodes as readWasmBarcodes, prepareZXingModule } from 'zxing-wasm/reader';
 import zxingReaderWasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
-import { auditLabel, groupValidations, SERVICE_CODE_MAP, SERVICE_TO_PRODUCT_MAP, PRODUCT_CODE_MAP, STARTRACK_PRODUCT_CODE_MAP, STARTRACK_LABEL_CODE_MAP } from './auditEngine.js';
+import { auditLabel, groupValidations, SERVICE_CODE_MAP, STARTRACK_PRODUCT_CODE_MAP, STARTRACK_LABEL_CODE_MAP } from './auditEngine.js';
 import { RuleReport } from './reportView.jsx';
 import { mergeExtractedText, recognizeCanvasText } from './ocrText.js';
 import { isUprightOrientation, pickRotationCandidates, findLabelRegions } from './preprocess.js';
@@ -34,7 +34,6 @@ prepareZXingModule({
 const barcodeFormats = ['code_128', 'data_matrix', 'qr_code', 'pdf417', 'ean_13', 'ean_8'];
 
 const APP_TITLE = 'Australia Post - eCommerce Integration Label Auditor';
-// eslint-disable-next-line no-undef
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'v?';
 const FEEDBACK_URL = 'https://github.com/appvttest-lgtm/BA-eCIS/issues/new/choose';
 const ACCEPTED_LABEL_FILE_TYPES = 'application/pdf,image/png,image/jpeg,image/webp,image/bmp';
@@ -2022,9 +2021,8 @@ function FullLabelImageSection({ audit, items, onZoomLabel }) {
 }
 
 
-function StarTrackQrSection({ audit, items, scanData }) {
+function StarTrackQrSection({ audit, items }) {
   const images = audit?.labelImages || {};
-  const qrDiagnostics = (scanData?.scanDiagnostics || []).filter(d => d.kind === 'qr' || d.kind === 'mixed');
   const qrBarcodes = decodedBarcodeList(audit, 'qr');
   const qrs = audit?.startrack?.qrParses || [];
   return (
@@ -2047,9 +2045,8 @@ function StarTrackQrSection({ audit, items, scanData }) {
 }
 
 
-function StarTrackRoutingSection({ audit, items, scanData }) {
+function StarTrackRoutingSection({ audit, items }) {
   const images = audit?.labelImages || {};
-  const diagnostics = (scanData?.scanDiagnostics || []).filter(d => d.kind === 'linear' || d.kind === 'mixed');
   const routingBarcodes = starTrackRoutingBarcodeList(audit);
   const routes = audit?.startrack?.routingParses || [];
   return (
@@ -2071,7 +2068,7 @@ function StarTrackRoutingSection({ audit, items, scanData }) {
   );
 }
 
-function StarTrackAtlSection({ audit, items, scanData }) {
+function StarTrackAtlSection({ audit, items }) {
   const images = audit?.labelImages || {};
   const atlBarcodes = starTrackAtlBarcodeList(audit);
   const atlParses = audit?.startrack?.atlParses || [];
@@ -2094,9 +2091,8 @@ function StarTrackAtlSection({ audit, items, scanData }) {
   );
 }
 
-function StarTrackFreightItemSection({ audit, items, scanData }) {
+function StarTrackFreightItemSection({ audit, items }) {
   const images = audit?.labelImages || {};
-  const diagnostics = (scanData?.scanDiagnostics || []).filter(d => d.kind === 'linear' || d.kind === 'mixed');
   const freightBarcodes = starTrackFreightBarcodeList(audit);
   const freightParses = audit?.startrack?.freightParses || [];
   const ssccs = audit?.startrack?.ssccParses || [];
@@ -2120,9 +2116,8 @@ function StarTrackFreightItemSection({ audit, items, scanData }) {
   );
 }
 
-function DataMatrixSection({ audit, items, scanData }) {
+function DataMatrixSection({ audit, items }) {
   const images = audit?.labelImages || {};
-  const dmDiagnostics = (scanData?.scanDiagnostics || []).filter(d => d.kind === 'datamatrix');
   const dataMatrixBarcodes = decodedBarcodeList(audit, 'datamatrix');
   const dmParses = dmParseList(audit);
   return (
@@ -2176,9 +2171,8 @@ function DataMatrixSection({ audit, items, scanData }) {
   );
 }
 
-function LinearBarcodeSection({ audit, items, scanData }) {
+function LinearBarcodeSection({ audit, items }) {
   const images = audit?.labelImages || {};
-  const linearDiagnostics = (scanData?.scanDiagnostics || []).filter(d => d.kind === 'linear' || d.kind === 'mixed');
   const linearBarcodes = (audit?.detectedBarcodes || []).filter(b => String(b.format || '').toLowerCase().includes('128') || b.kind === 'linear');
   return (
     <section className="card audit-section" id="linear-section">

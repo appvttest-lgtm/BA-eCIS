@@ -534,24 +534,6 @@ function firstLineValue(lines, regex) {
   return null;
 }
 
-function blockAfter(lines, startRegex, stopRegexes) {
-  const out = [];
-  let inBlock = false;
-  for (const line of lines) {
-    if (!inBlock && startRegex.test(line)) {
-      inBlock = true;
-      const remainder = line.replace(startRegex, '').trim();
-      if (remainder) out.push(remainder);
-      continue;
-    }
-    if (inBlock) {
-      if (stopRegexes.some(r => r.test(line))) break;
-      out.push(line);
-    }
-  }
-  return out;
-}
-
 
 function cleanAddressLine(line) {
   return String(line || '')
@@ -1478,7 +1460,7 @@ function selectStarTrackVariant(selectedFormat, productCodes) {
   return 'base';
 }
 
-function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '', ssccExtensionDigit = '', labelFormat = 'standard' }) {
+function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '', ssccExtensionDigit = '', labelFormat = 'standard' }) {
   const validations = [];
   const selectedFormat = normalizeLabelFormat(labelFormat);
   const expectedSscc = {
@@ -1767,7 +1749,7 @@ function extractStarTrackFacts(extractedText) {
   const cube = (joined.match(/\b([0-9]+(?:\.[0-9]+)?)\s*m3\b/i) || [])[1] || null;
   const unit = (joined.match(/\b(BAG|CTN|ITM|JIF|PAL|SAT|SKI)\b/i) || [])[1]?.toUpperCase() || null;
   const destinationLooksNz = /\bNZ\b/.test(upper);
-  const dgPresent = /DANGEROUS\s+GOODS|DG\s*[:\-]|AVIATION\s+SECURITY|IATA|UN\s?\d{4}/i.test(joined);
+  const dgPresent = /DANGEROUS\s+GOODS|DG\s*[:-]|AVIATION\s+SECURITY|IATA|UN\s?\d{4}/i.test(joined);
   const authorityToLeavePresent = /AUTHORITY\s+TO\s+LEAVE|\bATL\b/i.test(joined);
   const visibleAtlNumbers = [...new Set((joined.match(/\bC\d{9}\b/gi) || []).map(v => v.toUpperCase()))];
   return {
@@ -1871,7 +1853,7 @@ function validateStarTrackTextFacts(facts) {
 }
 
 /** Runs the full StarTrack rule set against one rendered label/page. */
-function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', manifestJson = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '', ssccExtensionDigit = '', labelFormat = 'standard' }) {
+function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '', ssccExtensionDigit = '', labelFormat = 'standard' }) {
   const validations = [];
   const selectedFormat = normalizeLabelFormat(labelFormat);
   const expectedSscc = {
@@ -1897,7 +1879,6 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
   ]);
   const atlExpected = Boolean(facts.authorityToLeavePresent || expectedAtlNumbers.length);
   const ssccOnly = selectedFormat === 'sscc' || (validSsccs.length > 0 && freightParses.length === 0);
-  const visualLinear = Boolean(visualEvidence?.linearBarcodeVisible);
   const detectedCarrier = qrParses.length || freightParses.length || routingParses.length || atlParses.length || validSsccs.length || /STAR\s*TRACK|STARTRACK/i.test(extractedText || '') ? 'startrack' : 'unknown';
   const detectedFormat = validSsccs.length && !freightParses.length ? 'sscc' : freightParses.length ? 'standard' : validSsccs.length ? 'sscc' : 'unknown';
   const modeEvidence = [

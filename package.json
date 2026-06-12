@@ -8,12 +8,18 @@
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "vite build",
     "test": "node tests/smoke-rules.mjs && node tests/smoke-preprocess.mjs && node tests/smoke-audit.mjs",
+    "lint": "eslint .",
     "start": "node server.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.1",
     "@tesseract.js-data/eng": "^1.0.0",
     "@zxing/library": "0.21.3",
+    "eslint": "9.39.1",
+    "eslint-plugin-react": "7.37.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "16.5.0",
     "pdfjs-dist": "4.10.38",
     "react": "18.3.1",
     "react-dom": "18.3.1",
