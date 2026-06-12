@@ -30,7 +30,7 @@ One commit per item. Source: code-standards evaluation 2026-06-12.
 
 ### P4 — Hygiene
 - [x] S14 server.mjs: drop sync fs calls from the request path #infra
-- [ ] S15 README dependency assessment covers tesseract.js; note security-doc drift #security
+- [x] S15 README dependency assessment covers tesseract.js; note security-doc drift #security
 - [ ] S16 Migrate smoke tests to node:test runner (zero new deps) #infra
 - [ ] S17 Close out: version bump + release notes + rebuilt dist #infra
 
