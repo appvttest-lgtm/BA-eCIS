@@ -1,10 +1,18 @@
 ﻿
-BarcodeAuditer v1.7.4 Release Notes
+BarcodeAuditer v1.7.5 Release Notes
 ===================================
 
 Release focus
 -------------
-The v1.7.1 to v1.7.4 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server and exported reports. The local-only security design is unchanged.
+The v1.7.1 to v1.7.5 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server and exported reports. The local-only security design is unchanged.
+
+v1.7.5 - coding standards uplift
+--------------------------------
+No behavior changes for end users; this release is engineering hygiene (board items S01-S17 in BOARD.md):
+- Tooling: ESLint flat config + Prettier (one-time format), .gitattributes line-ending policy, GitHub Actions CI with lint/format/test/build and a dist-drift gate enforcing the committed-build rule, and an engines requirement of Node 20.10+.
+- Structure: main.jsx split into src/scanner/ modules (canvas utils, decode engines, label preview images, file pipeline); auditEngine's reference data and identity-gated payload comparison moved to src/audit/; App workflow state consolidated into a single reducer.
+- Consistency: stable React list keys, gated scanner debug logging, named tuning constants, the AU state list single-sourced between rule JSON and text extraction ({{constant}} template support in the rule engine), and JSDoc on all exported functions.
+- Hygiene: async-only file serving in server.mjs, README dependency assessment refreshed (stale TypeScript entries removed; tesseract.js 7.0.0 and @tesseract.js-data/eng 1.0.0 documented and pinned exact), and the smoke tests migrated to the built-in node:test runner (80 tests, including a previously unwired parser test file).
 
 v1.7.4 - security hardening
 ---------------------------

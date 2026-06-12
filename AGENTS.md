@@ -25,7 +25,7 @@ silently diverges from source. This is the most common way to break the repo.
 
 ## 2. Stack
 
-- **React 18 + Vite 5** single-page app (JSX; TypeScript present for tooling only)
+- **React 18 + Vite 5** single-page app (JSX; ESLint + Prettier for lint/format)
 - `pdfjs-dist` — in-browser PDF rendering
 - `@zxing/library` + `zxing-wasm` — barcode decoding (GS1 DataMatrix, GS1-128/Code 128, QR)
 - `tesseract.js` — OCR for visible-text checks
@@ -54,13 +54,14 @@ npm start          # node server.mjs — serves committed dist/ at http://127.0.
 
 ```text
 src/
-  main.jsx          # React UI, upload flow, rendering, scan orchestration, report export
-  auditEngine.js    # barcode parsing, evidence extraction, rule-set selection, payload comparison
+  main.jsx          # React UI and audit orchestration
+  auditEngine.js    # barcode parsing, evidence extraction, rule-set selection (facade for audit/)
+  audit/            # referenceData.js (carrier maps) + payloadComparison.js (identity-gated)
   ruleEngine.js     # generic evaluator for the declarative JSON rule sets
   reportView.jsx    # rule-by-rule report rows (rule definition + input data + outcome)
   preprocess.js     # input preprocessing: orientation normalization + multi-label sheet segmentation
   ocrText.js        # OCR text extraction
-  scanner/          # barcode scanning workflows
+  scanner/          # decode engines, canvas utils, label preview images, file pipeline
 rules/
   index.js
   eparcel/          # base.json + parcel-post / express-post / returns / sscc variants

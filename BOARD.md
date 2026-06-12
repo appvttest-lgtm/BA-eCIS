@@ -6,7 +6,7 @@ Tag items with #security #feature #marketing #logging #infra for colored chips.
 ## Planned - future build requirements
 - [ ] Capture the next batch of build requirements here #feature
 
-## In progress — coding standards uplift (v1.7.5 line)
+## Done — coding standards uplift (shipped as v1.7.5)
 One commit per item. Source: code-standards evaluation 2026-06-12.
 
 ### P1 — Tooling
@@ -32,7 +32,7 @@ One commit per item. Source: code-standards evaluation 2026-06-12.
 - [x] S14 server.mjs: drop sync fs calls from the request path #infra
 - [x] S15 README dependency assessment covers tesseract.js; note security-doc drift #security
 - [x] S16 Migrate smoke tests to node:test runner (zero new deps) #infra
-- [ ] S17 Close out: version bump + release notes + rebuilt dist #infra
+- [x] S17 Close out: version bump + release notes + rebuilt dist #infra
 
 ## Done
 - [x] JSON rule sets + rule-by-rule report UI (v1.7.1) #feature
