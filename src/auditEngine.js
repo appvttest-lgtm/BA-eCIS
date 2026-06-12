@@ -550,12 +550,19 @@ function looksLikeDataMatrix(raw, format = '') {
   );
 }
 
+// Extracted text is attacker-controlled (crafted PDF text layers, OCR of
+// uploaded images). Some extraction regexes backtrack quadratically on
+// pathological lines, so line length and count are capped well above anything
+// a real label produces.
+const MAX_TEXT_LINE_LENGTH = 1000;
+const MAX_TEXT_LINES = 2000;
+
 /** Splits selectable PDF text into normalized non-empty lines for visible-content checks. */
 function textLines(extractedText) {
   return String(extractedText || '')
     .replace(/\u00a0/g, ' ')
-    .split(/\r?\n/)
-    .map(line => line.trim())
+    .split(/\r?\n/, MAX_TEXT_LINES)
+    .map(line => line.trim().slice(0, MAX_TEXT_LINE_LENGTH))
     .filter(Boolean);
 }
 
@@ -1666,10 +1673,7 @@ export function parseStarTrackQrBarcode(raw) {
 
 /** Extracts visible StarTrack facts from selectable PDF text before decoded data backfills gaps. */
 function extractStarTrackFacts(extractedText) {
-  const lines = String(extractedText || '')
-    .split(/\r?\n/)
-    .map(l => l.trim())
-    .filter(Boolean);
+  const lines = textLines(extractedText);
   const joined = lines.join('\n');
   const upper = joined.toUpperCase();
   const labelCode = (joined.match(/\b(TSE|RET|RE2|APT|PRM|FPP|ARL|FPA|EXP)\b/i) || [])[1]?.toUpperCase() || null;

@@ -3,6 +3,8 @@
 // secondary field comparison reports as a match.
 import { SERVICE_CODE_MAP } from './referenceData.js';
 
+const MAX_PAYLOAD_FLAT_ENTRIES = 20000;
+
 function uniqueNonEmpty(values = []) {
   return [...new Set(values.map(v => String(v || '').trim()).filter(Boolean))];
 }
@@ -29,16 +31,25 @@ export function parseApiPayloadText(payloadText) {
     }
   }
 
+  // Pasted payloads are user/attacker-influenced: an explicit stack instead of
+  // recursion means deep nesting cannot overflow the call stack, and the
+  // flattened evidence list is capped to bound memory. Real Get Shipments
+  // responses are far below both limits.
   const flat = [];
-  const walk = (value, path = '') => {
-    if (value === null || value === undefined) return;
+  const stack = parsed === null || parsed === undefined ? [] : [{ value: parsed, path: '' }];
+  while (stack.length && flat.length < MAX_PAYLOAD_FLAT_ENTRIES) {
+    const { value, path } = stack.pop();
+    if (value === null || value === undefined) continue;
     if (Array.isArray(value)) {
-      value.forEach((item, idx) => walk(item, `${path}[${idx}]`));
-      return;
+      for (let idx = value.length - 1; idx >= 0; idx -= 1) stack.push({ value: value[idx], path: `${path}[${idx}]` });
+      continue;
     }
     if (typeof value === 'object') {
-      Object.entries(value).forEach(([key, item]) => walk(item, path ? `${path}.${key}` : key));
-      return;
+      const entries = Object.entries(value);
+      for (let i = entries.length - 1; i >= 0; i -= 1) {
+        stack.push({ value: entries[i][1], path: path ? `${path}.${entries[i][0]}` : entries[i][0] });
+      }
+      continue;
     }
     const text = String(value);
     flat.push({
@@ -48,8 +59,7 @@ export function parseApiPayloadText(payloadText) {
       normalizedPath: normalizePayloadText(path),
       normalizedValue: normalizePayloadText(text)
     });
-  };
-  if (parsed !== null) walk(parsed);
+  }
   const normalizedText = normalizePayloadText(rawText);
   return {
     provided: true,
