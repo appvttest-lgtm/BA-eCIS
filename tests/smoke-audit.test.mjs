@@ -126,7 +126,7 @@ const startrackAudit = auditLabel({
   fileInfo: { name: 'st-sample.pdf', widthMm: 100, heightMm: 150, pageCount: 1 },
   detectedBarcodes: [
     { rawValue: qrPayload, format: 'qrcode' },
-    { rawValue: 'ABCD12345678EXP00001', format: 'code_128' },
+    { rawValue: 'ABCD12345678EXP00001', format: 'code_128', barCount: 61 },
     { rawValue: 'EXP2190SYD', format: 'code_128' },
     { rawValue: 'C239196552', format: 'code_128' }
   ],
@@ -157,6 +157,11 @@ expect(
   'ST-ATL-06 ATL compression structure',
   find(startrackAudit, 'ST-ATL-06')?.status === 'pass',
   find(startrackAudit, 'ST-ATL-06')?.message
+);
+expect(
+  'ST-FRT-09 bar count rides from detected barcode to rule result',
+  find(startrackAudit, 'ST-FRT-09')?.status === 'pass',
+  find(startrackAudit, 'ST-FRT-09')?.message
 );
 expect(
   'ST-RTE-03 routing/product compatibility',

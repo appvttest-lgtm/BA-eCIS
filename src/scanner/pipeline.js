@@ -17,7 +17,8 @@ import {
   trimDarkBounds,
   squareCanvas,
   downscaleCanvasSmooth,
-  canvasLuminanceSample
+  canvasLuminanceSample,
+  countLinearBars
 } from './canvasUtils.js';
 import { dedupeBarcodes, detectWithBrowserBarcodeDetector, zxingDecodeCanvas, wasmDecodeCanvas } from './decoders.js';
 import { STARTRACK_LINEAR_TARGETS, createLabelImages } from './labelImages.js';
@@ -376,6 +377,19 @@ export function mapBarcodeToPage(barcode, target, variantLabel = '') {
   return base;
 }
 
+/**
+ * Attaches the measured bar count to Code 128 hits while the canvas the
+ * symbol was decoded from is still in hand. The count is encodation evidence
+ * (e.g. the compressed StarTrack freight barcode always has 61 bars).
+ */
+function attachLinearBarCount(hit, canvas) {
+  if (hit?.barCount == null && hit?.boundingBox && /128/i.test(String(hit.format || ''))) {
+    const barCount = countLinearBars(canvas, hit.boundingBox);
+    if (barCount != null) return { ...hit, barCount };
+  }
+  return hit;
+}
+
 /** Runs every available decode engine over one scan target until something reads. */
 export async function scanTargetWithAllEngines(target, detector, pageNumber = 1) {
   const found = [];
@@ -386,7 +400,9 @@ export async function scanTargetWithAllEngines(target, detector, pageNumber = 1)
   // unnecessary WASM/JS passes on the same crop.
   if (detector) {
     const browserHits = await detectWithBrowserBarcodeDetector(target.canvas, detector, pageNumber, target.label);
-    found.push(...browserHits.map(hit => mapBarcodeToPage(hit, target, 'original')));
+    found.push(
+      ...browserHits.map(hit => mapBarcodeToPage(attachLinearBarCount(hit, target.canvas), target, 'original'))
+    );
     if (shouldStopTargetScan(target, found)) return found;
   }
 
@@ -401,7 +417,9 @@ export async function scanTargetWithAllEngines(target, detector, pageNumber = 1)
       variant.label,
       variant.options || {}
     );
-    found.push(...wasmHits.map(hit => mapBarcodeToPage(hit, target, variant.label)));
+    found.push(
+      ...wasmHits.map(hit => mapBarcodeToPage(attachLinearBarCount(hit, variant.canvas), target, variant.label))
+    );
     if (shouldStopTargetScan(target, found)) return found;
 
     // The JS reader is retained for scanner diversity, but only after WASM misses
@@ -415,7 +433,9 @@ export async function scanTargetWithAllEngines(target, detector, pageNumber = 1)
         target.kind,
         variant.label
       );
-      found.push(...jsHits.map(hit => mapBarcodeToPage(hit, target, variant.label)));
+      found.push(
+        ...jsHits.map(hit => mapBarcodeToPage(attachLinearBarCount(hit, variant.canvas), target, variant.label))
+      );
       if (shouldStopTargetScan(target, found)) return found;
     }
   }
@@ -434,7 +454,11 @@ export async function scanTargetWithAllEngines(target, detector, pageNumber = 1)
           `${variant.label} rotated ${degrees}`,
           variant.options || {}
         );
-        found.push(...rotWasmHits.map(hit => mapBarcodeToPage(hit, target, `${variant.label} rotated ${degrees}`)));
+        found.push(
+          ...rotWasmHits.map(hit =>
+            mapBarcodeToPage(attachLinearBarCount(hit, rotated), target, `${variant.label} rotated ${degrees}`)
+          )
+        );
         if (shouldStopTargetScan(target, found)) return found;
       }
     }

@@ -1865,17 +1865,25 @@ function auditStarTrackLabel({
   let facts = extractStarTrackFacts(extractedText);
   const manualValues = diagnosticManualValues(manualBarcodes);
   const decodedValues = decodedRawValues(detectedBarcodes);
-  const linearValues = detectedBarcodes
-    .filter(b => /128|code/i.test(String(b.format || b.symbology || '')) || b.kind === 'linear')
-    .map(b => b.rawValue)
-    .filter(Boolean);
+  const linearBarcodes = detectedBarcodes.filter(
+    b => /128|code/i.test(String(b.format || b.symbology || '')) || b.kind === 'linear'
+  );
+  const linearValues = linearBarcodes.map(b => b.rawValue).filter(Boolean);
   const qrValues = detectedBarcodes
     .filter(b => /qr/i.test(String(b.format || b.symbology || '')) || b.kind === 'qr')
     .map(b => b.rawValue)
     .filter(Boolean);
 
   const qrParses = qrValues.map(parseStarTrackQrBarcode).filter(p => p.valid);
-  const freightParses = linearValues.map(parseStarTrackFreightItemBarcode).filter(p => p.valid);
+  // The scan pipeline measures the bar count of Code 128 symbols; it rides
+  // along with the parsed freight item as encodation evidence (ST-FRT-09).
+  const freightParses = linearBarcodes
+    .filter(b => b.rawValue)
+    .map(b => {
+      const parsed = parseStarTrackFreightItemBarcode(b.rawValue);
+      return parsed.valid && Number.isInteger(b.barCount) ? { ...parsed, barCount: b.barCount } : parsed;
+    })
+    .filter(p => p.valid);
   const ssccParses = decodedValues
     .map(parseSsccBarcode)
     .filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);

@@ -193,6 +193,61 @@ export function canvasLuminanceSample(canvas, maxDim = SEGMENT_LUMINANCE_MAX_DIM
   return { lum, width: sample.width, height: sample.height };
 }
 
+// A Code 128 symbol's bar count is fixed by its encodation (3 bars per symbol
+// character + 4 stop bars), so counting the bars of a decoded crop verifies
+// the spec-mandated subset compression without access to the codeword stream.
+const BAR_COUNT_SCANLINE_FRACTIONS = [0.35, 0.5, 0.65];
+const BAR_COUNT_MIN_CONTRAST = 60;
+const BAR_COUNT_MAX_SPREAD = 2;
+
+/** Counts dark runs along a luminance scanline using the given threshold. Pure; exported for tests. */
+export function countBarRuns(luminances, threshold) {
+  let bars = 0;
+  let inBar = false;
+  for (const value of luminances) {
+    const dark = value < threshold;
+    if (dark && !inBar) bars += 1;
+    inBar = dark;
+  }
+  return bars;
+}
+
+/**
+ * Counts the bars of a linear barcode inside `box` on `canvas` by sampling
+ * three scanlines and taking the median. Returns null when the measurement is
+ * unreliable (low contrast or scanline disagreement) so callers skip the
+ * check instead of reporting a wrong count.
+ */
+export function countLinearBars(canvas, box) {
+  if (!canvas || !box || !(box.width >= 20) || !(box.height >= 4)) return null;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  const x = Math.max(0, Math.floor(box.x));
+  const width = Math.min(canvas.width - x, Math.ceil(box.width));
+  if (width < 20) return null;
+  const counts = [];
+  for (const fraction of BAR_COUNT_SCANLINE_FRACTIONS) {
+    const y = Math.min(canvas.height - 1, Math.max(0, Math.round(box.y + box.height * fraction)));
+    const row = ctx.getImageData(x, y, width, 1).data;
+    const luminances = new Array(width);
+    let min = 255;
+    let max = 0;
+    for (let i = 0; i < width; i += 1) {
+      const p = i * 4;
+      const value = row[p] * 0.299 + row[p + 1] * 0.587 + row[p + 2] * 0.114;
+      luminances[i] = value;
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+    if (max - min < BAR_COUNT_MIN_CONTRAST) continue;
+    counts.push(countBarRuns(luminances, (min + max) / 2));
+  }
+  if (counts.length < 2) return null;
+  counts.sort((a, b) => a - b);
+  if (counts[counts.length - 1] - counts[0] > BAR_COUNT_MAX_SPREAD) return null;
+  return counts[Math.floor(counts.length / 2)];
+}
+
 /** Encodes the canvas as a bounded-width JPEG/PNG data URL for report embedding. */
 export function canvasToDataUrl(sourceCanvas, maxWidth = 700, mime = 'image/jpeg', quality = 0.86) {
   if (!sourceCanvas?.width || !sourceCanvas?.height) return '';

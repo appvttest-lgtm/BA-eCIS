@@ -268,6 +268,25 @@
       }
     },
     {
+      "id": "ST-FRT-09",
+      "title": "Symbol bar count (compression evidence)",
+      "description": "A 20-character freight item barcode encoded with the mandated Code B/C compression always prints exactly 61 bars (19 symbol characters x 3 bars + 4 stop bars). An uncompressed all-Code-B symbol prints 70. The count is measured from scanlines across the decoded symbol, so image quality affects it: a mismatch is reported as a warning for manual review, never a hard fail.",
+      "obligation": "advisory",
+      "severity": "WARNING",
+      "category": "startrack-freight",
+      "source": { "doc": "MOS v9", "page": 12 },
+      "forEach": "barcodes.freight",
+      "input": "item.barCount",
+      "evidence": ["item.freightItemId"],
+      "onMissing": "skip",
+      "assert": { "op": "equals", "value": 61 },
+      "failStatus": "warning",
+      "messages": {
+        "pass": "Measured {actual} bars, matching the 61 bars expected of a compression-encoded freight item barcode.",
+        "fail": "Measured {actual} bars where a compression-encoded freight item barcode prints exactly 61 (an uncompressed all-Code-B symbol prints 70). Verify the symbol's Code B/C encodation with a barcode verifier; low image quality can also distort this count."
+      }
+    },
+    {
       "id": "ST-PRD-01",
       "title": "Product matches the audited label type",
       "description": "The product code in the freight barcode must belong to the product family selected for this audit.",

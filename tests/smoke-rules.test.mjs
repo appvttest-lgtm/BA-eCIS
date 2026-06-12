@@ -187,7 +187,8 @@ const stContext = {
         connoteNumber: 'ABCD12345678',
         consignmentSequence: '12345678',
         productCode: 'EXP',
-        itemNumber: '00001'
+        itemNumber: '00001',
+        barCount: 61
       }
     ],
     routing: [{ type: 'startrack-routing', raw: 'EXP2190SYD', labelCode: 'EXP', postcode: '2190', depotOrPort: 'SYD' }],
@@ -218,6 +219,21 @@ expect('ST-FRT-02B passes on 8-digit sequence', byId(stResults, 'ST-FRT-02B')[0]
 expect('ST-FRT-04 compression structure passes', byId(stResults, 'ST-FRT-04')[0]?.status === 'pass');
 expect('ST-RTE-09 routing compression structure passes', byId(stResults, 'ST-RTE-09')[0]?.status === 'pass');
 expect('ST-ATL-06 ATL compression structure passes', byId(stResults, 'ST-ATL-06')[0]?.status === 'pass');
+expect('ST-FRT-09 passes on a measured 61-bar symbol', byId(stResults, 'ST-FRT-09')[0]?.status === 'pass');
+
+// --- ST-FRT-09 bar count: warning-only and skip-when-unmeasured ---
+const uncompressedContext = JSON.parse(JSON.stringify(stContext));
+uncompressedContext.barcodes.freight[0].barCount = 70;
+const uncompressedResults = evaluateRuleSet(stBase, uncompressedContext);
+expect(
+  'ST-FRT-09 warns (not fails) on a 70-bar uncompressed symbol',
+  byId(uncompressedResults, 'ST-FRT-09')[0]?.status === 'warning',
+  `got ${byId(uncompressedResults, 'ST-FRT-09')[0]?.status}`
+);
+const unmeasuredContext = JSON.parse(JSON.stringify(stContext));
+delete unmeasuredContext.barcodes.freight[0].barCount;
+const unmeasuredResults = evaluateRuleSet(stBase, unmeasuredContext);
+expect('ST-FRT-09 skipped when no bar count was measured', byId(unmeasuredResults, 'ST-FRT-09').length === 0);
 
 // --- Compression rules: negative and exemption cases (issue #8) ---
 const badCompressionContext = JSON.parse(JSON.stringify(stContext));

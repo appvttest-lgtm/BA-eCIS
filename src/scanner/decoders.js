@@ -88,6 +88,7 @@ export function dedupeBarcodes(items) {
       ...(!existing.boundingBox && clean.boundingBox ? { boundingBox: clean.boundingBox } : {}),
       ...(!existing.locationQuality && clean.locationQuality ? { locationQuality: clean.locationQuality } : {}),
       ...(!existing.targetBox && clean.targetBox ? { targetBox: clean.targetBox } : {}),
+      ...(existing.barCount == null && clean.barCount != null ? { barCount: clean.barCount } : {}),
       // Keep the source label that explains the successful location read in the UI.
       ...(clean.pageBoundingBox && !existing.pageBoundingBox
         ? {
