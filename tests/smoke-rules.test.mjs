@@ -190,8 +190,8 @@ const stContext = {
         itemNumber: '00001'
       }
     ],
-    routing: [{ raw: 'EXP2190SYD', labelCode: 'EXP', postcode: '2190', depotOrPort: 'SYD' }],
-    atl: [],
+    routing: [{ type: 'startrack-routing', raw: 'EXP2190SYD', labelCode: 'EXP', postcode: '2190', depotOrPort: 'SYD' }],
+    atl: [{ raw: 'C239196552', atlNumber: 'C239196552', counter: '239196552', counterNumber: 239196552 }],
     sscc: { valid: [], invalid: [] }
   },
   derived: {
@@ -216,6 +216,30 @@ expect(
 expect('ST-QR-F11 passes on valid despatch date', byId(stResults, 'ST-QR-F11')[0]?.status === 'pass');
 expect('ST-FRT-02B passes on 8-digit sequence', byId(stResults, 'ST-FRT-02B')[0]?.status === 'pass');
 expect('ST-FRT-04 compression structure passes', byId(stResults, 'ST-FRT-04')[0]?.status === 'pass');
+expect('ST-RTE-09 routing compression structure passes', byId(stResults, 'ST-RTE-09')[0]?.status === 'pass');
+expect('ST-ATL-06 ATL compression structure passes', byId(stResults, 'ST-ATL-06')[0]?.status === 'pass');
+
+// --- Compression rules: negative and exemption cases (issue #8) ---
+const badCompressionContext = JSON.parse(JSON.stringify(stContext));
+badCompressionContext.barcodes.routing = [
+  { type: 'startrack-routing', raw: 'EXPABCDMEL', labelCode: 'EXP', postcode: 'ABCD', depotOrPort: 'MEL' }
+];
+badCompressionContext.barcodes.atl = [{ raw: 'X123456789', atlNumber: 'X123456789', counterNumber: 123456789 }];
+const badCompressionResults = evaluateRuleSet(stBase, badCompressionContext);
+expect(
+  'ST-RTE-09 fails when Code C postcode segment is not numeric',
+  byId(badCompressionResults, 'ST-RTE-09')[0]?.status === 'fail'
+);
+expect(
+  'ST-ATL-06 fails when the Code B prefix is not the literal C',
+  byId(badCompressionResults, 'ST-ATL-06')[0]?.status === 'fail'
+);
+const gs1RoutingContext = JSON.parse(JSON.stringify(stContext));
+gs1RoutingContext.barcodes.routing = [
+  { type: 'gs1-421-routing', raw: '(421)0362190(403)EXP', countryCode: '036', postcode: '2190', labelCode: 'EXP' }
+];
+const gs1RoutingResults = evaluateRuleSet(stBase, gs1RoutingContext);
+expect('ST-RTE-09 exempts the GS1 421 routing form', byId(gs1RoutingResults, 'ST-RTE-09').length === 0);
 
 // --- StarTrack SSCC variant ---
 const ssccContext = JSON.parse(JSON.stringify(stContext));

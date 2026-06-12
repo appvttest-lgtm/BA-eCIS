@@ -107,11 +107,12 @@ This checklist enumerates every label conformance rule in the specification. Eac
 | ST-RTE-01 | An approved sortation barcode is present: StarTrack Routing Barcode (AU domestic + NZ) or GS1 421 Routing Barcode (AU domestic SSCC labels only) | M | AUTO | ✅ `ST_ROUTING_BARCODE_PRESENT` | p13–14, 1.014, 4.001 |
 | ST-RTE-02 | StarTrack routing format `SSS9999DDD`: 3-char Label Code + 4-digit receiver postcode (or `9901` for NZ) + 3-char Depot Code (EXP-type) or Primary Port (PRM-type, `SYD` for NZ) | M | AUTO | ✅ `parseStarTrackRoutingBarcode`, `ST_ROUTE_LABEL_CODE`, `ST_ROUTE_POSTCODE` | p14 |
 | ST-RTE-03 | Routing label code corresponds to the product on the freight barcode/QR (e.g. FPP→PRM, FPA→ARL) | M | AUTO | ✅ `ST_ROUTE_PRODUCT_MATCH` | p7, p14 |
-| ST-RTE-04 | Routing postcode equals the QR receiver postcode and the visible receiver postcode | M (implied) | AUTO | ❌ gap — not cross-checked | p14, p16 |
+| ST-RTE-04 | Routing postcode equals the QR receiver postcode and the visible receiver postcode | M (implied) | AUTO | 🟡 `ST-RTE-04` cross-checks the QR postcode; the visible receiver postcode is not cross-checked | p14, p16 |
 | ST-RTE-05 | Depot/port segment is valid for the receiver postcode+suburb per the Location Master File | M | AUTO (requires LMF data) | ❌ gap — no LMF reference data in the app | p8, p14 |
 | ST-RTE-06 | GS1 421 format: AI 421 + 3-digit ISO country (`036`) + 4-digit postcode + AI 403 + 3-char label code | M (SSCC) | AUTO | 🟡 verify parser handles AI 421/403 paths | p14–15 |
 | ST-RTE-07 | StarTrack routing symbol: min bar width 0.38 mm; height 25 mm; length 54 mm; quiet zone 5 mm; 6 dots/mm. GS1 421: 0.35 mm / 30 mm / 54 mm / 5 mm | M | PARTIAL | ❌ gap | p14–15 |
 | ST-RTE-08 | ANSI print grade A–B preferred, C minimum | M | MANUAL | ⛔ physical | p14 |
+| ST-RTE-09 | Code 128 subset pattern: 3 chars Code B + 4 Code C + remaining Code B | M | PARTIAL (decoder abstracts) | 🟡 `ST-RTE-09` asserts the character-class consequence (3 alnum + 4 digits + 2–3 alnum); physical subset switching needs a print-time verifier; GS1 421 routing exempt | p14 |
 
 ## 10. StarTrack 2D QR barcode
 
@@ -159,6 +160,7 @@ This checklist enumerates every label conformance rule in the specification. Eac
 | ST-ATL-03 | One ATL code per consignment, repeated on every label in the consignment | M (when ATL) | AUTO (multi-label batch) | ❌ gap — no cross-label consistency check | p18 |
 | ST-ATL-04 | Symbol: picket fence; min height 10 mm; min length 28 mm; quiet zone 5 mm; 6 dots/mm | M | PARTIAL | ❌ gap | p18 |
 | ST-ATL-05 | ATL barcode value matches the QR ATL field and any visible ATL number | M (implied) | AUTO | 🟡 expected-number set built from QR/text; explicit equality result not reported per source | p16–18 |
+| ST-ATL-06 | Code 128 subset pattern: 2 chars Code B + 8 Code C | COND | PARTIAL (decoder abstracts) | 🟡 `ST-ATL-06` asserts the character-class consequence (literal `C` + 9 digits); physical subset switching needs a print-time verifier | p18 |
 
 ## 12. Consignment numbering & consolidation
 

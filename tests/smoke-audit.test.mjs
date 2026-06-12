@@ -127,7 +127,8 @@ const startrackAudit = auditLabel({
   detectedBarcodes: [
     { rawValue: qrPayload, format: 'qrcode' },
     { rawValue: 'ABCD12345678EXP00001', format: 'code_128' },
-    { rawValue: 'EXP2190SYD', format: 'code_128' }
+    { rawValue: 'EXP2190SYD', format: 'code_128' },
+    { rawValue: 'C239196552', format: 'code_128' }
   ],
   extractedText: [
     'STARTRACK',
@@ -147,6 +148,16 @@ expect(
 expect('ST-QR-01 QR decoded', find(startrackAudit, 'ST-QR-01')?.status === 'pass');
 expect('ST-FRT-01 freight barcode decoded', find(startrackAudit, 'ST-FRT-01')?.status === 'pass');
 expect('ST-RTE-01 routing barcode decoded', find(startrackAudit, 'ST-RTE-01')?.status === 'pass');
+expect(
+  'ST-RTE-09 routing compression structure',
+  find(startrackAudit, 'ST-RTE-09')?.status === 'pass',
+  find(startrackAudit, 'ST-RTE-09')?.message
+);
+expect(
+  'ST-ATL-06 ATL compression structure',
+  find(startrackAudit, 'ST-ATL-06')?.status === 'pass',
+  find(startrackAudit, 'ST-ATL-06')?.message
+);
 expect(
   'ST-RTE-03 routing/product compatibility',
   find(startrackAudit, 'ST-RTE-03')?.status === 'pass',

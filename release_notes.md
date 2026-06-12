@@ -6,6 +6,14 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.7.7 - compression rules for all StarTrack Code 128 barcodes (issue #8)
+-------------------------------------------------------------------------
+MOS v9 defines a Code B/C compression pattern for every StarTrack Code 128 barcode, but only the freight item barcode was checked (ST-FRT-04). Two new rules close the gap:
+- ST-RTE-09: routing barcode compression (3 chars Code B label code + 4 Code C postcode + remaining Code B depot/port). The GS1 421 routing form used on SSCC labels has its own structure and is exempt.
+- ST-ATL-06: ATL barcode compression (2 chars Code B + 8 Code C, i.e. literal C + 9 digits).
+- The SSCC barcode's pure-Code-C requirement was already enforced by the digits-only SSCC format rules.
+As with ST-FRT-04, the rules assert the character-class consequence of the subset pattern visible after decoding; physical subset switching inside the symbol still needs a print-time verifier. Checklist rows ST-RTE-09 and ST-ATL-06 added (and the stale ST-RTE-04 row corrected); 7 new tests (97 total).
+
 v1.7.6 - senior review readiness
 --------------------------------
 Prepares the repository for senior application and security review (board items R01-R08 in BOARD.md):

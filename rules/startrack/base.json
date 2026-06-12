@@ -349,6 +349,23 @@
       "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.qrPostcodes" } }
     },
     {
+      "id": "ST-RTE-09",
+      "title": "Code 128 compression structure",
+      "description": "The routing barcode must use mixed Code 128 character sets: the first 3 characters in Code B (label code), the next 4 in Code C (receiver postcode) and the remaining 2-3 characters in Code B (depot or primary port). The decoded text must therefore read as 3 alphanumeric + 4 digits + 2-3 alphanumeric. The physical subset switching inside the symbol can only be confirmed with a barcode verifier at print time. The GS1 421 routing form used on SSCC labels has its own structure and is exempt.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-routing",
+      "source": { "doc": "MOS v9", "page": 14 },
+      "forEach": "barcodes.routing",
+      "itemWhen": { "path": "item.type", "op": "equals", "value": "startrack-routing" },
+      "input": "item.raw",
+      "assert": { "op": "matches", "value": "^[A-Z0-9]{3}\\d{4}[A-Z0-9]{2,3}$" },
+      "messages": {
+        "pass": "Decoded routing barcode structure is consistent with the required Code B/C compression pattern: {actual}.",
+        "fail": "Decoded routing barcode structure does not match the Code B/C compression pattern (3 alphanumeric + 4 digits + 2-3 alphanumeric): {actual}."
+      }
+    },
+    {
       "id": "ST-QR-MAND",
       "title": "QR mandatory fields populated",
       "description": "All mandatory fixed-width QR fields must be populated: receiver suburb/postcode/name/address, connote, freight item, product, quantity, weight, despatch date, unit type, destination depot, DG indicator and movement type.",
@@ -618,6 +635,22 @@
       "input": "item.atlNumber",
       "evidence": ["derived.expectedAtlNumbers"],
       "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.expectedAtlNumbers", "normalize": ["stripSpaces", "upper"] } }
+    },
+    {
+      "id": "ST-ATL-06",
+      "title": "Code 128 compression structure",
+      "description": "The ATL barcode must use mixed Code 128 character sets: the first 2 characters in Code B (the literal C plus the first counter digit) and the remaining 8 in Code C. The decoded text must therefore read as the literal C followed by 9 digits. The physical subset switching inside the symbol can only be confirmed with a barcode verifier at print time.",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-atl",
+      "source": { "doc": "MOS v9", "page": 18 },
+      "forEach": "barcodes.atl",
+      "input": "item.atlNumber",
+      "assert": { "op": "matches", "value": "^C\\d{9}$" },
+      "messages": {
+        "pass": "Decoded ATL barcode structure is consistent with the required Code B/C compression pattern: {actual}.",
+        "fail": "Decoded ATL barcode structure does not match the Code B/C compression pattern (literal C + 9 digits): {actual}."
+      }
     },
     {
       "id": "ST-X-01",
