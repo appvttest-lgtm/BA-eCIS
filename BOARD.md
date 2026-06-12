@@ -14,7 +14,7 @@ One commit per item. Source: code-standards evaluation 2026-06-12.
 - [x] S02 Add ESLint flat config + npm run lint; remove orphan eslint-disable #infra
 - [x] S03 Add Prettier, format src/tests/server.mjs once #infra
 - [x] S04 GitHub Actions CI: test + build + dist-drift gate #infra
-- [ ] S05 package.json engines field (Node >= 20.10) + README note #infra
+- [x] S05 package.json engines field (Node >= 20.10) + README note #infra
 
 ### P2 — Structure
 - [ ] S06 Split main.jsx scanner/canvas/pipeline code into src/scanner/ modules #infra

@@ -68,7 +68,7 @@ Users can optionally paste a Get Shipments API response or relevant JSON/plain-t
 
 ## Local Runtime
 
-The prebuilt app is committed in the `dist/` folder, so no client-side build, batch file or script is required. With Node.js installed, clone or download the repository and run:
+The prebuilt app is committed in the `dist/` folder, so no client-side build, batch file or script is required. With Node.js installed (**Node 20.10 or later** — the rule-set loader uses `with { type: 'json' }` import attributes), clone or download the repository and run:
 
 ```bash
 node server.mjs
