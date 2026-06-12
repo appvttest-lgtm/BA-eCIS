@@ -24,6 +24,10 @@ import { STARTRACK_LINEAR_TARGETS, createLabelImages } from './labelImages.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
+// PDF pages are rendered at high scale so small barcode modules survive
+// rasterization. Raising this improves decode odds but costs memory and CPU.
+export const PDF_RENDER_SCALE = 4.0;
+
 export const MAX_PDF_PAGES = 40;
 
 export const MAX_IMAGE_PIXELS = 50_000_000;
@@ -712,9 +716,7 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
       textStart
     );
 
-    // PDF pages are rendered at high scale so small barcode modules survive rasterization.
-    // Raising this improves decode odds but increases memory and CPU cost.
-    const viewport = page.getViewport({ scale: 4.0 });
+    const viewport = page.getViewport({ scale: PDF_RENDER_SCALE });
     const renderCanvas = document.createElement('canvas');
     renderCanvas.width = Math.floor(viewport.width);
     renderCanvas.height = Math.floor(viewport.height);

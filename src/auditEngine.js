@@ -1052,7 +1052,7 @@ registerRuleFunction('requiredDecode', (value, { context, args }) => {
       ? `${args?.label || 'The required barcode'} appears visible on the label, but it was not decoded by the scanner pipeline.`
       : `${args?.label || 'The required barcode'} was not decoded from the uploaded file.`
   );
-  if (page.isRasterImage && page.estimatedDpi && page.estimatedDpi < 200) {
+  if (page.isRasterImage && page.estimatedDpi && page.estimatedDpi < MIN_LINEAR_DECODE_DPI) {
     parts.push(
       `The uploaded image is roughly ${page.estimatedDpi} DPI (${page.pixelWidth}x${page.pixelHeight}px). At this resolution the narrow bars and spaces of linear barcodes are usually destroyed and cannot be decoded. Upload the original PDF, or export the label image at 300 DPI or higher.`
     );
@@ -1196,6 +1196,12 @@ function lastAddressLine(block = []) {
 }
 
 /** Page geometry context shared by both carriers, including raster-image DPI estimation. */
+// Raster uploads carry no physical size: DPI is estimated against the standard
+// 100mm short edge, and linear barcodes are typically unrecoverable below
+// about 200 DPI (narrow bars collapse to under a pixel).
+const ASSUMED_LABEL_SHORT_EDGE_MM = 100;
+const MIN_LINEAR_DECODE_DPI = 200;
+
 function buildPageContext(fileInfo) {
   const pixelWidth = fileInfo?.pixelWidth || null;
   const pixelHeight = fileInfo?.pixelHeight || null;
@@ -1203,7 +1209,9 @@ function buildPageContext(fileInfo) {
   // Raster uploads carry no physical size; estimate DPI by assuming the short
   // side is a standard 100mm label edge so low-resolution exports can be flagged.
   const estimatedDpi =
-    isRasterImage && pixelWidth && pixelHeight ? Math.round(Math.min(pixelWidth, pixelHeight) / (100 / 25.4)) : null;
+    isRasterImage && pixelWidth && pixelHeight
+      ? Math.round(Math.min(pixelWidth, pixelHeight) / (ASSUMED_LABEL_SHORT_EDGE_MM / 25.4))
+      : null;
   return {
     widthMm: fileInfo?.widthMm,
     heightMm: fileInfo?.heightMm,

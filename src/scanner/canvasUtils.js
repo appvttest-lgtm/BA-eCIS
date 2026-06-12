@@ -79,7 +79,7 @@ export function scaleCanvas(sourceCanvas, factor = 2) {
   return out;
 }
 
-export function thresholdCanvas(sourceCanvas, threshold = 150) {
+export function thresholdCanvas(sourceCanvas, threshold = BINARY_THRESHOLD_DEFAULT) {
   const out = document.createElement('canvas');
   out.width = sourceCanvas.width;
   out.height = sourceCanvas.height;
@@ -110,7 +110,12 @@ export function addWhiteBorder(sourceCanvas, borderRatio = 0.1) {
   return out;
 }
 
-export function trimDarkBounds(sourceCanvas, padding = 14, threshold = 205) {
+// Tuning knobs for content trimming and binarization, shared by scan variants.
+export const TRIM_DARK_PADDING_PX = 14;
+export const TRIM_DARK_INK_THRESHOLD = 205;
+export const BINARY_THRESHOLD_DEFAULT = 150;
+
+export function trimDarkBounds(sourceCanvas, padding = TRIM_DARK_PADDING_PX, threshold = TRIM_DARK_INK_THRESHOLD) {
   const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
   const { width, height } = sourceCanvas;
   const data = ctx.getImageData(0, 0, width, height).data;
