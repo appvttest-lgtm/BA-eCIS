@@ -3,6 +3,8 @@
 // Custom functions that live in auditEngine.js are stubbed here; this test
 // exercises JSON validity, base/variant merging, path resolution and the
 // declarative assert operators.
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { evaluateRuleSet, mergeRuleSets, registerRuleFunction } from '../src/ruleEngine.js';
 
@@ -22,14 +24,8 @@ for (const name of [
   registerRuleFunction(name, () => ({ pass: true, message: `${name} stubbed pass` }));
 }
 
-let failures = 0;
-function expect(label, condition) {
-  if (condition) {
-    console.log(`  ok  ${label}`);
-  } else {
-    failures += 1;
-    console.error(`FAIL  ${label}`);
-  }
+function expect(label, condition, detail = '') {
+  test(label, () => assert.ok(condition, detail));
 }
 function byId(results, id) {
   return results.filter(r => r.id === id || r.id.startsWith(`${id}_`));
@@ -40,7 +36,7 @@ const epReturns = mergeRuleSets(load('eparcel/base.json'), load('eparcel/returns
 const stBase = load('startrack/base.json');
 const stSscc = mergeRuleSets(stBase, load('startrack/sscc.json'));
 
-console.log('eParcel express-post rule set');
+// --- eParcel express-post rule set ---
 const goodArticle = {
   type: 'eparcel-standard',
   mlid: 'JDQ',
@@ -116,7 +112,7 @@ expect('EP-SVC-07 allows 00096 for express', byId(epResults, 'EP-SVC-07')[0]?.st
 expect('results carry rule metadata', Boolean(epResults[0]?.rule?.id && epResults[0]?.rule?.logic));
 expect('results carry input metadata', 'value' in (epResults[0]?.input || {}));
 
-console.log('eParcel failure modes');
+// --- eParcel failure modes ---
 const badContext = JSON.parse(JSON.stringify(epContext));
 badContext.text.toLastLine = 'Chullora NSW 2190';
 badContext.barcodes.datamatrix[0].dateTime = '250609 14223';
@@ -128,7 +124,7 @@ expect('EP-DM-07 fails on space in datetime', byId(badResults, 'EP-DM-07')[0]?.s
 expect('EP-DM-05 fails on 3-digit postcode', byId(badResults, 'EP-DM-05')[0]?.status === 'fail');
 expect('EP-SVC-01 fails on unknown service', byId(badResults, 'EP-SVC-01')[0]?.status === 'fail');
 
-console.log('eParcel returns rule set');
+// --- eParcel returns rule set ---
 const retContext = JSON.parse(JSON.stringify(epContext));
 retContext.articles[0].productCode = '00065';
 retContext.articles[0].serviceCode = '45';
@@ -138,7 +134,7 @@ expect('EP-RET-01 fails on service 45', byId(retResults, 'EP-RET-01')[0]?.status
 expect('EP-RET-02 fails on article count 02', byId(retResults, 'EP-RET-02')[0]?.status === 'fail');
 expect('EP-RET-03 passes with no SSCC', byId(retResults, 'EP-RET-03')[0]?.status === 'pass');
 
-console.log('StarTrack base rule set');
+// --- StarTrack base rule set ---
 const qrFields = {
   receiverSuburb: 'CHULLORA',
   receiverPostcode: '2190',
@@ -221,7 +217,7 @@ expect('ST-QR-F11 passes on valid despatch date', byId(stResults, 'ST-QR-F11')[0
 expect('ST-FRT-02B passes on 8-digit sequence', byId(stResults, 'ST-FRT-02B')[0]?.status === 'pass');
 expect('ST-FRT-04 compression structure passes', byId(stResults, 'ST-FRT-04')[0]?.status === 'pass');
 
-console.log('StarTrack SSCC variant');
+// --- StarTrack SSCC variant ---
 const ssccContext = JSON.parse(JSON.stringify(stContext));
 ssccContext.selected.format = 'sscc';
 ssccContext.barcodes.freight = [];
@@ -231,9 +227,3 @@ const ssccResults = evaluateRuleSet(stSscc, ssccContext);
 expect('ST-FRT-01 disabled in SSCC variant', byId(ssccResults, 'ST-FRT-01').length === 0);
 expect('ST-SSC-01 passes with valid SSCC', byId(ssccResults, 'ST-SSC-01')[0]?.status === 'pass');
 expect('ST-SSC-06 fails on movement C', byId(ssccResults, 'ST-SSC-06')[0]?.status === 'fail');
-
-if (failures) {
-  console.error(`\n${failures} smoke check(s) failed.`);
-  process.exit(1);
-}
-console.log('\nAll smoke checks passed.');

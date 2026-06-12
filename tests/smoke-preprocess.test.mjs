@@ -1,5 +1,7 @@
 // Node smoke test for src/preprocess.js: orientation candidate selection and
 // multi-label sheet segmentation. Run: node tests/smoke-preprocess.mjs
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import {
   nearestRightAngle,
   isUprightOrientation,
@@ -7,17 +9,11 @@ import {
   findLabelRegions
 } from '../src/preprocess.js';
 
-let failures = 0;
-function expect(label, condition) {
-  if (condition) {
-    console.log(`  ok  ${label}`);
-  } else {
-    failures += 1;
-    console.error(`FAIL  ${label}`);
-  }
+function expect(label, condition, detail = '') {
+  test(label, () => assert.ok(condition, detail));
 }
 
-console.log('Orientation helpers');
+// --- Orientation helpers ---
 expect('nearestRightAngle snaps 87 to 90', nearestRightAngle(87) === 90);
 expect('nearestRightAngle snaps -90 to 270', nearestRightAngle(-90) === 270);
 expect('nearestRightAngle snaps 358 to 0', nearestRightAngle(358) === 0);
@@ -61,7 +57,7 @@ function stampLabel(page, x, y, w, h) {
   }
 }
 
-console.log('Multi-label segmentation');
+// --- Multi-label segmentation ---
 // A4-like portrait grid, 2x2 labels with clear gutters
 const sheet4 = makePage(210, 297);
 stampLabel(sheet4, 10, 12, 90, 128);
@@ -111,9 +107,3 @@ expect(
 // Blank page: no regions
 const blank = makePage(120, 120);
 expect('blank page yields no regions', findLabelRegions(blank.lum, blank.width, blank.height).length === 0);
-
-if (failures) {
-  console.error(`\n${failures} preprocess smoke check(s) failed.`);
-  process.exit(1);
-}
-console.log('\nAll preprocess smoke checks passed.');

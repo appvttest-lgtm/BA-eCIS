@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "vite build",
-    "test": "node tests/smoke-rules.mjs && node tests/smoke-preprocess.mjs && node tests/smoke-audit.mjs",
+    "test": "node --test",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{js,jsx}\" \"tests/**/*.mjs\" server.mjs rules/index.js eslint.config.mjs",
     "format:check": "prettier --check \"src/**/*.{js,jsx}\" \"tests/**/*.mjs\" server.mjs rules/index.js eslint.config.mjs",

@@ -44,7 +44,7 @@ preserve this by design, it is the product's security posture.
 npm install
 npm run dev        # Vite dev server, http://127.0.0.1:5173
 npm run build      # production build into dist/  (REQUIRED before committing src/rules changes)
-npm test           # smoke tests: tests/smoke-rules.mjs + tests/smoke-preprocess.mjs + tests/smoke-audit.mjs
+npm test           # node --test: runs every tests/*.test.mjs via the built-in Node test runner
 npm start          # node server.mjs — serves committed dist/ at http://127.0.0.1:3000
 ```
 

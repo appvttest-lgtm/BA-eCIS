@@ -1,21 +1,17 @@
 // End-to-end smoke test for auditLabel: real parsers, real JSON rule sets.
 // Run: node tests/smoke-audit.mjs
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import { auditLabel } from '../src/auditEngine.js';
 
-let failures = 0;
 function expect(label, condition, detail = '') {
-  if (condition) {
-    console.log(`  ok  ${label}`);
-  } else {
-    failures += 1;
-    console.error(`FAIL  ${label}${detail ? ` — ${detail}` : ''}`);
-  }
+  test(label, () => assert.ok(condition, detail));
 }
 function find(audit, id) {
   return (audit.validations || []).find(r => r.id === id || String(r.id).startsWith(`${id}_`));
 }
 
-console.log('eParcel Parcel Post end-to-end (spec worked example)');
+// --- eParcel Parcel Post end-to-end (spec worked example) ---
 const linear = '019931265099999891JDQ019457101000930308';
 const dm = '019931265099999891JDQ019457101000930308|4202190|8008250609142233';
 const eparcelAudit = auditLabel({
@@ -92,7 +88,7 @@ expect(
 const epFails = (eparcelAudit.validations || []).filter(r => r.status === 'fail');
 expect('no failures on conforming label', epFails.length === 0, epFails.map(r => `${r.id}: ${r.message}`).join(' | '));
 
-console.log('StarTrack Express end-to-end');
+// --- StarTrack Express end-to-end ---
 const pad = (value, length) =>
   String(value || '')
     .padEnd(length, ' ')
@@ -176,9 +172,3 @@ expect('ST-QR-F24 skipped for despatch movement', !find(startrackAudit, 'ST-QR-F
 expect('ST-PRD-01 product allowed for express', find(startrackAudit, 'ST-PRD-01')?.status === 'pass');
 const stFails = (startrackAudit.validations || []).filter(r => r.status === 'fail');
 expect('no failures on conforming label', stFails.length === 0, stFails.map(r => `${r.id}: ${r.message}`).join(' | '));
-
-if (failures) {
-  console.error(`\n${failures} end-to-end check(s) failed.`);
-  process.exit(1);
-}
-console.log('\nAll end-to-end checks passed.');
