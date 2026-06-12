@@ -1,0 +1,23 @@
+# Normalize source text to LF in the repository; let Git convert on checkout
+# only where the working platform needs it (we standardize on LF everywhere).
+* text=auto eol=lf
+
+# Windows batch files require CRLF to run reliably
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets — never touch line endings
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.wasm binary
+*.gz binary
+*.zip binary
+*.traineddata binary
+*.exe binary
+*.msi binary

@@ -10,7 +10,7 @@ Tag items with #security #feature #marketing #logging #infra for colored chips.
 One commit per item. Source: code-standards evaluation 2026-06-12.
 
 ### P1 — Tooling
-- [ ] S01 Add .gitattributes, normalize line endings #infra
+- [x] S01 Add .gitattributes, normalize line endings (index was already LF-clean) #infra
 - [ ] S02 Add ESLint flat config + npm run lint; remove orphan eslint-disable #infra
 - [ ] S03 Add Prettier, format src/tests/server.mjs once #infra
 - [ ] S04 GitHub Actions CI: test + build + dist-drift gate #infra
