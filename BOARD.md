@@ -13,7 +13,7 @@ One commit per item. Source: code-standards evaluation 2026-06-12.
 - [x] S01 Add .gitattributes, normalize line endings (index was already LF-clean) #infra
 - [x] S02 Add ESLint flat config + npm run lint; remove orphan eslint-disable #infra
 - [x] S03 Add Prettier, format src/tests/server.mjs once #infra
-- [ ] S04 GitHub Actions CI: test + build + dist-drift gate #infra
+- [x] S04 GitHub Actions CI: test + build + dist-drift gate #infra
 - [ ] S05 package.json engines field (Node >= 20.10) + README note #infra
 
 ### P2 — Structure
