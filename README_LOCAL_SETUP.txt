@@ -1,12 +1,13 @@
-Australia Post - eCommerce Integration Label Auditor v1.7.0
+Australia Post - eCommerce Integration Label Auditor
 ======================
+(See release_notes.md for the current version and change history.)
 
 Purpose
 -------
 Local-only internal web app for verifying Australia Post eParcel and StarTrack digital label samples.
 
 Input: one or more PDF/image label samples.
-Output: tabbed on-screen audit results plus downloadable single-label or consolidated HTML audit reports.
+Output: tabbed on-screen audit results with a rule-by-rule report pane, full-label previews and barcode crop evidence.
 
 Audit mode selection
 --------------------
@@ -23,9 +24,9 @@ For SSCC labels, the optional extension digit and GS1 company prefix fields can 
 
 If these fields are not provided, the app still performs the normal barcode decode, format, and checksum checks where possible.
 
-Important behaviour in v1.7.0
------------------------------
-This version adds an explicit audit workflow for eParcel and StarTrack labels while preserving the local-only security hardening from the v1.6.8 and v1.6.9 security releases.
+Important behaviour
+-------------------
+The v1.7.x line provides an explicit audit workflow for eParcel and StarTrack labels, JSON rule sets with a rule-by-rule report, automatic orientation correction and multi-label sheet splitting, while preserving the local-only security hardening from the v1.6.8 and v1.6.9 security releases.
 
 Common behaviour:
 - Each PDF page or image is audited as an individual label.
@@ -105,4 +106,4 @@ Normal users do not need to run npm install. The ZIP includes the prebuilt dist 
 
 If a developer changes the React source code, they can run build-dev-only.bat to install npm packages and rebuild the frontend.
 
-Recommended runtime for locked-down Windows machines: the bundled portable runtime, Node.js 20 LTS, or the already-installed Node 21.x if that is what IT provides.
+Node.js 20.10 or later is required when running manually with node server.mjs (the rule-set loader uses JSON import attributes). The bundled portable runtime already satisfies this.
