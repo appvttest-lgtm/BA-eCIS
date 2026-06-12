@@ -6,6 +6,20 @@ Tag items with #security #feature #marketing #logging #infra for colored chips.
 ## Planned - future build requirements
 - [ ] Capture the next batch of build requirements here #feature
 
+## In progress — senior review readiness (targeting v1.7.6)
+One commit per item. Source: review-prep assessment 2026-06-12.
+- [ ] R01 README corrections: drop stale TypeScript + HTML-report-export claims, refresh project file map #infra
+- [ ] R02 Pin GitHub Actions to commit SHAs (supply-chain hardening) #security
+- [ ] R03 Adversarial input tests: hostile markup, ReDoS-length lines, malformed/deep JSON payloads #security
+- [ ] R04 Threat model + data-handling statement (docs/security/threat-model.md) #security
+- [ ] R05 security-assessment-v1.7.6.md with disposition of every v1.6.8 finding #security
+- [ ] R06 SBOM: npm run sbom script + committed CycloneDX for the release #security
+- [ ] R07 Resources/ example-label PII sweep (report only) #security
+- [ ] R08 Close out: version 1.7.6 + release notes + rebuilt dist #infra
+
+Out of scope for the repo (owner decisions): code-signing the launcher EXE,
+repo visibility / carrier-spec redistribution rights confirmation.
+
 ## Done — coding standards uplift (shipped as v1.7.5)
 One commit per item. Source: code-standards evaluation 2026-06-12.
 
