@@ -961,8 +961,8 @@ function StarTrackQrSection({ audit, items }) {
             <h3>Raw decoded QR string</h3>
             {qrBarcodes.length ? (
               <ul className="barcode-list decoded-list">
-                {qrBarcodes.map((b, idx) => (
-                  <li key={idx}>
+                {qrBarcodes.map(b => (
+                  <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
                     <div className="barcode-meta">
                       <strong>QR</strong> page {b.pageNumber || ''}
                     </div>
@@ -980,8 +980,8 @@ function StarTrackQrSection({ audit, items }) {
             )}
           </div>
           {qrs.length > 0 &&
-            qrs.map((qr, idx) => (
-              <div key={idx} className="fact-cards fact-cards-wide">
+            qrs.map(qr => (
+              <div key={qr.raw} className="fact-cards fact-cards-wide">
                 <div>
                   <span>product_code</span>
                   <strong>
@@ -1042,8 +1042,8 @@ function StarTrackRoutingSection({ audit, items }) {
           <h3>Decoded routing barcode values</h3>
           {routingBarcodes.length ? (
             <ul className="barcode-list">
-              {routingBarcodes.map((b, idx) => (
-                <li key={idx}>
+              {routingBarcodes.map(b => (
+                <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
                   <strong>Routing barcode</strong>: <code>{b.rawValue}</code>
                   <br />
                   <span className="muted small">
@@ -1059,8 +1059,8 @@ function StarTrackRoutingSection({ audit, items }) {
           )}
           {routes.length > 0 && (
             <div className="fact-cards fact-cards-wide">
-              {routes.map((route, idx) => (
-                <React.Fragment key={idx}>
+              {routes.map(route => (
+                <React.Fragment key={route.raw}>
                   <div>
                     <span>Label code</span>
                     <strong>{route.labelCode}</strong>
@@ -1118,8 +1118,8 @@ function StarTrackAtlSection({ audit, items }) {
           <h3>Decoded ATL barcode values</h3>
           {atlBarcodes.length ? (
             <ul className="barcode-list">
-              {atlBarcodes.map((b, idx) => (
-                <li key={idx}>
+              {atlBarcodes.map(b => (
+                <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
                   <strong>ATL barcode</strong>: <code>{b.rawValue}</code>
                   <br />
                   <span className="muted small">
@@ -1135,8 +1135,8 @@ function StarTrackAtlSection({ audit, items }) {
           )}
           {atlParses.length > 0 && (
             <div className="fact-cards fact-cards-wide">
-              {atlParses.map((atl, idx) => (
-                <React.Fragment key={idx}>
+              {atlParses.map(atl => (
+                <React.Fragment key={atl.atlNumber}>
                   <div>
                     <span>ATL number</span>
                     <strong>{atl.atlNumber}</strong>
@@ -1195,8 +1195,8 @@ function StarTrackFreightItemSection({ audit, items }) {
           <h3>Decoded freight item barcode values</h3>
           {freightBarcodes.length ? (
             <ul className="barcode-list">
-              {freightBarcodes.map((b, idx) => (
-                <li key={idx}>
+              {freightBarcodes.map(b => (
+                <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
                   <strong>Freight item barcode</strong>: <code>{b.rawValue}</code>
                   <br />
                   <span className="muted small">
@@ -1212,8 +1212,8 @@ function StarTrackFreightItemSection({ audit, items }) {
           )}
           {freightParses.length > 0 && (
             <div className="fact-cards fact-cards-wide">
-              {freightParses.map((f, idx) => (
-                <React.Fragment key={idx}>
+              {freightParses.map(f => (
+                <React.Fragment key={f.freightItemId}>
                   <div>
                     <span>article_id</span>
                     <strong>{f.freightItemId}</strong>
@@ -1238,8 +1238,8 @@ function StarTrackFreightItemSection({ audit, items }) {
           )}
           {ssccs.length > 0 && (
             <div className="fact-cards fact-cards-wide">
-              {ssccs.map((s, idx) => (
-                <React.Fragment key={idx}>
+              {ssccs.map(s => (
+                <React.Fragment key={s.sscc}>
                   <div>
                     <span>SSCC</span>
                     <strong>00{s.sscc}</strong>
@@ -1307,8 +1307,8 @@ function DataMatrixSection({ audit, items }) {
             <h3>Raw decoded GS1 DataMatrix string</h3>
             {dataMatrixBarcodes.length ? (
               <ul className="barcode-list decoded-list">
-                {dataMatrixBarcodes.map((b, idx) => (
-                  <li key={idx}>
+                {dataMatrixBarcodes.map(b => (
+                  <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
                     <div className="barcode-meta">
                       <strong>{b.format || b.symbology || 'DataMatrix'}</strong> page {b.pageNumber || ''}
                     </div>
@@ -1329,8 +1329,8 @@ function DataMatrixSection({ audit, items }) {
           {dmParses.length > 0 && (
             <div className="decoded-panel ai-panel">
               <h3>GS1 DataMatrix AI breakdown</h3>
-              {dmParses.map((dm, idx) => (
-                <div key={idx} className="fact-cards dm-ai-cards">
+              {dmParses.map(dm => (
+                <div key={dm.raw} className="fact-cards dm-ai-cards">
                   <div>
                     <span>AI 01 GTIN</span>
                     <strong>{dm.compact?.slice(2, 16) || 'Not parsed'}</strong>
@@ -1392,8 +1392,8 @@ function LinearBarcodeSection({ audit, items }) {
           <h3>Decoded linear barcode values</h3>
           {linearBarcodes.length ? (
             <ul className="barcode-list">
-              {linearBarcodes.map((b, idx) => (
-                <li key={idx}>
+              {linearBarcodes.map(b => (
+                <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
                   <strong>{barcodeDisplayName(b)}</strong>: <code>{b.rawValue}</code>
                   <br />
                   <span className="muted small">
@@ -1573,8 +1573,8 @@ function ServiceArticleBreakdownSection({ audit, items }) {
         </div>
       )}
       {audit.articles?.length > 0 ? (
-        audit.articles.map((a, idx) => (
-          <div className="article-summary" key={idx}>
+        audit.articles.map(a => (
+          <div className="article-summary" key={a.articleId || a.sscc}>
             {a.type === 'sscc' ? (
               <div className="fact-cards fact-cards-wide">
                 <div>
@@ -2253,8 +2253,8 @@ function App() {
                   {activeAudit.invalidArticleCandidates?.length > 0 && (
                     <section className="card audit-section" id="invalid-article-candidates">
                       <SectionTitle id="invalid-article-candidates-title">Invalid article candidate(s)</SectionTitle>
-                      {activeAudit.invalidArticleCandidates.map((item, idx) => (
-                        <p key={idx}>
+                      {activeAudit.invalidArticleCandidates.map(item => (
+                        <p key={item.candidate}>
                           <code>{item.candidate}</code> — {item.reason}
                         </p>
                       ))}
