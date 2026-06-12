@@ -8,7 +8,17 @@ import { evaluateRuleSet, mergeRuleSets, registerRuleFunction } from '../src/rul
 
 const load = p => JSON.parse(readFileSync(new URL(`../rules/${p}`, import.meta.url), 'utf8'));
 
-for (const name of ['pageSizeWithin', 'inPathList', 'eparcelCheckDigit', 'serviceProductCompatible', 'linearDmAgreement', 'routeProductMatch', 'qrMandatoryFields', 'startrackUnitPermitted', 'requiredDecode']) {
+for (const name of [
+  'pageSizeWithin',
+  'inPathList',
+  'eparcelCheckDigit',
+  'serviceProductCompatible',
+  'linearDmAgreement',
+  'routeProductMatch',
+  'qrMandatoryFields',
+  'startrackUnitPermitted',
+  'requiredDecode'
+]) {
   registerRuleFunction(name, () => ({ pass: true, message: `${name} stubbed pass` }));
 }
 
@@ -32,9 +42,17 @@ const stSscc = mergeRuleSets(stBase, load('startrack/sscc.json'));
 
 console.log('eParcel express-post rule set');
 const goodArticle = {
-  type: 'eparcel-standard', mlid: 'JDQ', consignmentSuffix: '0194571', consignmentId: 'JDQ0194571',
-  articleCount: '01', productCode: '00096', serviceCode: '03', postagePaidIndicator: '0',
-  articleId: 'JDQ019457101000960308', checkDigit: '8', withoutCheckDigit: 'JDQ01945710100096030'
+  type: 'eparcel-standard',
+  mlid: 'JDQ',
+  consignmentSuffix: '0194571',
+  consignmentId: 'JDQ0194571',
+  articleCount: '01',
+  productCode: '00096',
+  serviceCode: '03',
+  postagePaidIndicator: '0',
+  articleId: 'JDQ019457101000960308',
+  checkDigit: '8',
+  withoutCheckDigit: 'JDQ01945710100096030'
 };
 const epContext = {
   page: { widthMm: 150, heightMm: 100, pageCount: 1 },
@@ -55,17 +73,43 @@ const epContext = {
   barcodes: {
     linearPresent: true,
     dataMatrixPresent: true,
-    gs1: [{ raw: 'x', compact: '0199312650999998 91JDQ...', prefix16: '0199312650999998', hasAi01: true, hasAi91: true, hasAusPostGtin: true }],
-    datamatrix: [{ raw: 'x', postcode: '2190', hasAi92: false, dpid: null, dateTime: '250609142233', invalidLiteralSeparators: false }],
+    gs1: [
+      {
+        raw: 'x',
+        compact: '0199312650999998 91JDQ...',
+        prefix16: '0199312650999998',
+        hasAi01: true,
+        hasAi91: true,
+        hasAusPostGtin: true
+      }
+    ],
+    datamatrix: [
+      {
+        raw: 'x',
+        postcode: '2190',
+        hasAi92: false,
+        dpid: null,
+        dateTime: '250609142233',
+        invalidLiteralSeparators: false
+      }
+    ],
     sscc: { valid: [], invalid: [] }
   },
   articles: [goodArticle],
-  derived: { linearArticleIds: ['JDQ019457101000960308'], dmArticleIds: ['JDQ019457101000960308'], invalidArticleReasons: '', invalidSsccReasons: '' },
+  derived: {
+    linearArticleIds: ['JDQ019457101000960308'],
+    dmArticleIds: ['JDQ019457101000960308'],
+    invalidArticleReasons: '',
+    invalidSsccReasons: ''
+  },
   selected: { carrier: 'eparcel', format: 'standard' }
 };
 const epResults = evaluateRuleSet(epExpress, epContext);
 expect('produces results', epResults.length > 15);
-expect('no failures on a conforming label', epResults.every(r => r.status !== 'fail'));
+expect(
+  'no failures on a conforming label',
+  epResults.every(r => r.status !== 'fail')
+);
 expect('EP-TO-06 passes on capitalised line', byId(epResults, 'EP-TO-06')[0]?.status === 'pass');
 expect('EP-DM-07 passes on valid datetime', byId(epResults, 'EP-DM-07')[0]?.status === 'pass');
 expect('EP-SVC-07 allows 00096 for express', byId(epResults, 'EP-SVC-07')[0]?.status === 'pass');
@@ -96,31 +140,83 @@ expect('EP-RET-03 passes with no SSCC', byId(retResults, 'EP-RET-03')[0]?.status
 
 console.log('StarTrack base rule set');
 const qrFields = {
-  receiverSuburb: 'CHULLORA', receiverPostcode: '2190', connoteNumber: 'ABCD12345678',
-  freightItemNumber: 'ABCD12345678EXP00001', productCode: 'EXP', payerAccount: '', senderAccount: '12345678',
-  consignmentQuantity: '1', consignmentWeight: '5', consignmentCube: '15', despatchDate: '20260610',
-  receiverName1: 'CAROL RECEIVER', receiverName2: '', unitType: 'CTN', destinationDepot: 'SYD',
-  receiverAddress1: '8 TEST CLOSE', receiverAddress2: '', receiverPhone: '', dangerousGoodsIndicator: 'N',
-  movementTypeIndicator: 'C', notBeforeDate: '202606111200', notAfterDate: '202606101200', atlNumber: '', raNumber: ''
+  receiverSuburb: 'CHULLORA',
+  receiverPostcode: '2190',
+  connoteNumber: 'ABCD12345678',
+  freightItemNumber: 'ABCD12345678EXP00001',
+  productCode: 'EXP',
+  payerAccount: '',
+  senderAccount: '12345678',
+  consignmentQuantity: '1',
+  consignmentWeight: '5',
+  consignmentCube: '15',
+  despatchDate: '20260610',
+  receiverName1: 'CAROL RECEIVER',
+  receiverName2: '',
+  unitType: 'CTN',
+  destinationDepot: 'SYD',
+  receiverAddress1: '8 TEST CLOSE',
+  receiverAddress2: '',
+  receiverPhone: '',
+  dangerousGoodsIndicator: 'N',
+  movementTypeIndicator: 'C',
+  notBeforeDate: '202606111200',
+  notAfterDate: '202606101200',
+  atlNumber: '',
+  raNumber: ''
 };
 const stContext = {
   page: { widthMm: 100, heightMm: 150, pageCount: 1 },
-  text: { lines: [], hasStarTrackHeader: true, labelCode: 'EXP', consignmentIds: ['ABCD12345678'], toBlock: [], fromBlock: ['FROM X'], postcodeLines: ['CHULLORA NSW 2190'], weightKg: '5', cube: '0.015', returnTransferIndicator: '' },
+  text: {
+    lines: [],
+    hasStarTrackHeader: true,
+    labelCode: 'EXP',
+    consignmentIds: ['ABCD12345678'],
+    toBlock: [],
+    fromBlock: ['FROM X'],
+    postcodeLines: ['CHULLORA NSW 2190'],
+    weightKg: '5',
+    cube: '0.015',
+    returnTransferIndicator: ''
+  },
   barcodes: {
-    qrPresent: true, freightPresent: true, routingPresent: true,
+    qrPresent: true,
+    freightPresent: true,
+    routingPresent: true,
     qr: [{ fields: qrFields, productCode: 'EXP', raw: 'qr' }],
-    freight: [{ freightItemId: 'ABCD12345678EXP00001', despatchId: 'ABCD', connoteNumber: 'ABCD12345678', consignmentSequence: '12345678', productCode: 'EXP', itemNumber: '00001' }],
+    freight: [
+      {
+        freightItemId: 'ABCD12345678EXP00001',
+        despatchId: 'ABCD',
+        connoteNumber: 'ABCD12345678',
+        consignmentSequence: '12345678',
+        productCode: 'EXP',
+        itemNumber: '00001'
+      }
+    ],
     routing: [{ raw: 'EXP2190SYD', labelCode: 'EXP', postcode: '2190', depotOrPort: 'SYD' }],
     atl: [],
     sscc: { valid: [], invalid: [] }
   },
-  derived: { qrPostcodes: ['2190'], freightConnotes: ['ABCD12345678'], freightIds: ['ABCD12345678EXP00001'], primaryProductCode: 'EXP', expectedAtlNumbers: [], atlExpected: false, invalidSsccReasons: '', receiverEvidence: ['CHULLORA NSW 2190'] },
+  derived: {
+    qrPostcodes: ['2190'],
+    freightConnotes: ['ABCD12345678'],
+    freightIds: ['ABCD12345678EXP00001'],
+    primaryProductCode: 'EXP',
+    expectedAtlNumbers: [],
+    atlExpected: false,
+    invalidSsccReasons: '',
+    receiverEvidence: ['CHULLORA NSW 2190']
+  },
   selected: { carrier: 'startrack', format: 'standard' }
 };
 const stResults = evaluateRuleSet(stBase, stContext);
 expect('ST-QR-F24 fails when RA blank on movement C', byId(stResults, 'ST-QR-F24')[0]?.status === 'fail');
 expect('ST-QR-F21 fails when not-before exceeds not-after', byId(stResults, 'ST-QR-F21')[0]?.status === 'fail');
-expect('ST-HDR-06 flags missing return indicator', ['fail', 'manual_review'].includes(byId(stResults, 'ST-HDR-06')[0]?.status));
+expect(
+  'ST-HDR-06 flags missing return indicator',
+  ['fail', 'manual_review'].includes(byId(stResults, 'ST-HDR-06')[0]?.status)
+);
 expect('ST-QR-F11 passes on valid despatch date', byId(stResults, 'ST-QR-F11')[0]?.status === 'pass');
 expect('ST-FRT-02B passes on 8-digit sequence', byId(stResults, 'ST-FRT-02B')[0]?.status === 'pass');
 expect('ST-FRT-04 compression structure passes', byId(stResults, 'ST-FRT-04')[0]?.status === 'pass');

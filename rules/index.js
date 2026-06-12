@@ -37,4 +37,3 @@ export function getRuleSet(carrier, variant) {
 export function listRuleSets() {
   return RULE_SETS;
 }
-

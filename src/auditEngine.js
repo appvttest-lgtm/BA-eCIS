@@ -17,7 +17,8 @@ export const PRODUCT_CODE_MAP = {
 export const SERVICE_CODE_MAP = {
   '03': {
     name: 'Signature Required',
-    description: 'Signature on delivery always required. If signature cannot be obtained, parcel must be carded to Post Office.',
+    description:
+      'Signature on delivery always required. If signature cannot be obtained, parcel must be carded to Post Office.',
     authority_to_leave: false,
     allow_partial_delivery: false,
     safe_drop_enabled: false
@@ -29,28 +30,28 @@ export const SERVICE_CODE_MAP = {
     allow_partial_delivery: false,
     safe_drop_enabled: false
   },
-  '45': {
+  45: {
     name: 'Partial Delivery Allowed',
     description: 'Signature required with partial delivery allowed.',
     authority_to_leave: false,
     allow_partial_delivery: true,
     safe_drop_enabled: false
   },
-  '15': {
+  15: {
     name: 'ATL + Partial Delivery',
     description: 'Authority to leave enabled with partial delivery allowed.',
     authority_to_leave: true,
     allow_partial_delivery: true,
     safe_drop_enabled: false
   },
-  '50': {
+  50: {
     name: 'Safe Drop Enabled',
     description: 'Signature required with safe drop enabled.',
     authority_to_leave: false,
     allow_partial_delivery: false,
     safe_drop_enabled: true
   },
-  '51': {
+  51: {
     name: 'Safe Drop + Partial Delivery',
     description: 'Safe drop enabled with partial delivery allowed.',
     authority_to_leave: false,
@@ -64,7 +65,7 @@ export const SERVICE_CODE_MAP = {
     allow_partial_delivery: true,
     safe_drop_enabled: false
   },
-  '49': {
+  49: {
     name: 'Wine Delivery - Addressee Only',
     description: 'Wine delivery requiring identity on delivery and addressee-only delivery.',
     authority_to_leave: false,
@@ -73,21 +74,21 @@ export const SERVICE_CODE_MAP = {
     requires_identity_on_delivery: true,
     id_capture_type: 'addressee'
   },
-  '81': {
+  81: {
     name: 'Wine Delivery - Signature',
     description: 'Wine delivery with mandatory signature.',
     authority_to_leave: false,
     allow_partial_delivery: false,
     safe_drop_enabled: false
   },
-  '82': {
+  82: {
     name: 'Wine Delivery - ATL',
     description: 'Wine delivery with authority to leave enabled.',
     authority_to_leave: true,
     allow_partial_delivery: true,
     safe_drop_enabled: false
   },
-  '83': {
+  83: {
     name: 'Wine Delivery - Safe Drop',
     description: 'Wine delivery with safe drop enabled.',
     authority_to_leave: false,
@@ -101,15 +102,15 @@ export const SERVICE_CODE_MAP = {
 export const SERVICE_TO_PRODUCT_MAP = {
   '03': ['00093', '00096', '00065', '00068'],
   '08': ['00093', '00096', '00065', '00068'],
-  '45': ['00093', '00096'],
-  '15': ['00093', '00096'],
-  '50': ['00093', '00096'],
-  '51': ['00093', '00096'],
+  45: ['00093', '00096'],
+  15: ['00093', '00096'],
+  50: ['00093', '00096'],
+  51: ['00093', '00096'],
   '09': ['00091', '00087'],
-  '49': ['00093'],
-  '81': ['00093'],
-  '82': ['00093'],
-  '83': ['00093']
+  49: ['00093'],
+  81: ['00093'],
+  82: ['00093'],
+  83: ['00093']
 };
 
 // StarTrack freight product codes and the routing label code each product should use.
@@ -138,13 +139,13 @@ export const STARTRACK_LABEL_CODE_MAP = Object.entries(STARTRACK_PRODUCT_CODE_MA
 // does not list them for any unit type ("non-standard units must be defined by
 // arrangement with StarTrack"), so those labels surface as manual review.
 export const STARTRACK_UNIT_TYPE_MAP = {
-  BAG: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
-  CTN: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
-  ITM: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
-  JIF: ['EXP','PRM','RET','RE2','FPP','ARL','FPA'],
-  PAL: ['EXP','PRM','RET','RE2'],
-  SAT: ['FPP','FPA'],
-  SKI: ['EXP','PRM','RET','RE2']
+  BAG: ['EXP', 'PRM', 'RET', 'RE2', 'FPP', 'ARL', 'FPA'],
+  CTN: ['EXP', 'PRM', 'RET', 'RE2', 'FPP', 'ARL', 'FPA'],
+  ITM: ['EXP', 'PRM', 'RET', 'RE2', 'FPP', 'ARL', 'FPA'],
+  JIF: ['EXP', 'PRM', 'RET', 'RE2', 'FPP', 'ARL', 'FPA'],
+  PAL: ['EXP', 'PRM', 'RET', 'RE2'],
+  SAT: ['FPP', 'FPA'],
+  SKI: ['EXP', 'PRM', 'RET', 'RE2']
 };
 
 const STATE_REGEX = '(?:ACT|NSW|NT|QLD|SA|TAS|VIC|WA)';
@@ -189,56 +190,157 @@ function normalizeSsccExtensionDigitInput(input) {
 function normalizeSsccCompanyPrefixInput(input, extensionDigitInput = '') {
   const raw = String(input || '').trim();
   const extension = normalizeSsccExtensionDigitInput(extensionDigitInput);
-  if (!raw && !extension.provided) return { provided: false, raw: '', extensionDigit: '', companyPrefix: '', reason: '' };
+  if (!raw && !extension.provided)
+    return { provided: false, raw: '', extensionDigit: '', companyPrefix: '', reason: '' };
   let digits = raw.replace(/\D/g, '');
   if (digits.startsWith('00')) {
     digits = digits.slice(2);
     if (digits.length > 0) digits = digits.slice(1);
   }
   if (!raw) {
-    return { provided: extension.provided, raw, extensionDigit: extension.extensionDigit, companyPrefix: '', reason: extension.reason };
+    return {
+      provided: extension.provided,
+      raw,
+      extensionDigit: extension.extensionDigit,
+      companyPrefix: '',
+      reason: extension.reason
+    };
   }
   if (!digits) {
-    return { provided: true, raw, companyPrefix: '', reason: 'Enter the GS1 Company Prefix digits, for example 9315345.' };
+    return {
+      provided: true,
+      raw,
+      companyPrefix: '',
+      reason: 'Enter the GS1 Company Prefix digits, for example 9315345.'
+    };
   }
   if (digits.length < 4 || digits.length > 12) {
-    return { provided: true, raw, extensionDigit: extension.extensionDigit, companyPrefix: digits, reason: 'GS1 Company Prefix should usually be 4 to 12 digits.' };
+    return {
+      provided: true,
+      raw,
+      extensionDigit: extension.extensionDigit,
+      companyPrefix: digits,
+      reason: 'GS1 Company Prefix should usually be 4 to 12 digits.'
+    };
   }
-  return { provided: true, raw, extensionDigit: extension.extensionDigit, companyPrefix: digits, reason: extension.reason || '' };
+  return {
+    provided: true,
+    raw,
+    extensionDigit: extension.extensionDigit,
+    companyPrefix: digits,
+    reason: extension.reason || ''
+  };
 }
 
-function validateExpectedSsccPrefix({ expectedSscc, validSsccs = [], invalidSsccs = [], category = 'sscc', idPrefix = 'SSCC_EXPECTED' }) {
+function validateExpectedSsccPrefix({
+  expectedSscc,
+  validSsccs = [],
+  invalidSsccs = [],
+  category = 'sscc',
+  idPrefix = 'SSCC_EXPECTED'
+}) {
   if (!expectedSscc?.provided) return [];
   const validations = [];
   if (expectedSscc.reason) {
-    validations.push(result(
-      `${idPrefix}_PREFIX_INPUT`,
-      'SSCC extension / company prefix input',
-      'ERROR',
-      category,
-      'fail',
-      expectedSscc.reason || 'The supplied SSCC GS1 Company Prefix is not usable.',
-      { actual: expectedSscc.raw }
-    ));
+    validations.push(
+      result(
+        `${idPrefix}_PREFIX_INPUT`,
+        'SSCC extension / company prefix input',
+        'ERROR',
+        category,
+        'fail',
+        expectedSscc.reason || 'The supplied SSCC GS1 Company Prefix is not usable.',
+        { actual: expectedSscc.raw }
+      )
+    );
     return validations;
   }
 
-  validations.push(validSsccs.length
-    ? result(`${idPrefix}_DECODED`, 'AI 00 SSCC barcode decoded', 'CRITICAL', category, 'pass', `${validSsccs.length} valid AI 00 SSCC barcode(s) decoded.`, { actual: validSsccs.map(s => `00${s.sscc}`).join(', ') })
-    : result(`${idPrefix}_DECODED`, 'AI 00 SSCC barcode decoded', 'CRITICAL', category, 'fail', invalidSsccs.length ? invalidSsccs[0].reason : 'SSCC assessment was selected, but no valid AI 00 SSCC barcode was decoded.', { expected: expectedSscc.companyPrefix ? `AI 00 SSCC with GS1 Company Prefix ${expectedSscc.companyPrefix}` : 'AI 00 SSCC', actual: invalidSsccs.map(s => s.raw).filter(Boolean).join(', ') || 'not decoded' }));
+  validations.push(
+    validSsccs.length
+      ? result(
+          `${idPrefix}_DECODED`,
+          'AI 00 SSCC barcode decoded',
+          'CRITICAL',
+          category,
+          'pass',
+          `${validSsccs.length} valid AI 00 SSCC barcode(s) decoded.`,
+          { actual: validSsccs.map(s => `00${s.sscc}`).join(', ') }
+        )
+      : result(
+          `${idPrefix}_DECODED`,
+          'AI 00 SSCC barcode decoded',
+          'CRITICAL',
+          category,
+          'fail',
+          invalidSsccs.length
+            ? invalidSsccs[0].reason
+            : 'SSCC assessment was selected, but no valid AI 00 SSCC barcode was decoded.',
+          {
+            expected: expectedSscc.companyPrefix
+              ? `AI 00 SSCC with GS1 Company Prefix ${expectedSscc.companyPrefix}`
+              : 'AI 00 SSCC',
+            actual:
+              invalidSsccs
+                .map(s => s.raw)
+                .filter(Boolean)
+                .join(', ') || 'not decoded'
+          }
+        )
+  );
 
   if (validSsccs.length && expectedSscc.extensionDigit) {
     const matches = validSsccs.filter(s => s.extensionDigit === expectedSscc.extensionDigit);
-    validations.push(matches.length
-      ? result(`${idPrefix}_EXTENSION_DIGIT`, 'SSCC extension digit', 'ERROR', category, 'pass', `Decoded SSCC extension digit matches ${expectedSscc.extensionDigit}.`, { expected: expectedSscc.extensionDigit, actual: matches.map(s => `00${s.sscc}`).join(', ') })
-      : result(`${idPrefix}_EXTENSION_DIGIT`, 'SSCC extension digit', 'ERROR', category, 'fail', `No decoded SSCC uses extension digit ${expectedSscc.extensionDigit}.`, { expected: expectedSscc.extensionDigit, actual: validSsccs.map(s => s.extensionDigit).join(', ') }));
+    validations.push(
+      matches.length
+        ? result(
+            `${idPrefix}_EXTENSION_DIGIT`,
+            'SSCC extension digit',
+            'ERROR',
+            category,
+            'pass',
+            `Decoded SSCC extension digit matches ${expectedSscc.extensionDigit}.`,
+            { expected: expectedSscc.extensionDigit, actual: matches.map(s => `00${s.sscc}`).join(', ') }
+          )
+        : result(
+            `${idPrefix}_EXTENSION_DIGIT`,
+            'SSCC extension digit',
+            'ERROR',
+            category,
+            'fail',
+            `No decoded SSCC uses extension digit ${expectedSscc.extensionDigit}.`,
+            { expected: expectedSscc.extensionDigit, actual: validSsccs.map(s => s.extensionDigit).join(', ') }
+          )
+    );
   }
 
   if (validSsccs.length && expectedSscc.companyPrefix) {
-    const matches = validSsccs.filter(s => String(s.companyPrefixAndSerial || '').startsWith(expectedSscc.companyPrefix) || String(s.sscc || '').startsWith(expectedSscc.companyPrefix));
-    validations.push(matches.length
-      ? result(`${idPrefix}_COMPANY_PREFIX`, 'SSCC GS1 Company Prefix', 'ERROR', category, 'pass', `Decoded SSCC company prefix matches ${expectedSscc.companyPrefix}.`, { expected: expectedSscc.companyPrefix, actual: matches.map(s => `00${s.sscc}`).join(', ') })
-      : result(`${idPrefix}_COMPANY_PREFIX`, 'SSCC GS1 Company Prefix', 'ERROR', category, 'fail', `No decoded SSCC starts with GS1 Company Prefix ${expectedSscc.companyPrefix}.`, { expected: expectedSscc.companyPrefix, actual: validSsccs.map(s => s.sscc).join(', ') }));
+    const matches = validSsccs.filter(
+      s =>
+        String(s.companyPrefixAndSerial || '').startsWith(expectedSscc.companyPrefix) ||
+        String(s.sscc || '').startsWith(expectedSscc.companyPrefix)
+    );
+    validations.push(
+      matches.length
+        ? result(
+            `${idPrefix}_COMPANY_PREFIX`,
+            'SSCC GS1 Company Prefix',
+            'ERROR',
+            category,
+            'pass',
+            `Decoded SSCC company prefix matches ${expectedSscc.companyPrefix}.`,
+            { expected: expectedSscc.companyPrefix, actual: matches.map(s => `00${s.sscc}`).join(', ') }
+          )
+        : result(
+            `${idPrefix}_COMPANY_PREFIX`,
+            'SSCC GS1 Company Prefix',
+            'ERROR',
+            category,
+            'fail',
+            `No decoded SSCC starts with GS1 Company Prefix ${expectedSscc.companyPrefix}.`,
+            { expected: expectedSscc.companyPrefix, actual: validSsccs.map(s => s.sscc).join(', ') }
+          )
+    );
   }
 
   return validations;
@@ -253,14 +355,64 @@ function carrierName(carrier) {
   return carrier === 'startrack' ? 'StarTrack' : 'eParcel';
 }
 
-function validateSelectedAuditMode({ selectedCarrier = 'eparcel', selectedFormat = 'standard', detectedCarrier = 'unknown', detectedFormat = 'unknown', evidence = '' }) {
+function validateSelectedAuditMode({
+  selectedCarrier = 'eparcel',
+  selectedFormat = 'standard',
+  detectedCarrier = 'unknown',
+  detectedFormat = 'unknown',
+  evidence = ''
+}) {
   const validations = [];
-  validations.push(detectedCarrier === selectedCarrier
-    ? result('AUDIT_MODE_CARRIER', 'Selected carrier matches label evidence', 'CRITICAL', 'audit-mode', 'pass', `${carrierName(selectedCarrier)} was selected and label evidence matches.`, { expected: carrierName(selectedCarrier), actual: carrierName(detectedCarrier), evidence })
-    : result('AUDIT_MODE_CARRIER', 'Selected carrier matches label evidence', 'CRITICAL', 'audit-mode', 'fail', `${carrierName(selectedCarrier)} was selected, but decoded/text evidence indicates ${carrierName(detectedCarrier)}.`, { expected: carrierName(selectedCarrier), actual: detectedCarrier === 'unknown' ? 'unknown' : carrierName(detectedCarrier), evidence }));
-  validations.push(detectedFormat === selectedFormat
-    ? result('AUDIT_MODE_FORMAT', 'Selected label format matches barcode evidence', 'CRITICAL', 'audit-mode', 'pass', `${labelFormatName(selectedFormat)} was selected and decoded barcode evidence matches.`, { expected: labelFormatName(selectedFormat), actual: labelFormatName(detectedFormat), evidence })
-    : result('AUDIT_MODE_FORMAT', 'Selected label format matches barcode evidence', 'CRITICAL', 'audit-mode', 'fail', `${labelFormatName(selectedFormat)} was selected, but decoded barcode evidence indicates ${detectedFormat === 'unknown' ? 'unknown format' : labelFormatName(detectedFormat)}.`, { expected: labelFormatName(selectedFormat), actual: detectedFormat === 'unknown' ? 'unknown' : labelFormatName(detectedFormat), evidence }));
+  validations.push(
+    detectedCarrier === selectedCarrier
+      ? result(
+          'AUDIT_MODE_CARRIER',
+          'Selected carrier matches label evidence',
+          'CRITICAL',
+          'audit-mode',
+          'pass',
+          `${carrierName(selectedCarrier)} was selected and label evidence matches.`,
+          { expected: carrierName(selectedCarrier), actual: carrierName(detectedCarrier), evidence }
+        )
+      : result(
+          'AUDIT_MODE_CARRIER',
+          'Selected carrier matches label evidence',
+          'CRITICAL',
+          'audit-mode',
+          'fail',
+          `${carrierName(selectedCarrier)} was selected, but decoded/text evidence indicates ${carrierName(detectedCarrier)}.`,
+          {
+            expected: carrierName(selectedCarrier),
+            actual: detectedCarrier === 'unknown' ? 'unknown' : carrierName(detectedCarrier),
+            evidence
+          }
+        )
+  );
+  validations.push(
+    detectedFormat === selectedFormat
+      ? result(
+          'AUDIT_MODE_FORMAT',
+          'Selected label format matches barcode evidence',
+          'CRITICAL',
+          'audit-mode',
+          'pass',
+          `${labelFormatName(selectedFormat)} was selected and decoded barcode evidence matches.`,
+          { expected: labelFormatName(selectedFormat), actual: labelFormatName(detectedFormat), evidence }
+        )
+      : result(
+          'AUDIT_MODE_FORMAT',
+          'Selected label format matches barcode evidence',
+          'CRITICAL',
+          'audit-mode',
+          'fail',
+          `${labelFormatName(selectedFormat)} was selected, but decoded barcode evidence indicates ${detectedFormat === 'unknown' ? 'unknown format' : labelFormatName(detectedFormat)}.`,
+          {
+            expected: labelFormatName(selectedFormat),
+            actual: detectedFormat === 'unknown' ? 'unknown' : labelFormatName(detectedFormat),
+            evidence
+          }
+        )
+  );
   return validations;
 }
 
@@ -371,7 +523,9 @@ function parseValidArticleId(cleaned) {
 
 /** Validates an article-like string and returns a reviewer-friendly failure reason when invalid. */
 export function analyzeArticleCandidate(candidate) {
-  const cleaned = String(candidate || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const cleaned = String(candidate || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
   if (!cleaned) return null;
   const valid = parseValidArticleId(cleaned);
   if (valid) return { valid: true, article: valid, candidate: cleaned, reason: null };
@@ -387,7 +541,9 @@ export function analyzeArticleCandidate(candidate) {
 
 /** Keeps the valid article prefix when scanner output has extra trailing GS1 data. */
 function trimArticleCandidate(candidate) {
-  const cleaned = String(candidate || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const cleaned = String(candidate || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
   if (!cleaned) return null;
   // Standard eParcel article IDs are 21 chars with a 3-char MLID or 23 chars with a 5-char MLID.
   for (const len of [21, 23]) {
@@ -423,7 +579,15 @@ export function parseEparcelBarcode(raw) {
   const isSscc = /^00\d{18}$/.test(compact);
   if (isSscc) {
     const analysis = analyzeArticleCandidate(compact);
-    return { symbologyType: 'GS1-128/SSCC', raw, normalized, compact, isSscc: true, article: analysis?.article || null, articleAnalysis: analysis };
+    return {
+      symbologyType: 'GS1-128/SSCC',
+      raw,
+      normalized,
+      compact,
+      isSscc: true,
+      article: analysis?.article || null,
+      articleAnalysis: analysis
+    };
   }
 
   const hasAi01 = compact.startsWith('01');
@@ -436,7 +600,8 @@ export function parseEparcelBarcode(raw) {
   const articleAnalysis = articleCandidate ? analyzeArticleCandidate(articleCandidate) : null;
 
   return {
-    symbologyType: normalized.includes('420') || normalized.includes('8008') ? 'GS1-DataMatrix-like' : 'GS1-128/Article-like',
+    symbologyType:
+      normalized.includes('420') || normalized.includes('8008') ? 'GS1-DataMatrix-like' : 'GS1-128/Article-like',
     raw,
     normalized,
     compact,
@@ -482,15 +647,24 @@ export function parseGs1DataMatrix(raw) {
 
   if (!hasAi420) {
     const m = compact.match(/420(\d{4})/);
-    if (m) { hasAi420 = true; postcode = m[1]; }
+    if (m) {
+      hasAi420 = true;
+      postcode = m[1];
+    }
   }
   if (!hasAi92) {
     const m = compact.match(/92(\d{8})/);
-    if (m) { hasAi92 = true; dpid = m[1]; }
+    if (m) {
+      hasAi92 = true;
+      dpid = m[1];
+    }
   }
   if (!hasAi8008) {
     const m = compact.match(/8008(\d{12})/);
-    if (m) { hasAi8008 = true; dateTime = m[1]; }
+    if (m) {
+      hasAi8008 = true;
+      dateTime = m[1];
+    }
   }
 
   return {
@@ -514,7 +688,13 @@ export function parseGs1DataMatrix(raw) {
 /** Identifies likely DataMatrix content when a scanner returns incomplete symbology metadata. */
 function looksLikeDataMatrix(raw, format = '') {
   const n = normalizeBarcode(raw);
-  return /data[_\s-]?matrix/i.test(format) || n.includes('420') || n.includes('8008') || n.includes('|92') || n.includes('|420');
+  return (
+    /data[_\s-]?matrix/i.test(format) ||
+    n.includes('420') ||
+    n.includes('8008') ||
+    n.includes('|92') ||
+    n.includes('|420')
+  );
 }
 
 /** Splits selectable PDF text into normalized non-empty lines for visible-content checks. */
@@ -534,7 +714,6 @@ function firstLineValue(lines, regex) {
   return null;
 }
 
-
 function cleanAddressLine(line) {
   return String(line || '')
     .replace(/\s{3,}.*$/, '')
@@ -547,11 +726,15 @@ function cleanAddressLine(line) {
 }
 
 function isDgText(line) {
-  return /Aviation\s+Security|Dangerous\s+Goods|Declaration|sender acknowledges|sender declares|carried by air|clearing procedures|does not contain|not contain|prohibited goods|explosive|incendiary|criminal offence/i.test(String(line || ''));
+  return /Aviation\s+Security|Dangerous\s+Goods|Declaration|sender acknowledges|sender declares|carried by air|clearing procedures|does not contain|not contain|prohibited goods|explosive|incendiary|criminal offence/i.test(
+    String(line || '')
+  );
 }
 
 function isOperationalLine(line) {
-  return /^(DELIVERY\s+INSTRUCTIONS|Delivery\s+features|Signature\b|Con\s*No\b|Cons\s*No\b|PARCEL\b|AP\s*Article|Postage\s*Paid|Dead\s*weight|Weight\b|Ph\b|PHONE\b)/i.test(String(line || '').trim());
+  return /^(DELIVERY\s+INSTRUCTIONS|Delivery\s+features|Signature\b|Con\s*No\b|Cons\s*No\b|PARCEL\b|AP\s*Article|Postage\s*Paid|Dead\s*weight|Weight\b|Ph\b|PHONE\b)/i.test(
+    String(line || '').trim()
+  );
 }
 
 function extractToBlock(lines) {
@@ -631,7 +814,9 @@ function extractDgBlock(lines) {
 function extractPostcodeLines(lines) {
   const found = [];
   for (const line of lines) {
-    const m = String(line || '').toUpperCase().match(POSTCODE_LINE_REGEX);
+    const m = String(line || '')
+      .toUpperCase()
+      .match(POSTCODE_LINE_REGEX);
     if (m) found.push(m[1].replace(/\s+/g, ' ').trim());
   }
   return [...new Set(found)];
@@ -647,7 +832,9 @@ function extractArticleIdsFromLines(lines) {
   // Primary pass: labelled lines are most reliable (avoids watermark false-positives).
   for (const line of lines) {
     if (!/(?:AP\s*)?Article\s*Id/i.test(line)) continue;
-    const after = String(line).replace(/^.*?(?:AP\s*)?Article\s*Id\s*:?\s*/i, '').toUpperCase();
+    const after = String(line)
+      .replace(/^.*?(?:AP\s*)?Article\s*Id\s*:?\s*/i, '')
+      .toUpperCase();
     const matches = after.match(EPARCEL_ARTICLE_RE) || [];
     ids.push(...matches);
   }
@@ -684,7 +871,9 @@ export function extractLabelFacts(extractedText) {
     if (idx >= 0 && lines[idx + 1] && /^[A-Z0-9]{6,16}$/i.test(lines[idx + 1])) consNo = lines[idx + 1];
   }
   const phone = firstLineValue(lines, /(?:Ph|Phone)\s*:?\s*([0-9 +()-]+)/i);
-  const weightRaw = firstLineValue(lines, /(?:Dead\s*weight|Weight)\s*([0-9.]+)\s*kg/i) || firstLineValue(lines, /\b([0-9]+(?:\.[0-9]+)?)\s*kg\b/i);
+  const weightRaw =
+    firstLineValue(lines, /(?:Dead\s*weight|Weight)\s*([0-9.]+)\s*kg/i) ||
+    firstLineValue(lines, /\b([0-9]+(?:\.[0-9]+)?)\s*kg\b/i);
   const dateCodeLine = [...lines].reverse().find(line => /^\d{4}$/.test(line));
   const dateCode = dateCodeLine || null;
 
@@ -710,7 +899,10 @@ export function extractLabelFacts(extractedText) {
     fromBlock,
     dgBlock,
     postcodeLines,
-    dangerousGoodsDeclarationPresent: dgBlock.length > 0 || /Aviation\s+Security\s+and\s+Dangerous\s+Goods\s+Declaration/i.test(joined) || /dangerous\s+goods/i.test(joined),
+    dangerousGoodsDeclarationPresent:
+      dgBlock.length > 0 ||
+      /Aviation\s+Security\s+and\s+Dangerous\s+Goods\s+Declaration/i.test(joined) ||
+      /dangerous\s+goods/i.test(joined),
     postagePaidPresent: /Postage\s+Paid/i.test(joined),
     extractedLineCount: lines.length
   };
@@ -729,19 +921,73 @@ export function validateServiceProduct(article) {
   const service = SERVICE_CODE_MAP[article.serviceCode];
   const validProducts = SERVICE_TO_PRODUCT_MAP[article.serviceCode] || [];
 
-  results.push(service
-    ? result('SERVICE_KNOWN', 'Known service code', 'ERROR', 'service-code', 'pass', `Service ${article.serviceCode}: ${service.name}`, { actual: article.serviceCode })
-    : result('SERVICE_KNOWN', 'Known service code', 'ERROR', 'service-code', 'fail', `Unknown service code ${article.serviceCode}`, { actual: article.serviceCode }));
+  results.push(
+    service
+      ? result(
+          'SERVICE_KNOWN',
+          'Known service code',
+          'ERROR',
+          'service-code',
+          'pass',
+          `Service ${article.serviceCode}: ${service.name}`,
+          { actual: article.serviceCode }
+        )
+      : result(
+          'SERVICE_KNOWN',
+          'Known service code',
+          'ERROR',
+          'service-code',
+          'fail',
+          `Unknown service code ${article.serviceCode}`,
+          { actual: article.serviceCode }
+        )
+  );
 
-  results.push(PRODUCT_CODE_MAP[article.productCode]
-    ? result('PRODUCT_KNOWN', 'Known product code', 'ERROR', 'service-code', 'pass', `Product ${article.productCode}: ${PRODUCT_CODE_MAP[article.productCode]}`, { actual: article.productCode })
-    : result('PRODUCT_KNOWN', 'Known product code', 'ERROR', 'service-code', 'fail', `Unknown product code ${article.productCode}`, { actual: article.productCode }));
+  results.push(
+    PRODUCT_CODE_MAP[article.productCode]
+      ? result(
+          'PRODUCT_KNOWN',
+          'Known product code',
+          'ERROR',
+          'service-code',
+          'pass',
+          `Product ${article.productCode}: ${PRODUCT_CODE_MAP[article.productCode]}`,
+          { actual: article.productCode }
+        )
+      : result(
+          'PRODUCT_KNOWN',
+          'Known product code',
+          'ERROR',
+          'service-code',
+          'fail',
+          `Unknown product code ${article.productCode}`,
+          { actual: article.productCode }
+        )
+  );
 
   if (service) {
     const ok = validProducts.includes(article.productCode);
-    results.push(ok
-      ? result('SERVICE_PRODUCT_MATCH', 'Service/product compatibility', 'ERROR', 'service-code', 'pass', `Service ${article.serviceCode} supports product ${article.productCode}.`, { expected: validProducts.join(', '), actual: article.productCode })
-      : result('SERVICE_PRODUCT_MATCH', 'Service/product compatibility', 'ERROR', 'service-code', 'fail', `Service ${article.serviceCode} does not support product ${article.productCode}.`, { expected: validProducts.join(', '), actual: article.productCode }));
+    results.push(
+      ok
+        ? result(
+            'SERVICE_PRODUCT_MATCH',
+            'Service/product compatibility',
+            'ERROR',
+            'service-code',
+            'pass',
+            `Service ${article.serviceCode} supports product ${article.productCode}.`,
+            { expected: validProducts.join(', '), actual: article.productCode }
+          )
+        : result(
+            'SERVICE_PRODUCT_MATCH',
+            'Service/product compatibility',
+            'ERROR',
+            'service-code',
+            'fail',
+            `Service ${article.serviceCode} does not support product ${article.productCode}.`,
+            { expected: validProducts.join(', '), actual: article.productCode }
+          )
+    );
   }
   return results;
 }
@@ -752,11 +998,16 @@ function decodedRawValues(detectedBarcodes) {
 
 // Manual entries are useful for investigation counts, but never substitute for decoded barcode proof.
 function diagnosticManualValues(manualBarcodes) {
-  return String(manualBarcodes || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  return String(manualBarcodes || '')
+    .split(/\r?\n/)
+    .map(x => x.trim())
+    .filter(Boolean);
 }
 
 function decodedLinearPresent(detectedBarcodes) {
-  return detectedBarcodes.some(b => /code[_\s-]?128|gs1/i.test(String(b.format || '')) || parseEparcelBarcode(b.rawValue || '').hasAi91);
+  return detectedBarcodes.some(
+    b => /code[_\s-]?128|gs1/i.test(String(b.format || '')) || parseEparcelBarcode(b.rawValue || '').hasAi91
+  );
 }
 
 function decodedDataMatrixPresent(detectedBarcodes) {
@@ -765,25 +1016,110 @@ function decodedDataMatrixPresent(detectedBarcodes) {
 
 function validateLabelFacts(facts) {
   const validations = [];
-  validations.push(facts.extractedLineCount > 0
-    ? result('TEXT_EXTRACTED', 'PDF/text content extracted', 'INFO', 'label-layout', 'pass', `${facts.extractedLineCount} text line(s) were extracted from the file.`, { evidence: facts.lines.slice(0, 40).join('\n') })
-    : result('TEXT_EXTRACTED', 'PDF/text content extracted', 'WARNING', 'label-layout', 'manual_review', 'No selectable or OCR text was extracted from this label.'));
+  validations.push(
+    facts.extractedLineCount > 0
+      ? result(
+          'TEXT_EXTRACTED',
+          'PDF/text content extracted',
+          'INFO',
+          'label-layout',
+          'pass',
+          `${facts.extractedLineCount} text line(s) were extracted from the file.`,
+          { evidence: facts.lines.slice(0, 40).join('\n') }
+        )
+      : result(
+          'TEXT_EXTRACTED',
+          'PDF/text content extracted',
+          'WARNING',
+          'label-layout',
+          'manual_review',
+          'No selectable or OCR text was extracted from this label.'
+        )
+  );
 
-  validations.push(facts.labelType
-    ? result('LABEL_TYPE', 'Label product branding / header', 'INFO', 'label-layout', 'pass', `Detected label header text: ${facts.labelType}.`, { actual: facts.labelType })
-    : result('LABEL_TYPE', 'Label product branding / header', 'INFO', 'label-layout', 'not_applicable', 'Product branding/header was not exposed in the PDF text layer. Product family is assessed from the decoded product code instead.'));
+  validations.push(
+    facts.labelType
+      ? result(
+          'LABEL_TYPE',
+          'Label product branding / header',
+          'INFO',
+          'label-layout',
+          'pass',
+          `Detected label header text: ${facts.labelType}.`,
+          { actual: facts.labelType }
+        )
+      : result(
+          'LABEL_TYPE',
+          'Label product branding / header',
+          'INFO',
+          'label-layout',
+          'not_applicable',
+          'Product branding/header was not exposed in the PDF text layer. Product family is assessed from the decoded product code instead.'
+        )
+  );
 
-  validations.push(facts.articleIds.length
-    ? result('VISIBLE_ARTICLE_ID', 'Visible AP Article ID text', 'INFO', 'address-format', 'pass', `Visible AP Article ID value(s) extracted: ${facts.articleIds.join(', ')}.`, { actual: facts.articleIds.join(', ') })
-    : result('VISIBLE_ARTICLE_ID', 'Visible AP Article ID text', 'INFO', 'address-format', 'warning', 'No visible AP Article ID was extracted from text.'));
+  validations.push(
+    facts.articleIds.length
+      ? result(
+          'VISIBLE_ARTICLE_ID',
+          'Visible AP Article ID text',
+          'INFO',
+          'address-format',
+          'pass',
+          `Visible AP Article ID value(s) extracted: ${facts.articleIds.join(', ')}.`,
+          { actual: facts.articleIds.join(', ') }
+        )
+      : result(
+          'VISIBLE_ARTICLE_ID',
+          'Visible AP Article ID text',
+          'INFO',
+          'address-format',
+          'warning',
+          'No visible AP Article ID was extracted from text.'
+        )
+  );
 
-  validations.push(facts.consignmentIds.length
-    ? result('VISIBLE_CONS_NO', 'Visible Cons No text', 'INFO', 'address-format', 'pass', `Visible consignment number extracted: ${facts.consignmentIds.join(', ')}.`, { actual: facts.consignmentIds.join(', ') })
-    : result('VISIBLE_CONS_NO', 'Visible Cons No text', 'INFO', 'address-format', 'manual_review', 'No visible Cons No value was extracted.'));
+  validations.push(
+    facts.consignmentIds.length
+      ? result(
+          'VISIBLE_CONS_NO',
+          'Visible Cons No text',
+          'INFO',
+          'address-format',
+          'pass',
+          `Visible consignment number extracted: ${facts.consignmentIds.join(', ')}.`,
+          { actual: facts.consignmentIds.join(', ') }
+        )
+      : result(
+          'VISIBLE_CONS_NO',
+          'Visible Cons No text',
+          'INFO',
+          'address-format',
+          'manual_review',
+          'No visible Cons No value was extracted.'
+        )
+  );
 
-  validations.push(facts.weightKg
-    ? result('WEIGHT_PRESENT', 'Weight value visible', 'INFO', 'label-layout', 'pass', `Weight value found: ${facts.weightKg}kg.`, { actual: `${facts.weightKg}kg` })
-    : result('WEIGHT_PRESENT', 'Weight value visible', 'INFO', 'label-layout', 'manual_review', 'Weight value was not extracted from the text layer or decoded barcode payload.'));
+  validations.push(
+    facts.weightKg
+      ? result(
+          'WEIGHT_PRESENT',
+          'Weight value visible',
+          'INFO',
+          'label-layout',
+          'pass',
+          `Weight value found: ${facts.weightKg}kg.`,
+          { actual: `${facts.weightKg}kg` }
+        )
+      : result(
+          'WEIGHT_PRESENT',
+          'Weight value visible',
+          'INFO',
+          'label-layout',
+          'manual_review',
+          'Weight value was not extracted from the text layer or decoded barcode payload.'
+        )
+  );
 
   return validations;
 }
@@ -808,7 +1144,10 @@ function summarizeValidations(validations) {
     if (validation.status === 'pass') summary.passed += 1;
     if (validation.status === 'fail' && (validation.severity === 'CRITICAL' || validation.severity === 'ERROR')) {
       summary.overallStatus = 'FAIL';
-    } else if (summary.overallStatus !== 'FAIL' && (validation.status === 'warning' || validation.status === 'manual_review')) {
+    } else if (
+      summary.overallStatus !== 'FAIL' &&
+      (validation.status === 'warning' || validation.status === 'manual_review')
+    ) {
       summary.overallStatus = 'REVIEW';
     }
   }
@@ -827,8 +1166,11 @@ function parseApiPayloadText(payloadText) {
     const start = rawText.indexOf('{');
     const end = rawText.lastIndexOf('}');
     if (start >= 0 && end > start) {
-      try { parsed = JSON.parse(rawText.slice(start, end + 1)); }
-      catch (err2) { parseError = err2.message || String(err2); }
+      try {
+        parsed = JSON.parse(rawText.slice(start, end + 1));
+      } catch (err2) {
+        parseError = err2.message || String(err2);
+      }
     } else {
       parseError = err.message || String(err);
     }
@@ -863,15 +1205,22 @@ function parseApiPayloadText(payloadText) {
     parseError,
     flat,
     normalizedText,
-    normalizedValueText: flat.map(item => item.normalizedValue).filter(Boolean).join('|'),
-    normalizedPathText: flat.map(item => item.normalizedPath).filter(Boolean).join('|')
+    normalizedValueText: flat
+      .map(item => item.normalizedValue)
+      .filter(Boolean)
+      .join('|'),
+    normalizedPathText: flat
+      .map(item => item.normalizedPath)
+      .filter(Boolean)
+      .join('|')
   };
 }
 
 function normalizePayloadText(value) {
-  return String(value || '').toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  return String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '');
 }
-
 
 function uniquePayloadEvidenceLines(lines = []) {
   return [...new Set(lines.map(line => String(line || '').trim()).filter(Boolean))].slice(0, 12);
@@ -889,7 +1238,10 @@ function payloadEvidenceForValues(ctx, values = []) {
       for (const value of cleaned) {
         const valueNormalized = normalizePayloadText(value);
         if (!valueNormalized || valueNormalized.length < 2) continue;
-        if (itemNormalized.includes(valueNormalized) || valueNormalized.includes(itemNormalized) && itemNormalized.length >= 3) {
+        if (
+          itemNormalized.includes(valueNormalized) ||
+          (valueNormalized.includes(itemNormalized) && itemNormalized.length >= 3)
+        ) {
           lines.push(`${item.path || '(root)'}: ${itemValue}`);
           break;
         }
@@ -943,15 +1295,21 @@ function payloadContainsAny(ctx, values = []) {
   return cleaned.some(value => payloadContainsValue(ctx, value) === true);
 }
 
-
 function payloadComparableFieldName(v) {
   const id = String(v?.id || '').toUpperCase();
-  if (/CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE|EP-ART-03|EP-ART-07|ST-QR-F03|ST-X-01/.test(id)) return 'consignment_id';
-  if (/ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|ST_FREIGHT_BARCODE_PRESENT|DATAMATRIX_PRESENT|GS1_128_PRESENT|EP-ART-0[124568]|EP-LIN|EP-SS-|EP-DM-01|ST-FRT|ST-SSC|ST-X-02|ST-QR-F04/.test(id)) return 'article_id';
+  if (/CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE|EP-ART-03|EP-ART-07|ST-QR-F03|ST-X-01/.test(id))
+    return 'consignment_id';
+  if (
+    /ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|ST_FREIGHT_BARCODE_PRESENT|DATAMATRIX_PRESENT|GS1_128_PRESENT|EP-ART-0[124568]|EP-LIN|EP-SS-|EP-DM-01|ST-FRT|ST-SSC|ST-X-02|ST-QR-F04/.test(
+      id
+    )
+  )
+    return 'article_id';
   if (/PRODUCT|ST_QR_PRODUCT|ST_PRODUCT_KNOWN|EP-SVC-02|EP-SVC-07|ST-PRD|ST-QR-F05/.test(id)) return 'product_code';
   if (/SERVICE|SERVICE_PRODUCT_MATCH|EP-SVC-01|EP-SVC-03|EP-RET-01/.test(id)) return 'service_code';
   if (/ROUTE|ROUTING|ST_ROUTE|ST-RTE-02A|ST-RTE-03/.test(id)) return 'routing_code';
-  if (/POSTCODE|DM_POSTCODE|ST_QR_POSTCODE|EP-DM-05|EP-TO-08|ST-QR-F02|ST-RTE-02B|ST-RTE-04/.test(id)) return 'delivery_postcode';
+  if (/POSTCODE|DM_POSTCODE|ST_QR_POSTCODE|EP-DM-05|EP-TO-08|ST-QR-F02|ST-RTE-02B|ST-RTE-04/.test(id))
+    return 'delivery_postcode';
   if (/WEIGHT|ST_WEIGHT|ST-QR-F09|ST-ITM-04/.test(id)) return 'weight';
   if (/CUBE|CUBIC|ST-ITM-05/.test(id)) return 'cubic_volume';
   if (/DG|DANGEROUS|EP-LAY-07|ST-QR-F19/.test(id)) return 'dangerous_goods';
@@ -963,10 +1321,45 @@ function payloadComparableFieldName(v) {
 }
 
 function tokeniseComparableText(values = []) {
-  const stop = new Set(['THE','AND','FOR','WITH','FROM','TO','PH','PHONE','AU','AUS','NSW','VIC','QLD','SA','WA','TAS','ACT','NT','KG','M3','POST','PARCEL','EXPRESS','STARTRACK','AUSTRALIA']);
-  return [...new Set(values
-    .flatMap(value => String(value || '').toUpperCase().match(/[A-Z0-9]{3,}/g) || [])
-    .filter(token => !stop.has(token) && !/^0+$/.test(token)))];
+  const stop = new Set([
+    'THE',
+    'AND',
+    'FOR',
+    'WITH',
+    'FROM',
+    'TO',
+    'PH',
+    'PHONE',
+    'AU',
+    'AUS',
+    'NSW',
+    'VIC',
+    'QLD',
+    'SA',
+    'WA',
+    'TAS',
+    'ACT',
+    'NT',
+    'KG',
+    'M3',
+    'POST',
+    'PARCEL',
+    'EXPRESS',
+    'STARTRACK',
+    'AUSTRALIA'
+  ]);
+  return [
+    ...new Set(
+      values
+        .flatMap(
+          value =>
+            String(value || '')
+              .toUpperCase()
+              .match(/[A-Z0-9]{3,}/g) || []
+        )
+        .filter(token => !stop.has(token) && !/^0+$/.test(token))
+    )
+  ];
 }
 
 function payloadTokenCoverage(ctx, values = [], options = {}) {
@@ -1014,7 +1407,6 @@ function serviceFlagPayloadMatch(article, ctx) {
   return comparisons.every(Boolean);
 }
 
-
 function auditIdentityValues(audit) {
   const facts = audit?.labelFacts || {};
   const articles = audit?.articles || [];
@@ -1023,7 +1415,15 @@ function auditIdentityValues(audit) {
     ...(facts.articleIds || []),
     ...(facts.consignmentIds || []),
     ...articles.flatMap(a => [a.articleId, a.freightItemId, a.sscc, a.consignmentId]),
-    ...(audit?.parsed || []).flatMap(p => [p.articleId, p.article, p.articleIdValue, p.consignmentId, p.sscc, p.freightItemId, p.connoteNumber]),
+    ...(audit?.parsed || []).flatMap(p => [
+      p.articleId,
+      p.article,
+      p.articleIdValue,
+      p.consignmentId,
+      p.sscc,
+      p.freightItemId,
+      p.connoteNumber
+    ]),
     ...(startrack.freightParses || []).flatMap(f => [f.freightItemId, f.connoteNumber]),
     ...(startrack.qrParses || []).flatMap(q => [q.fields?.freightItemNumber, q.fields?.connoteNumber]),
     ...(startrack.ssccParses || []).flatMap(s => [`00${s.sscc}`, s.sscc])
@@ -1044,7 +1444,9 @@ function applyPayloadIdentityGate(audit, apiPayload) {
 }
 
 function payloadIdentityRule(id) {
-  return /ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|GS1_PREFIX|DATAMATRIX_PRESENT|GS1_128_PRESENT|ST_FREIGHT_BARCODE_PRESENT|ST_SSCC|CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE|EP-ART|EP-LIN|EP-SS|EP-DM-01|ST-FRT|ST-SSC|ST-X-0[12]|ST-QR-F0[34]/i.test(String(id || ''));
+  return /ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|GS1_PREFIX|DATAMATRIX_PRESENT|GS1_128_PRESENT|ST_FREIGHT_BARCODE_PRESENT|ST_SSCC|CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE|EP-ART|EP-LIN|EP-SS|EP-DM-01|ST-FRT|ST-SSC|ST-X-0[12]|ST-QR-F0[34]/i.test(
+    String(id || '')
+  );
 }
 
 /** Compares one validation row against matched Get Shipments evidence where a field mapping exists. */
@@ -1058,13 +1460,24 @@ function compareValidationToApiPayload(v, audit, ctx) {
   const ssccArticles = articles.filter(a => a?.type === 'sscc');
   const startrack = audit?.startrack || {};
 
-  const withField = (match, detail = '', evidence = '') => ({ ...payloadMatchResult(match, detail), field: canonicalField, evidence });
+  const withField = (match, detail = '', evidence = '') => ({
+    ...payloadMatchResult(match, detail),
+    field: canonicalField,
+    evidence
+  });
 
   if (ctx.identityGateApplied && ctx.identityMatchesLabel === false && !payloadIdentityRule(id)) {
-    return withField(null, 'Get Shipments payload identity did not match this label; secondary field comparison suppressed.');
+    return withField(
+      null,
+      'Get Shipments payload identity did not match this label; secondary field comparison suppressed.'
+    );
   }
 
-  if (/ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|GS1_PREFIX|DATAMATRIX_PRESENT|GS1_128_PRESENT|ST_FREIGHT_BARCODE_PRESENT|ST_SSCC|EP-ART-0[124568]|EP-LIN|EP-SS-|EP-DM-01|ST-FRT|ST-SSC|ST-X-02|ST-QR-F04/i.test(id)) {
+  if (
+    /ARTICLE|FREIGHT|VISIBLE_ARTICLE|SSCC|AI91|GS1_PREFIX|DATAMATRIX_PRESENT|GS1_128_PRESENT|ST_FREIGHT_BARCODE_PRESENT|ST_SSCC|EP-ART-0[124568]|EP-LIN|EP-SS-|EP-DM-01|ST-FRT|ST-SSC|ST-X-02|ST-QR-F04/i.test(
+      id
+    )
+  ) {
     const articleValues = [
       ...articles.map(a => a.articleId || a.freightItemId || a.sscc).filter(Boolean),
       ...ssccArticles.map(a => a.sscc).filter(Boolean),
@@ -1073,7 +1486,11 @@ function compareValidationToApiPayload(v, audit, ctx) {
       ...(startrack.ssccParses || []).flatMap(s => [`00${s.sscc}`, s.sscc])
     ];
     const match = payloadContainsAny(ctx, articleValues);
-    return withField(match, articleValues.length ? `Compared article_id values: ${articleValues.join(', ')}` : '', payloadEvidenceForValues(ctx, articleValues));
+    return withField(
+      match,
+      articleValues.length ? `Compared article_id values: ${articleValues.join(', ')}` : '',
+      payloadEvidenceForValues(ctx, articleValues)
+    );
   }
 
   if (/CONSIGNMENT|CONS_NO|CONNOTE|VISIBLE_CONS|ST_CONNOTE|EP-ART-03|EP-ART-07|ST-QR-F03|ST-X-01/i.test(id)) {
@@ -1084,10 +1501,18 @@ function compareValidationToApiPayload(v, audit, ctx) {
       ...(startrack.qrParses || []).map(q => q.fields?.connoteNumber).filter(Boolean)
     ];
     const match = payloadContainsAny(ctx, connoteValues);
-    return withField(match, connoteValues.length ? `Compared consignment_id values: ${connoteValues.join(', ')}` : '', payloadEvidenceForValues(ctx, connoteValues));
+    return withField(
+      match,
+      connoteValues.length ? `Compared consignment_id values: ${connoteValues.join(', ')}` : '',
+      payloadEvidenceForValues(ctx, connoteValues)
+    );
   }
 
-  if (/PRODUCT|SERVICE_KNOWN|SERVICE_PRODUCT_MATCH|ST_QR_PRODUCT|ST_ROUTE_PRODUCT_MATCH|EP-SVC|EP-RET-01|ST-PRD|ST-QR-F05|ST-RTE-03/i.test(id)) {
+  if (
+    /PRODUCT|SERVICE_KNOWN|SERVICE_PRODUCT_MATCH|ST_QR_PRODUCT|ST_ROUTE_PRODUCT_MATCH|EP-SVC|EP-RET-01|ST-PRD|ST-QR-F05|ST-RTE-03/i.test(
+      id
+    )
+  ) {
     const productCodes = [
       ...eparcelArticles.map(a => a.productCode).filter(Boolean),
       ...(startrack.freightParses || []).map(f => f.productCode),
@@ -1101,8 +1526,13 @@ function compareValidationToApiPayload(v, audit, ctx) {
     ].filter(Boolean);
     const hasProductOrService = payloadContainsAny(ctx, [...productCodes, ...serviceCodes, ...labelCodes]);
     const serviceFlagMatch = eparcelArticles.length ? serviceFlagPayloadMatch(eparcelArticles[0], ctx) : null;
-    const finalMatch = serviceFlagMatch === null ? hasProductOrService : (hasProductOrService === true && serviceFlagMatch === true);
-    return withField(finalMatch, `Compared product_code/service_code/label_code values: ${[...productCodes, ...serviceCodes, ...labelCodes].join(', ') || 'none'}.`, payloadEvidenceForValues(ctx, [...productCodes, ...serviceCodes, ...labelCodes]));
+    const finalMatch =
+      serviceFlagMatch === null ? hasProductOrService : hasProductOrService === true && serviceFlagMatch === true;
+    return withField(
+      finalMatch,
+      `Compared product_code/service_code/label_code values: ${[...productCodes, ...serviceCodes, ...labelCodes].join(', ') || 'none'}.`,
+      payloadEvidenceForValues(ctx, [...productCodes, ...serviceCodes, ...labelCodes])
+    );
   }
 
   if (/ROUTE|ROUTING|POSTCODE|DM_POSTCODE|ST_QR_POSTCODE|EP-DM-05|EP-TO-08|ST-QR-F02|ST-RTE/i.test(id)) {
@@ -1113,57 +1543,102 @@ function compareValidationToApiPayload(v, audit, ctx) {
       ...(startrack.qrParses || []).map(q => q.fields?.receiverPostcode).filter(Boolean)
     ];
     const match = payloadContainsAny(ctx, [...new Set(postcodes)]);
-    return withField(match, postcodes.length ? `Compared delivery_postcode values: ${[...new Set(postcodes)].join(', ')}` : '', payloadEvidenceForValues(ctx, [...new Set(postcodes)]));
+    return withField(
+      match,
+      postcodes.length ? `Compared delivery_postcode values: ${[...new Set(postcodes)].join(', ')}` : '',
+      payloadEvidenceForValues(ctx, [...new Set(postcodes)])
+    );
   }
 
   if (/WEIGHT|ST_WEIGHT|ST-QR-F09|ST-ITM-04/i.test(id)) {
-    const weights = [facts.weightKg, ...(startrack.qrParses || []).map(q => q.fields?.consignmentWeight)].filter(Boolean);
+    const weights = [facts.weightKg, ...(startrack.qrParses || []).map(q => q.fields?.consignmentWeight)].filter(
+      Boolean
+    );
     const normalizedWeights = weights.flatMap(w => {
       const asText = String(w).trim();
       const noZeros = asText.replace(/\.0+$/, '');
       return [asText, noZeros, `${noZeros}KG`, `${asText}KG`];
     });
     const match = payloadContainsAny(ctx, normalizedWeights);
-    return withField(match, weights.length ? `Compared weight values: ${weights.join(', ')}` : '', payloadEvidenceForValues(ctx, normalizedWeights));
+    return withField(
+      match,
+      weights.length ? `Compared weight values: ${weights.join(', ')}` : '',
+      payloadEvidenceForValues(ctx, normalizedWeights)
+    );
   }
 
   if (/CUBE|CUBIC|ST-ITM-05/i.test(id)) {
     const cubes = [facts.cube, ...(startrack.qrParses || []).map(q => q.fields?.consignmentCube)].filter(Boolean);
     const match = payloadContainsAny(ctx, cubes);
-    return withField(match, cubes.length ? `Compared cubic_volume values: ${cubes.join(', ')}` : '', payloadEvidenceForValues(ctx, cubes));
+    return withField(
+      match,
+      cubes.length ? `Compared cubic_volume values: ${cubes.join(', ')}` : '',
+      payloadEvidenceForValues(ctx, cubes)
+    );
   }
 
   if (/DG|DANGEROUS|EP-LAY-07|ST-QR-F19/i.test(id)) {
     const apiDg = payloadBool(ctx, [/dangerous[_\s-]*goods/i, /dg[_\s-]*indicator/i, /contains[_\s-]*dangerous/i]);
     if (apiDg === null) return withField(null);
-    const labelDg = Boolean(facts.dangerousGoodsDeclarationPresent || (startrack.qrParses || []).some(q => q.fields?.dangerousGoodsIndicator === 'Y'));
-    return withField(apiDg === labelDg, `API dangerous_goods=${apiDg}; label dangerous_goods=${labelDg}.`, payloadEvidenceForPathPatterns(ctx, [/dangerous[_\s-]*goods/i, /dg[_\s-]*indicator/i, /contains[_\s-]*dangerous/i]));
+    const labelDg = Boolean(
+      facts.dangerousGoodsDeclarationPresent ||
+        (startrack.qrParses || []).some(q => q.fields?.dangerousGoodsIndicator === 'Y')
+    );
+    return withField(
+      apiDg === labelDg,
+      `API dangerous_goods=${apiDg}; label dangerous_goods=${labelDg}.`,
+      payloadEvidenceForPathPatterns(ctx, [
+        /dangerous[_\s-]*goods/i,
+        /dg[_\s-]*indicator/i,
+        /contains[_\s-]*dangerous/i
+      ])
+    );
   }
 
   if (/ADDR_TO|RECEIVER|EP-TO-|ST-RCV/i.test(id)) {
     const receiverValues = [...(facts.toBlock || []), ...(facts.postcodeLines || [])];
     const coverage = payloadTokenCoverage(ctx, receiverValues, { minTokens: 3 });
     if (!coverage) return withField(null);
-    return withField(coverage.ok, `receiver_address token match ${coverage.matches.length}/${coverage.tokens.length}: ${coverage.matches.slice(0, 8).join(', ')}`, payloadEvidenceForTokens(ctx, coverage.matches));
+    return withField(
+      coverage.ok,
+      `receiver_address token match ${coverage.matches.length}/${coverage.tokens.length}: ${coverage.matches.slice(0, 8).join(', ')}`,
+      payloadEvidenceForTokens(ctx, coverage.matches)
+    );
   }
 
   if (/ADDR_FROM|SENDER|LODGE|LODGEMENT|EP-FR-|ST-SND/i.test(id)) {
     const senderValues = [...(facts.fromBlock || [])];
     const coverage = payloadTokenCoverage(ctx, senderValues, { minTokens: 3 });
     if (!coverage) return withField(null);
-    return withField(coverage.ok, `lodgement_address token match ${coverage.matches.length}/${coverage.tokens.length}: ${coverage.matches.slice(0, 8).join(', ')}`, payloadEvidenceForTokens(ctx, coverage.matches));
+    return withField(
+      coverage.ok,
+      `lodgement_address token match ${coverage.matches.length}/${coverage.tokens.length}: ${coverage.matches.slice(0, 8).join(', ')}`,
+      payloadEvidenceForTokens(ctx, coverage.matches)
+    );
   }
 
   if (/DATE|8008|EP-DM-07|EP-LAY-06|ST-QR-F11/i.test(id)) {
     const dates = [v.actual, ...(audit?.parsed || []).map(p => p.dateTime).filter(Boolean)].filter(Boolean);
     const match = payloadContainsAny(ctx, dates);
-    return withField(match, dates.length ? `Compared label_generation_datetime values: ${dates.join(', ')}` : '', payloadEvidenceForValues(ctx, dates));
+    return withField(
+      match,
+      dates.length ? `Compared label_generation_datetime values: ${dates.join(', ')}` : '',
+      payloadEvidenceForValues(ctx, dates)
+    );
   }
 
   if (/LABEL_CODE|BRAND|LOGO|HEADER|EP-LAY-05|ST-HDR-0[12]/i.test(id)) {
-    const values = [facts.labelType, facts.labelCode, audit?.carrier === 'startrack' ? 'StarTrack' : 'Australia Post'].filter(Boolean);
+    const values = [
+      facts.labelType,
+      facts.labelCode,
+      audit?.carrier === 'startrack' ? 'StarTrack' : 'Australia Post'
+    ].filter(Boolean);
     const match = payloadContainsAny(ctx, values);
-    return withField(match, values.length ? `Compared label_branding values: ${values.join(', ')}` : '', payloadEvidenceForValues(ctx, values));
+    return withField(
+      match,
+      values.length ? `Compared label_branding values: ${values.join(', ')}` : '',
+      payloadEvidenceForValues(ctx, values)
+    );
   }
 
   return withField(null);
@@ -1202,13 +1677,19 @@ registerRuleFunction('pageSizeWithin', (page, { args }) => {
   const widthMm = page?.widthMm;
   const heightMm = page?.heightMm;
   if (!widthMm || !heightMm) {
-    return { pass: false, status: 'manual_review', message: 'Physical dimensions could not be determined from this file.' };
+    return {
+      pass: false,
+      status: 'manual_review',
+      message: 'Physical dimensions could not be determined from this file.'
+    };
   }
   const tolerance = args?.toleranceMm ?? 5;
   const sizes = args?.sizesMm || [];
-  const pass = sizes.some(([w, h]) =>
-    (Math.abs(widthMm - w) <= tolerance && Math.abs(heightMm - h) <= tolerance) ||
-    (Math.abs(widthMm - h) <= tolerance && Math.abs(heightMm - w) <= tolerance));
+  const pass = sizes.some(
+    ([w, h]) =>
+      (Math.abs(widthMm - w) <= tolerance && Math.abs(heightMm - h) <= tolerance) ||
+      (Math.abs(widthMm - h) <= tolerance && Math.abs(heightMm - w) <= tolerance)
+  );
   return {
     pass,
     expected: `${sizes.map(([w, h]) => `${w}mm x ${h}mm`).join(' or ')} (within ${tolerance}mm, either orientation)`,
@@ -1221,27 +1702,38 @@ registerRuleFunction('requiredDecode', (value, { context, args }) => {
   const visible = args?.visiblePath ? Boolean(resolvePath(args.visiblePath, context)) : false;
   const page = context.page || {};
   const parts = [];
-  parts.push(visible
-    ? `${args?.label || 'The required barcode'} appears visible on the label, but it was not decoded by the scanner pipeline.`
-    : `${args?.label || 'The required barcode'} was not decoded from the uploaded file.`);
+  parts.push(
+    visible
+      ? `${args?.label || 'The required barcode'} appears visible on the label, but it was not decoded by the scanner pipeline.`
+      : `${args?.label || 'The required barcode'} was not decoded from the uploaded file.`
+  );
   if (page.isRasterImage && page.estimatedDpi && page.estimatedDpi < 200) {
-    parts.push(`The uploaded image is roughly ${page.estimatedDpi} DPI (${page.pixelWidth}x${page.pixelHeight}px). At this resolution the narrow bars and spaces of linear barcodes are usually destroyed and cannot be decoded. Upload the original PDF, or export the label image at 300 DPI or higher.`);
+    parts.push(
+      `The uploaded image is roughly ${page.estimatedDpi} DPI (${page.pixelWidth}x${page.pixelHeight}px). At this resolution the narrow bars and spaces of linear barcodes are usually destroyed and cannot be decoded. Upload the original PDF, or export the label image at 300 DPI or higher.`
+    );
   }
   return { pass: false, message: parts.join(' ') };
 });
 
 registerRuleFunction('inPathList', (value, { context, item, args }) => {
   const raw = resolvePath(args?.path, context, item);
-  const list = (Array.isArray(raw) ? raw : (raw === undefined || raw === null || raw === '' ? [] : [raw]))
-    .map(v => normalizeForCompare(v, args?.normalize)).filter(Boolean);
+  const list = (Array.isArray(raw) ? raw : raw === undefined || raw === null || raw === '' ? [] : [raw])
+    .map(v => normalizeForCompare(v, args?.normalize))
+    .filter(Boolean);
   if (!list.length) {
-    return { pass: false, status: 'manual_review', expected: `a matching value in ${args?.path}`, actual: 'no comparison values available', message: `No values were available at ${args?.path} to compare against.` };
+    return {
+      pass: false,
+      status: 'manual_review',
+      expected: `a matching value in ${args?.path}`,
+      actual: 'no comparison values available',
+      message: `No values were available at ${args?.path} to compare against.`
+    };
   }
   const needle = normalizeForCompare(value, args?.normalize);
   return { pass: list.includes(needle), expected: list.join(', '), actual: needle || 'missing' };
 });
 
-registerRuleFunction('eparcelCheckDigit', (article) => {
+registerRuleFunction('eparcelCheckDigit', article => {
   if (!article?.withoutCheckDigit) {
     return { pass: false, status: 'manual_review', message: 'Article body unavailable for check digit calculation.' };
   }
@@ -1252,14 +1744,19 @@ registerRuleFunction('eparcelCheckDigit', (article) => {
     expected: cd.checkDigit,
     actual: article.checkDigit,
     evidence: cd.steps,
-    message: pass ? `Check digit is valid: ${article.checkDigit}.` : `Check digit mismatch. Expected ${cd.checkDigit}, got ${article.checkDigit}.`
+    message: pass
+      ? `Check digit is valid: ${article.checkDigit}.`
+      : `Check digit mismatch. Expected ${cd.checkDigit}, got ${article.checkDigit}.`
   };
 });
 
-registerRuleFunction('serviceProductCompatible', (article) => {
+registerRuleFunction('serviceProductCompatible', article => {
   const service = SERVICE_CODE_MAP[article?.serviceCode];
   if (!service) {
-    return { pass: true, message: `Service code ${article?.serviceCode || 'unknown'} is not recognised; the known-service rule reports that separately.` };
+    return {
+      pass: true,
+      message: `Service code ${article?.serviceCode || 'unknown'} is not recognised; the known-service rule reports that separately.`
+    };
   }
   const validProducts = SERVICE_TO_PRODUCT_MAP[article.serviceCode] || [];
   const pass = validProducts.includes(article.productCode);
@@ -1273,7 +1770,7 @@ registerRuleFunction('serviceProductCompatible', (article) => {
   };
 });
 
-registerRuleFunction('linearDmAgreement', (derived) => {
+registerRuleFunction('linearDmAgreement', derived => {
   const linear = [...new Set(derived?.linearArticleIds || [])];
   const dm = [...new Set(derived?.dmArticleIds || [])];
   const pass = dm.every(id => linear.includes(id)) && linear.every(id => dm.includes(id));
@@ -1305,24 +1802,37 @@ registerRuleFunction('routeProductMatch', (route, { context }) => {
 });
 
 const ST_QR_MANDATORY_FIELDS = [
-  ['receiverSuburb', 'Receiver suburb'], ['receiverPostcode', 'Receiver postcode'], ['connoteNumber', 'Consignment number'],
-  ['freightItemNumber', 'Freight item number'], ['productCode', 'Product code'], ['consignmentQuantity', 'Consignment quantity'],
-  ['consignmentWeight', 'Consignment weight'], ['despatchDate', 'Despatch date'], ['receiverName1', 'Receiver name'],
-  ['unitType', 'Unit type'], ['destinationDepot', 'Destination depot'], ['receiverAddress1', 'Receiver address line 1'],
-  ['dangerousGoodsIndicator', 'Dangerous goods indicator'], ['movementTypeIndicator', 'Movement type indicator']
+  ['receiverSuburb', 'Receiver suburb'],
+  ['receiverPostcode', 'Receiver postcode'],
+  ['connoteNumber', 'Consignment number'],
+  ['freightItemNumber', 'Freight item number'],
+  ['productCode', 'Product code'],
+  ['consignmentQuantity', 'Consignment quantity'],
+  ['consignmentWeight', 'Consignment weight'],
+  ['despatchDate', 'Despatch date'],
+  ['receiverName1', 'Receiver name'],
+  ['unitType', 'Unit type'],
+  ['destinationDepot', 'Destination depot'],
+  ['receiverAddress1', 'Receiver address line 1'],
+  ['dangerousGoodsIndicator', 'Dangerous goods indicator'],
+  ['movementTypeIndicator', 'Movement type indicator']
 ];
 
-registerRuleFunction('qrMandatoryFields', (fields) => {
-  const missing = ST_QR_MANDATORY_FIELDS.filter(([key]) => !String(fields?.[key] || '').trim()).map(([, label]) => label);
+registerRuleFunction('qrMandatoryFields', fields => {
+  const missing = ST_QR_MANDATORY_FIELDS.filter(([key]) => !String(fields?.[key] || '').trim()).map(
+    ([, label]) => label
+  );
   return {
     pass: missing.length === 0,
     expected: 'all mandatory QR fields populated',
     actual: missing.length ? `missing: ${missing.join(', ')}` : 'all populated',
-    message: missing.length ? `QR mandatory fields missing: ${missing.join(', ')}.` : 'Mandatory QR fields are populated.'
+    message: missing.length
+      ? `QR mandatory fields missing: ${missing.join(', ')}.`
+      : 'Mandatory QR fields are populated.'
   };
 });
 
-registerRuleFunction('startrackUnitPermitted', (fields) => {
+registerRuleFunction('startrackUnitPermitted', fields => {
   const unitType = fields?.unitType;
   const allowed = STARTRACK_UNIT_TYPE_MAP[unitType] || [];
   const pass = Boolean(allowed.length && (!fields?.productCode || allowed.includes(fields.productCode)));
@@ -1347,9 +1857,8 @@ function buildPageContext(fileInfo) {
   const isRasterImage = Boolean(pixelWidth && !fileInfo?.widthMm);
   // Raster uploads carry no physical size; estimate DPI by assuming the short
   // side is a standard 100mm label edge so low-resolution exports can be flagged.
-  const estimatedDpi = isRasterImage && pixelWidth && pixelHeight
-    ? Math.round(Math.min(pixelWidth, pixelHeight) / (100 / 25.4))
-    : null;
+  const estimatedDpi =
+    isRasterImage && pixelWidth && pixelHeight ? Math.round(Math.min(pixelWidth, pixelHeight) / (100 / 25.4)) : null;
   return {
     widthMm: fileInfo?.widthMm,
     heightMm: fileInfo?.heightMm,
@@ -1361,7 +1870,20 @@ function buildPageContext(fileInfo) {
   };
 }
 
-function buildEparcelRuleContext({ fileInfo, facts, selectedFormat, parsed, dmParses, articles, invalidAnalyses, validSsccs, invalidSsccs, decodedLinear, decodedDm, visualEvidence }) {
+function buildEparcelRuleContext({
+  fileInfo,
+  facts,
+  selectedFormat,
+  parsed,
+  dmParses,
+  articles,
+  invalidAnalyses,
+  validSsccs,
+  invalidSsccs,
+  decodedLinear,
+  decodedDm,
+  visualEvidence
+}) {
   const linearParses = parsed.filter(p => p.hasAi01 !== undefined);
   const gs1Items = [...linearParses, ...dmParses.map(p => p.base).filter(Boolean)].map(p => ({
     raw: p.raw,
@@ -1373,7 +1895,9 @@ function buildEparcelRuleContext({ fileInfo, facts, selectedFormat, parsed, dmPa
   }));
   const toBlock = facts.toBlock || [];
   const fromBlock = facts.fromBlock || [];
-  const postcodes4 = [...new Set([...(facts.postcodeLines || []), ...toBlock].flatMap(line => String(line).match(/\b\d{4}\b/g) || []))];
+  const postcodes4 = [
+    ...new Set([...(facts.postcodeLines || []), ...toBlock].flatMap(line => String(line).match(/\b\d{4}\b/g) || []))
+  ];
   return {
     page: buildPageContext(fileInfo),
     text: {
@@ -1416,7 +1940,20 @@ function selectEparcelVariant(selectedFormat, articles, facts) {
   return 'base';
 }
 
-function buildStarTrackRuleContext({ fileInfo, facts, selectedFormat, qrParses, freightParses, routingParses, atlParses, validSsccs, invalidSsccs, expectedAtlNumbers, atlExpected, visualEvidence }) {
+function buildStarTrackRuleContext({
+  fileInfo,
+  facts,
+  selectedFormat,
+  qrParses,
+  freightParses,
+  routingParses,
+  atlParses,
+  validSsccs,
+  invalidSsccs,
+  expectedAtlNumbers,
+  atlExpected,
+  visualEvidence
+}) {
   const lines = facts.lines || [];
   return {
     page: buildPageContext(fileInfo),
@@ -1460,7 +1997,16 @@ function selectStarTrackVariant(selectedFormat, productCodes) {
   return 'base';
 }
 
-function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '', ssccExtensionDigit = '', labelFormat = 'standard' }) {
+function auditEparcelLabel({
+  fileInfo,
+  detectedBarcodes = [],
+  manualBarcodes = '',
+  extractedText = '',
+  visualEvidence = null,
+  ssccCompanyPrefix = '',
+  ssccExtensionDigit = '',
+  labelFormat = 'standard'
+}) {
   const validations = [];
   const selectedFormat = normalizeLabelFormat(labelFormat);
   const expectedSscc = {
@@ -1477,8 +2023,12 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
   const decodedLinear = decodedLinearPresent(detectedBarcodes);
   const decodedDm = decodedDataMatrixPresent(detectedBarcodes);
 
-  const parsed = allRawBarcodes.map(raw => looksLikeDataMatrix(raw) ? parseGs1DataMatrix(raw) : parseEparcelBarcode(raw));
-  const ssccParses = allRawBarcodes.map(parseSsccBarcode).filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
+  const parsed = allRawBarcodes.map(raw =>
+    looksLikeDataMatrix(raw) ? parseGs1DataMatrix(raw) : parseEparcelBarcode(raw)
+  );
+  const ssccParses = allRawBarcodes
+    .map(parseSsccBarcode)
+    .filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
   const validSsccs = ssccParses.filter(p => p.valid);
   const invalidSsccs = ssccParses.filter(p => !p.valid);
   const articleMap = new Map();
@@ -1487,7 +2037,8 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
   }
   const allArticles = [...articleMap.values()];
   const standardArticles = allArticles.filter(article => article.type === 'eparcel-standard');
-  const articles = selectedFormat === 'sscc' ? allArticles.filter(article => article.type === 'sscc') : standardArticles;
+  const articles =
+    selectedFormat === 'sscc' ? allArticles.filter(article => article.type === 'sscc') : standardArticles;
   const invalidMap = new Map();
   for (const invalid of parsed.map(p => p.articleAnalysis || p.base?.articleAnalysis).filter(a => a && !a.valid)) {
     invalidMap.set(invalid.candidate, invalid);
@@ -1495,28 +2046,70 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
   const invalidAnalyses = [...invalidMap.values()];
   const dmParses = parsed.filter(p => 'hasAi420' in p);
   const detectedCarrier = standardArticles.length || dmParses.length || validSsccs.length ? 'eparcel' : 'unknown';
-  const detectedFormat = validSsccs.length && !standardArticles.length ? 'sscc' : standardArticles.length ? 'standard' : validSsccs.length ? 'sscc' : 'unknown';
+  const detectedFormat =
+    validSsccs.length && !standardArticles.length
+      ? 'sscc'
+      : standardArticles.length
+        ? 'standard'
+        : validSsccs.length
+          ? 'sscc'
+          : 'unknown';
   const modeEvidence = [
     standardArticles.length ? `standard eParcel article(s): ${standardArticles.map(a => a.articleId).join(', ')}` : '',
     validSsccs.length ? `SSCC barcode(s): ${validSsccs.map(s => `00${s.sscc}`).join(', ')}` : '',
     dmParses.length ? `GS1 DataMatrix parse(s): ${dmParses.length}` : ''
-  ].filter(Boolean).join('\n');
-  validations.unshift(...validateSelectedAuditMode({
-    selectedCarrier: 'eparcel',
-    selectedFormat,
-    detectedCarrier,
-    detectedFormat,
-    evidence: modeEvidence || decodedValues.join('\n')
-  }));
-  validations.push(...validateExpectedSsccPrefix({ expectedSscc, validSsccs, invalidSsccs, category: 'sscc', idPrefix: 'SSCC_EXPECTED' }));
+  ]
+    .filter(Boolean)
+    .join('\n');
+  validations.unshift(
+    ...validateSelectedAuditMode({
+      selectedCarrier: 'eparcel',
+      selectedFormat,
+      detectedCarrier,
+      detectedFormat,
+      evidence: modeEvidence || decodedValues.join('\n')
+    })
+  );
+  validations.push(
+    ...validateExpectedSsccPrefix({
+      expectedSscc,
+      validSsccs,
+      invalidSsccs,
+      category: 'sscc',
+      idPrefix: 'SSCC_EXPECTED'
+    })
+  );
 
   for (const [i, article] of articles.entries()) {
     if (article.type === 'sscc') {
-      validations.push(result(`SSCC_${i}`, 'SSCC article detected', 'INFO', 'sscc', 'pass', `SSCC detected: ${article.sscc}. Embedded product/service/check-digit validation does not apply.`, { actual: article.sscc }));
+      validations.push(
+        result(
+          `SSCC_${i}`,
+          'SSCC article detected',
+          'INFO',
+          'sscc',
+          'pass',
+          `SSCC detected: ${article.sscc}. Embedded product/service/check-digit validation does not apply.`,
+          { actual: article.sscc }
+        )
+      );
     }
   }
 
-  const ruleContext = buildEparcelRuleContext({ fileInfo, facts, selectedFormat, parsed, dmParses, articles, invalidAnalyses, validSsccs, invalidSsccs, decodedLinear, decodedDm, visualEvidence });
+  const ruleContext = buildEparcelRuleContext({
+    fileInfo,
+    facts,
+    selectedFormat,
+    parsed,
+    dmParses,
+    articles,
+    invalidAnalyses,
+    validSsccs,
+    invalidSsccs,
+    decodedLinear,
+    decodedDm,
+    visualEvidence
+  });
   const ruleVariant = selectEparcelVariant(selectedFormat, articles, facts);
   const ruleSet = getRuleSet('eparcel', ruleVariant);
   validations.push(...evaluateRuleSet(ruleSet, ruleContext));
@@ -1540,7 +2133,6 @@ function auditEparcelLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '
     validations
   };
 }
-
 
 /** Calculates the GS1 mod-10 check digit used by SSCC barcodes. */
 function gs1Mod10CheckDigit(numberWithoutCheckDigit) {
@@ -1588,7 +2180,10 @@ export function parseSsccBarcode(raw) {
     companyPrefixAndSerial: sscc.slice(1, -1),
     checkDigit,
     expectedCheckDigit: expected,
-    reason: expected === checkDigit ? 'Valid SSCC check digit.' : `SSCC check digit mismatch. Expected ${expected}, got ${checkDigit}.`
+    reason:
+      expected === checkDigit
+        ? 'Valid SSCC check digit.'
+        : `SSCC check digit mismatch. Expected ${expected}, got ${checkDigit}.`
   };
 }
 
@@ -1674,7 +2269,8 @@ function fixed(raw, start, length) {
 /** Parses the StarTrack fixed-width QR payload into named fields used by validation and reports. */
 export function parseStarTrackQrBarcode(raw) {
   const text = String(raw || '').replace(/^\]Q[0-9]/, '');
-  if (text.length < 290) return { valid: false, raw, length: text.length, reason: 'Not a StarTrack fixed-width QR payload.' };
+  if (text.length < 290)
+    return { valid: false, raw, length: text.length, reason: 'Not a StarTrack fixed-width QR payload.' };
   const fields = {
     receiverSuburb: fixed(text, 1, 30).trim(),
     receiverPostcode: fixed(text, 31, 4).trim(),
@@ -1717,12 +2313,19 @@ export function parseStarTrackQrBarcode(raw) {
 
 /** Extracts visible StarTrack facts from selectable PDF text before decoded data backfills gaps. */
 function extractStarTrackFacts(extractedText) {
-  const lines = String(extractedText || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const lines = String(extractedText || '')
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean);
   const joined = lines.join('\n');
   const upper = joined.toUpperCase();
   const labelCode = (joined.match(/\b(TSE|RET|RE2|APT|PRM|FPP|ARL|FPA|EXP)\b/i) || [])[1]?.toUpperCase() || null;
-  const sameLineConnote = (joined.match(/(?:CONNOTE|CON\s*NO|CONSIGNMENT(?:\s+NUMBER)?)\s*:?\s*([A-Z0-9]{8,20})/i) || [])[1]?.toUpperCase() || null;
-  const nextLineConnote = (joined.match(/(?:CONNOTE|CON\s*NO|CONSIGNMENT(?:\s+NUMBER)?)\s*:?\s*(?:\r?\n|\s{2,})([A-Z0-9]{8,20})/i) || [])[1]?.toUpperCase() || null;
+  const sameLineConnote =
+    (joined.match(/(?:CONNOTE|CON\s*NO|CONSIGNMENT(?:\s+NUMBER)?)\s*:?\s*([A-Z0-9]{8,20})/i) || [])[1]?.toUpperCase() ||
+    null;
+  const nextLineConnote =
+    (joined.match(/(?:CONNOTE|CON\s*NO|CONSIGNMENT(?:\s+NUMBER)?)\s*:?\s*(?:\r?\n|\s{2,})([A-Z0-9]{8,20})/i) ||
+      [])[1]?.toUpperCase() || null;
   const nearbyConnote = (() => {
     const idx = lines.findIndex(l => /CONNOTE|CON\s*NO|CONSIGNMENT/i.test(l));
     if (idx < 0) return null;
@@ -1734,16 +2337,22 @@ function extractStarTrackFacts(extractedText) {
     return null;
   })();
   // Primary: labelled line. Secondary: bare 20-char freight item pattern on its own line.
-  const labelledArticle = (joined.match(/(?:ARTICLE\s*ID|FREIGHT\s*ITEM(?:\s*ID)?)\s*:?\s*([A-Z0-9\s]{12,30})/i) || [])[1]?.replace(/\s+/g, '').toUpperCase() || null;
-  const bareArticle = !labelledArticle ? (() => {
-    for (const line of lines) {
-      const t = line.trim().replace(/\s+/g, '').toUpperCase();
-      if (/^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(t)) return t;
-    }
-    return null;
-  })() : null;
+  const labelledArticle =
+    (joined.match(/(?:ARTICLE\s*ID|FREIGHT\s*ITEM(?:\s*ID)?)\s*:?\s*([A-Z0-9\s]{12,30})/i) || [])[1]
+      ?.replace(/\s+/g, '')
+      .toUpperCase() || null;
+  const bareArticle = !labelledArticle
+    ? (() => {
+        for (const line of lines) {
+          const t = line.trim().replace(/\s+/g, '').toUpperCase();
+          if (/^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(t)) return t;
+        }
+        return null;
+      })()
+    : null;
   const articleId = labelledArticle || bareArticle;
-  const connoteFromArticle = articleId && /^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(articleId) ? articleId.slice(0, 12) : null;
+  const connoteFromArticle =
+    articleId && /^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(articleId) ? articleId.slice(0, 12) : null;
   const connote = sameLineConnote || nextLineConnote || nearbyConnote || connoteFromArticle || null;
   const weight = (joined.match(/\b([0-9]+(?:\.[0-9]+)?)\s*kg\b/i) || [])[1] || null;
   const cube = (joined.match(/\b([0-9]+(?:\.[0-9]+)?)\s*m3\b/i) || [])[1] || null;
@@ -1774,7 +2383,6 @@ function extractStarTrackFacts(extractedText) {
   };
 }
 
-
 function uniqueNonEmpty(values = []) {
   return [...new Set(values.map(v => String(v || '').trim()).filter(Boolean))];
 }
@@ -1800,7 +2408,10 @@ function normalizeQrCube(value) {
 }
 
 /** Backfills visible-fact fields from decoded barcode data when the PDF text layer is sparse. */
-function enrichStarTrackFactsFromDecodedData(facts, { qrParses = [], freightParses = [], routingParses = [], validSsccs = [] } = {}) {
+function enrichStarTrackFactsFromDecodedData(
+  facts,
+  { qrParses = [], freightParses = [], routingParses = [], validSsccs = [] } = {}
+) {
   const qrFields = qrParses[0]?.fields || {};
   const firstFreight = freightParses[0] || null;
   const firstRoute = routingParses[0] || null;
@@ -1830,30 +2441,64 @@ function enrichStarTrackFactsFromDecodedData(facts, { qrParses = [], freightPars
 
   return {
     ...facts,
-    labelCode: facts.labelCode || firstRoute?.labelCode || firstFreight?.expectedLabelCode || qrParses[0]?.expectedLabelCode || qrFields.productCode || null,
+    labelCode:
+      facts.labelCode ||
+      firstRoute?.labelCode ||
+      firstFreight?.expectedLabelCode ||
+      qrParses[0]?.expectedLabelCode ||
+      qrFields.productCode ||
+      null,
     connoteNumber: facts.connoteNumber || connoteIds[0] || null,
     articleIds,
     consignmentIds: connoteIds,
     weightKg: facts.weightKg || normalizeQrWeight(qrFields.consignmentWeight),
     cube: facts.cube || normalizeQrCube(qrFields.consignmentCube),
     unit: facts.unit || qrFields.unitType || null,
-    toBlock: (facts.toBlock && facts.toBlock.length) ? facts.toBlock : qrReceiverBlock,
-    postcodeLines: (facts.postcodeLines && facts.postcodeLines.length) ? facts.postcodeLines : qrPostcodeLines,
-    decodedDataUsedForFacts: Boolean(qrParses.length || freightParses.length || routingParses.length || validSsccs.length)
+    toBlock: facts.toBlock && facts.toBlock.length ? facts.toBlock : qrReceiverBlock,
+    postcodeLines: facts.postcodeLines && facts.postcodeLines.length ? facts.postcodeLines : qrPostcodeLines,
+    decodedDataUsedForFacts: Boolean(
+      qrParses.length || freightParses.length || routingParses.length || validSsccs.length
+    )
   };
 }
 
 /** Validates StarTrack visible-content facts before the barcode-specific checks are added. */
 function validateStarTrackTextFacts(facts) {
   const validations = [];
-  validations.push(facts.extractedLineCount > 0
-    ? result('ST_TEXT_EXTRACTED', 'Visible text extracted', 'INFO', 'startrack-label-layout', 'pass', `${facts.extractedLineCount} text line(s) were extracted from the file.`, { evidence: facts.lines.slice(0, 50).join('\n') })
-    : result('ST_TEXT_EXTRACTED', 'Visible text extracted', 'WARNING', 'startrack-label-layout', 'manual_review', 'No selectable text was extracted. Barcode evidence is still assessed from the rendered image.'));
+  validations.push(
+    facts.extractedLineCount > 0
+      ? result(
+          'ST_TEXT_EXTRACTED',
+          'Visible text extracted',
+          'INFO',
+          'startrack-label-layout',
+          'pass',
+          `${facts.extractedLineCount} text line(s) were extracted from the file.`,
+          { evidence: facts.lines.slice(0, 50).join('\n') }
+        )
+      : result(
+          'ST_TEXT_EXTRACTED',
+          'Visible text extracted',
+          'WARNING',
+          'startrack-label-layout',
+          'manual_review',
+          'No selectable text was extracted. Barcode evidence is still assessed from the rendered image.'
+        )
+  );
   return validations;
 }
 
 /** Runs the full StarTrack rule set against one rendered label/page. */
-function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes = '', extractedText = '', visualEvidence = null, ssccCompanyPrefix = '', ssccExtensionDigit = '', labelFormat = 'standard' }) {
+function auditStarTrackLabel({
+  fileInfo,
+  detectedBarcodes = [],
+  manualBarcodes = '',
+  extractedText = '',
+  visualEvidence = null,
+  ssccCompanyPrefix = '',
+  ssccExtensionDigit = '',
+  labelFormat = 'standard'
+}) {
   const validations = [];
   const selectedFormat = normalizeLabelFormat(labelFormat);
   const expectedSscc = {
@@ -1863,12 +2508,20 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
   let facts = extractStarTrackFacts(extractedText);
   const manualValues = diagnosticManualValues(manualBarcodes);
   const decodedValues = decodedRawValues(detectedBarcodes);
-  const linearValues = detectedBarcodes.filter(b => /128|code/i.test(String(b.format || b.symbology || '')) || b.kind === 'linear').map(b => b.rawValue).filter(Boolean);
-  const qrValues = detectedBarcodes.filter(b => /qr/i.test(String(b.format || b.symbology || '')) || b.kind === 'qr').map(b => b.rawValue).filter(Boolean);
+  const linearValues = detectedBarcodes
+    .filter(b => /128|code/i.test(String(b.format || b.symbology || '')) || b.kind === 'linear')
+    .map(b => b.rawValue)
+    .filter(Boolean);
+  const qrValues = detectedBarcodes
+    .filter(b => /qr/i.test(String(b.format || b.symbology || '')) || b.kind === 'qr')
+    .map(b => b.rawValue)
+    .filter(Boolean);
 
   const qrParses = qrValues.map(parseStarTrackQrBarcode).filter(p => p.valid);
   const freightParses = linearValues.map(parseStarTrackFreightItemBarcode).filter(p => p.valid);
-  const ssccParses = decodedValues.map(parseSsccBarcode).filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
+  const ssccParses = decodedValues
+    .map(parseSsccBarcode)
+    .filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
   const validSsccs = ssccParses.filter(p => p.valid);
   const invalidSsccs = ssccParses.filter(p => !p.valid);
   const routingParses = linearValues.map(parseStarTrackRoutingBarcode).filter(p => p.valid);
@@ -1879,42 +2532,106 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
   ]);
   const atlExpected = Boolean(facts.authorityToLeavePresent || expectedAtlNumbers.length);
   const ssccOnly = selectedFormat === 'sscc' || (validSsccs.length > 0 && freightParses.length === 0);
-  const detectedCarrier = qrParses.length || freightParses.length || routingParses.length || atlParses.length || validSsccs.length || /STAR\s*TRACK|STARTRACK/i.test(extractedText || '') ? 'startrack' : 'unknown';
-  const detectedFormat = validSsccs.length && !freightParses.length ? 'sscc' : freightParses.length ? 'standard' : validSsccs.length ? 'sscc' : 'unknown';
+  const detectedCarrier =
+    qrParses.length ||
+    freightParses.length ||
+    routingParses.length ||
+    atlParses.length ||
+    validSsccs.length ||
+    /STAR\s*TRACK|STARTRACK/i.test(extractedText || '')
+      ? 'startrack'
+      : 'unknown';
+  const detectedFormat =
+    validSsccs.length && !freightParses.length
+      ? 'sscc'
+      : freightParses.length
+        ? 'standard'
+        : validSsccs.length
+          ? 'sscc'
+          : 'unknown';
   const modeEvidence = [
     qrParses.length ? `StarTrack QR payload(s): ${qrParses.length}` : '',
     freightParses.length ? `freight item barcode(s): ${freightParses.map(f => f.freightItemId).join(', ')}` : '',
     validSsccs.length ? `SSCC barcode(s): ${validSsccs.map(s => `00${s.sscc}`).join(', ')}` : '',
     routingParses.length ? `routing barcode(s): ${routingParses.map(r => r.raw).join(', ')}` : ''
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   facts = enrichStarTrackFactsFromDecodedData(facts, { qrParses, freightParses, routingParses, validSsccs });
-  validations.push(...validateSelectedAuditMode({
-    selectedCarrier: 'startrack',
-    selectedFormat,
-    detectedCarrier,
-    detectedFormat,
-    evidence: modeEvidence || decodedValues.join('\n')
-  }));
+  validations.push(
+    ...validateSelectedAuditMode({
+      selectedCarrier: 'startrack',
+      selectedFormat,
+      detectedCarrier,
+      detectedFormat,
+      evidence: modeEvidence || decodedValues.join('\n')
+    })
+  );
   validations.push(...validateStarTrackTextFacts(facts));
   // SSCC validation only runs when the user explicitly selected SSCC mode, or when
   // auto-detection found only SSCC barcodes (no freight item barcodes). On standard
   // labels, parseSsccBarcode can match digit sequences inside the QR payload, producing
   // false CRITICAL failures — so we suppress those results here.
   if (ssccOnly) {
-    validations.push(...validateExpectedSsccPrefix({ expectedSscc, validSsccs, invalidSsccs, category: 'startrack-sscc', idPrefix: 'ST_SSCC_EXPECTED' }));
+    validations.push(
+      ...validateExpectedSsccPrefix({
+        expectedSscc,
+        validSsccs,
+        invalidSsccs,
+        category: 'startrack-sscc',
+        idPrefix: 'ST_SSCC_EXPECTED'
+      })
+    );
     for (const [i, sscc] of validSsccs.entries()) {
-      validations.push(result(`ST_SSCC_${i}`, 'SSCC freight item detected', 'INFO', 'startrack-sscc', 'pass', `Valid AI 00 SSCC detected: 00${sscc.sscc}.`, { actual: `00${sscc.sscc}` }));
+      validations.push(
+        result(
+          `ST_SSCC_${i}`,
+          'SSCC freight item detected',
+          'INFO',
+          'startrack-sscc',
+          'pass',
+          `Valid AI 00 SSCC detected: 00${sscc.sscc}.`,
+          { actual: `00${sscc.sscc}` }
+        )
+      );
     }
     for (const [i, sscc] of invalidSsccs.entries()) {
-      validations.push(result(`ST_SSCC_INVALID_${i}`, 'SSCC check digit', 'CRITICAL', 'startrack-sscc', 'fail', sscc.reason, { expected: sscc.expectedCheckDigit, actual: sscc.checkDigit }));
+      validations.push(
+        result(`ST_SSCC_INVALID_${i}`, 'SSCC check digit', 'CRITICAL', 'startrack-sscc', 'fail', sscc.reason, {
+          expected: sscc.expectedCheckDigit,
+          actual: sscc.checkDigit
+        })
+      );
     }
     if (selectedFormat !== 'sscc') {
-      validations.push(result('ST_SSCC_PRODUCT_RULE', 'SSCC product handling', 'INFO', 'startrack-sscc', 'pass', 'SSCC freight labels encode AI 00 SSCC data. StarTrack product may be supplied by QR/routing data, but it is not embedded in the SSCC article identifier.'));
+      validations.push(
+        result(
+          'ST_SSCC_PRODUCT_RULE',
+          'SSCC product handling',
+          'INFO',
+          'startrack-sscc',
+          'pass',
+          'SSCC freight labels encode AI 00 SSCC data. StarTrack product may be supplied by QR/routing data, but it is not embedded in the SSCC article identifier.'
+        )
+      );
     }
   }
 
-  const ruleContext = buildStarTrackRuleContext({ fileInfo, facts, selectedFormat, qrParses, freightParses, routingParses, atlParses, validSsccs, invalidSsccs, expectedAtlNumbers, atlExpected, visualEvidence });
+  const ruleContext = buildStarTrackRuleContext({
+    fileInfo,
+    facts,
+    selectedFormat,
+    qrParses,
+    freightParses,
+    routingParses,
+    atlParses,
+    validSsccs,
+    invalidSsccs,
+    expectedAtlNumbers,
+    atlExpected,
+    visualEvidence
+  });
   const ruleVariant = selectStarTrackVariant(selectedFormat, [
     ...freightParses.map(f => f.productCode),
     ...qrParses.map(q => q.productCode),
@@ -1950,16 +2667,18 @@ function auditStarTrackLabel({ fileInfo, detectedBarcodes = [], manualBarcodes =
 
 /** Entry point for one rendered label/page; dispatches to carrier rules and attaches payload comparison. */
 export function auditLabel(input = {}) {
-  const baseAudit = (input.labelFamily === 'startrack' || input.carrier === 'startrack')
-    ? auditStarTrackLabel(input)
-    : { ...auditEparcelLabel(input), carrier: 'eparcel' };
+  const baseAudit =
+    input.labelFamily === 'startrack' || input.carrier === 'startrack'
+      ? auditStarTrackLabel(input)
+      : { ...auditEparcelLabel(input), carrier: 'eparcel' };
   return attachApiPayloadComparison(baseAudit, input.manifestJson || input.apiPayloadText || '');
 }
 
 /** Groups raw validation rows into the report sections rendered by both UI and exported HTML. */
 export function groupValidations(validations) {
-  const displayCategory = (category) => {
-    if (category === 'gs1-128' || category === 'barcode-structure' || category === 'check-digit') return 'linear barcode analysis';
+  const displayCategory = category => {
+    if (category === 'gs1-128' || category === 'barcode-structure' || category === 'check-digit')
+      return 'linear barcode analysis';
     if (category === 'datamatrix') return 'DataMatrix barcode analysis';
     if (category === 'audit-mode') return 'audit-mode';
     if (category === 'startrack-qr') return 'StarTrack QR barcode';

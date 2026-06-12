@@ -7,7 +7,7 @@ const TWO_D_FORMATS = new Set(['QRCode', 'DataMatrix', 'Aztec', 'PDF417', 'Micro
 
 /** Snaps an arbitrary decoder-reported angle to the nearest right angle in [0, 360). */
 export function nearestRightAngle(degrees) {
-  const norm = ((Number(degrees) || 0) % 360 + 360) % 360;
+  const norm = (((Number(degrees) || 0) % 360) + 360) % 360;
   let best = 0;
   let bestDiff = Infinity;
   for (const angle of [...RIGHT_ANGLES, 360]) {
@@ -172,9 +172,11 @@ export function findLabelRegions(lum, width, height, opts = {}) {
             valid = false;
             break;
           }
-          children.push(axis === 'y'
-            ? { x: region.x, y: region.y + cuts[i], w: region.w, h: size }
-            : { x: region.x + cuts[i], y: region.y, w: size, h: region.h });
+          children.push(
+            axis === 'y'
+              ? { x: region.x, y: region.y + cuts[i], w: region.w, h: size }
+              : { x: region.x + cuts[i], y: region.y, w: size, h: region.h }
+          );
         }
         if (!valid) continue;
         for (const child of children) splitRegion(child, depth + 1);

@@ -1,6 +1,11 @@
 // Node smoke test for src/preprocess.js: orientation candidate selection and
 // multi-label sheet segmentation. Run: node tests/smoke-preprocess.mjs
-import { nearestRightAngle, isUprightOrientation, pickRotationCandidates, findLabelRegions } from '../src/preprocess.js';
+import {
+  nearestRightAngle,
+  isUprightOrientation,
+  pickRotationCandidates,
+  findLabelRegions
+} from '../src/preprocess.js';
 
 let failures = 0;
 function expect(label, condition) {
@@ -26,13 +31,19 @@ expect('no symbols defaults to upright', isUprightOrientation([]));
 expect('no candidates for upright 2D', pickRotationCandidates([{ format: 'QRCode', orientation: 1 }]).length === 0);
 const rot90 = pickRotationCandidates([{ format: 'QRCode', orientation: 90 }]);
 expect('rotated QR yields two right-angle candidates', rot90.length === 2 && rot90.includes(90) && rot90.includes(270));
-expect('180-rotated QR yields single candidate', JSON.stringify(pickRotationCandidates([{ format: 'DataMatrix', orientation: 179 }])) === '[180]');
+expect(
+  '180-rotated QR yields single candidate',
+  JSON.stringify(pickRotationCandidates([{ format: 'DataMatrix', orientation: 179 }])) === '[180]'
+);
 const linVert = pickRotationCandidates([{ format: 'Code128', orientation: 90 }]);
 expect('vertical linear yields 90/270 candidates', linVert.length === 2);
-expect('2D vote outweighs linear noise', pickRotationCandidates([
-  { format: 'QRCode', orientation: 0 },
-  { format: 'Code128', orientation: 90 }
-]).length === 0);
+expect(
+  '2D vote outweighs linear noise',
+  pickRotationCandidates([
+    { format: 'QRCode', orientation: 0 },
+    { format: 'Code128', orientation: 90 }
+  ]).length === 0
+);
 
 // --- segmentation fixtures -------------------------------------------------
 // Builds a page luminance grid (255 = white) and stamps dense "labels" onto it.
@@ -59,7 +70,10 @@ stampLabel(sheet4, 10, 156, 90, 128);
 stampLabel(sheet4, 110, 156, 90, 128);
 const regions4 = findLabelRegions(sheet4.lum, sheet4.width, sheet4.height);
 expect('2x2 sheet yields 4 regions', regions4.length === 4);
-expect('regions are fractional and label-sized', regions4.every(r => r.w > 0.3 && r.w < 0.55 && r.h > 0.3 && r.h < 0.55));
+expect(
+  'regions are fractional and label-sized',
+  regions4.every(r => r.w > 0.3 && r.w < 0.55 && r.h > 0.3 && r.h < 0.55)
+);
 
 // Two labels stacked vertically
 const sheet2 = makePage(210, 297);
@@ -67,7 +81,10 @@ stampLabel(sheet2, 30, 10, 150, 130);
 stampLabel(sheet2, 30, 160, 150, 130);
 const regions2 = findLabelRegions(sheet2.lum, sheet2.width, sheet2.height);
 expect('stacked pair yields 2 regions', regions2.length === 2);
-expect('stacked regions ordered sanely', regions2.every(r => r.w > 0.5));
+expect(
+  'stacked regions ordered sanely',
+  regions2.every(r => r.w > 0.5)
+);
 
 // Two labels with large blank area below (half-used sheet)
 const sheetHalf = makePage(210, 297);
@@ -86,7 +103,10 @@ expect('single label is not segmented', findLabelRegions(single.lum, single.widt
 const headerBody = makePage(100, 150);
 stampLabel(headerBody, 5, 4, 90, 22);
 stampLabel(headerBody, 5, 40, 90, 106);
-expect('header/body label is not segmented', findLabelRegions(headerBody.lum, headerBody.width, headerBody.height).length === 0);
+expect(
+  'header/body label is not segmented',
+  findLabelRegions(headerBody.lum, headerBody.width, headerBody.height).length === 0
+);
 
 // Blank page: no regions
 const blank = makePage(120, 120);

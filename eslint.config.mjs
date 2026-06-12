@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
+import prettierCompat from 'eslint-config-prettier';
 
 export default [
   { ignores: ['dist/**', 'public/**', 'node_modules/**', 'wrapper/**', 'release/**'] },
@@ -34,5 +35,6 @@ export default [
       sourceType: 'module',
       globals: { ...globals.node }
     }
-  }
+  },
+  prettierCompat
 ];

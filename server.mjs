@@ -6,9 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const requestedPort = Number(process.env.PORT || 3000);
-const PORT = Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort < 65536
-  ? requestedPort
-  : 3000;
+const PORT = Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort < 65536 ? requestedPort : 3000;
 const HOST = '127.0.0.1';
 const distDir = path.join(__dirname, 'dist');
 
@@ -85,7 +83,9 @@ function sendFile(res, filePath) {
 // requests carry the attacker's domain in the Host header, so only loopback
 // hostnames are accepted.
 function isAllowedHost(hostHeader) {
-  const host = String(hostHeader || '').toLowerCase().replace(/:\d+$/, '');
+  const host = String(hostHeader || '')
+    .toLowerCase()
+    .replace(/:\d+$/, '');
   return host === '127.0.0.1' || host === 'localhost' || host === '[::1]';
 }
 
@@ -105,11 +105,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (!fs.existsSync(path.join(distDir, 'index.html'))) {
-    return send(
-      res,
-      500,
-      'The prebuilt app was not found. Expected dist/index.html in the application folder.'
-    );
+    return send(res, 500, 'The prebuilt app was not found. Expected dist/index.html in the application folder.');
   }
 
   let requestedPath;
@@ -137,7 +133,7 @@ const server = http.createServer((req, res) => {
   return sendFile(res, path.join(distDir, 'index.html'));
 });
 
-server.on('error', (err) => {
+server.on('error', err => {
   if (err.code === 'EADDRINUSE') {
     console.error(`Port ${PORT} is already in use. Close the other app or set a different PORT.`);
   } else {

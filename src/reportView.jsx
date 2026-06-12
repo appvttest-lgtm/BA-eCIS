@@ -37,12 +37,18 @@ function RuleRow({ v, standardFor, showPayload, renderPayload }) {
   const [showLogic, setShowLogic] = useState(false);
   const rule = v.rule || null;
   const source = rule?.source || null;
-  const sourceText = source ? [source.doc, source.page ? `p${source.page}` : null, source.ref || null].filter(Boolean).join(' · ') : '';
+  const sourceText = source
+    ? [source.doc, source.page ? `p${source.page}` : null, source.ref || null].filter(Boolean).join(' · ')
+    : '';
   const description = rule?.description || (standardFor ? standardFor(v) : '') || '';
   const inputValue = formatInputValue(v.input?.value);
   const observed = v.actual || inputValue;
   const logic = rule?.logic
-    ? { id: rule.id, obligation: rule.obligation, ...Object.fromEntries(Object.entries(rule.logic).filter(([, val]) => val !== undefined && val !== null)) }
+    ? {
+        id: rule.id,
+        obligation: rule.obligation,
+        ...Object.fromEntries(Object.entries(rule.logic).filter(([, val]) => val !== undefined && val !== null))
+      }
     : null;
 
   return (
@@ -56,15 +62,26 @@ function RuleRow({ v, standardFor, showPayload, renderPayload }) {
             {v.status === 'fail' ? 'FAIL' : v.status === 'warning' ? 'WARNING' : 'REVIEW'}
           </span>
         )}
-        {observed && <span className="rule-observed" title={observed}>{observed}</span>}
-        <span className="rule-chevron" aria-hidden="true">{open ? '▴' : '▾'}</span>
+        {observed && (
+          <span className="rule-observed" title={observed}>
+            {observed}
+          </span>
+        )}
+        <span className="rule-chevron" aria-hidden="true">
+          {open ? '▴' : '▾'}
+        </span>
       </button>
       {open && (
         <div className="rule-row-body">
           <div className="rule-panes">
             <div className="rule-pane">
               <p className="rule-pane-title">Input data</p>
-              {v.input?.path && <p className="rule-kv"><span className="rule-kv-label">Source</span><code>{v.input.path}</code></p>}
+              {v.input?.path && (
+                <p className="rule-kv">
+                  <span className="rule-kv-label">Source</span>
+                  <code>{v.input.path}</code>
+                </p>
+              )}
               {inputValue && <pre className="rule-input-value">{inputValue}</pre>}
               {(v.input?.evidence || []).map(e => (
                 <div key={e.path} className="rule-kv-block">
@@ -72,7 +89,9 @@ function RuleRow({ v, standardFor, showPayload, renderPayload }) {
                   <pre>{formatInputValue(e.value)}</pre>
                 </div>
               ))}
-              {!inputValue && !(v.input?.evidence || []).length && !v.evidence && <p className="muted small">No input data was captured for this rule.</p>}
+              {!inputValue && !(v.input?.evidence || []).length && !v.evidence && (
+                <p className="muted small">No input data was captured for this rule.</p>
+              )}
               {v.evidence && (
                 <details className="rule-evidence">
                   <summary>Evidence</summary>
@@ -93,11 +112,25 @@ function RuleRow({ v, standardFor, showPayload, renderPayload }) {
             </div>
             <div className="rule-pane">
               <p className="rule-pane-title">Outcome</p>
-              {isIssue(v)
-                ? <p><RuleStatusBadge status={v.status} /></p>
-                : <p className="rule-outcome-quiet">{v.status === 'pass' ? 'Passed' : 'Not applicable'}</p>}
-              {v.expected && <p className="rule-kv"><span className="rule-kv-label">Expected</span><code>{v.expected}</code></p>}
-              {v.actual && <p className="rule-kv"><span className="rule-kv-label">Actual</span><code>{v.actual}</code></p>}
+              {isIssue(v) ? (
+                <p>
+                  <RuleStatusBadge status={v.status} />
+                </p>
+              ) : (
+                <p className="rule-outcome-quiet">{v.status === 'pass' ? 'Passed' : 'Not applicable'}</p>
+              )}
+              {v.expected && (
+                <p className="rule-kv">
+                  <span className="rule-kv-label">Expected</span>
+                  <code>{v.expected}</code>
+                </p>
+              )}
+              {v.actual && (
+                <p className="rule-kv">
+                  <span className="rule-kv-label">Actual</span>
+                  <code>{v.actual}</code>
+                </p>
+              )}
               <p className="rule-message">{v.message}</p>
               {showPayload && v.apiPayloadMatch && renderPayload && (
                 <div className="rule-payload">{renderPayload(v.apiPayloadMatch)}</div>
@@ -116,19 +149,25 @@ function isIssue(v) {
 
 export function RuleReport({ items, standardFor, showPayload, renderPayload }) {
   const [filter, setFilter] = useState('all');
-  const counts = useMemo(() => ({
-    issues: items.filter(isIssue).length,
-    all: items.length,
-    pass: items.filter(v => v.status === 'pass').length
-  }), [items]);
-  const filtered = items.filter(v =>
-    filter === 'all'
-    || (filter === 'issues' && isIssue(v))
-    || (filter === 'pass' && v.status === 'pass'));
+  const counts = useMemo(
+    () => ({
+      issues: items.filter(isIssue).length,
+      all: items.length,
+      pass: items.filter(v => v.status === 'pass').length
+    }),
+    [items]
+  );
+  const filtered = items.filter(
+    v => filter === 'all' || (filter === 'issues' && isIssue(v)) || (filter === 'pass' && v.status === 'pass')
+  );
   return (
     <div className="rule-report">
       <div className="rule-filters" role="group" aria-label="Filter rules by status">
-        {[['issues', 'Warnings & fails'], ['all', 'All'], ['pass', 'Passed']].map(([key, label]) => (
+        {[
+          ['issues', 'Warnings & fails'],
+          ['all', 'All'],
+          ['pass', 'Passed']
+        ].map(([key, label]) => (
           <button
             key={key}
             type="button"
@@ -140,13 +179,23 @@ export function RuleReport({ items, standardFor, showPayload, renderPayload }) {
           </button>
         ))}
       </div>
-      {filtered.length
-        ? filtered.map((v, idx) => (
-          <RuleRow key={`${v.id}-${idx}`} v={v} standardFor={standardFor} showPayload={showPayload} renderPayload={renderPayload} />
+      {filtered.length ? (
+        filtered.map((v, idx) => (
+          <RuleRow
+            key={`${v.id}-${idx}`}
+            v={v}
+            standardFor={standardFor}
+            showPayload={showPayload}
+            renderPayload={renderPayload}
+          />
         ))
-        : filter === 'issues'
-          ? <p className="muted small">No warnings or failures in this section — {counts.pass} rule{counts.pass === 1 ? '' : 's'} passed.</p>
-          : <p className="muted small">No rules match this filter.</p>}
+      ) : filter === 'issues' ? (
+        <p className="muted small">
+          No warnings or failures in this section — {counts.pass} rule{counts.pass === 1 ? '' : 's'} passed.
+        </p>
+      ) : (
+        <p className="muted small">No rules match this filter.</p>
+      )}
     </div>
   );
 }

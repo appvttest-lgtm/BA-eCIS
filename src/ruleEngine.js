@@ -65,9 +65,32 @@ function applyNormalize(value, normalize = []) {
 }
 
 const DATE_FORMATS = {
-  YYMMDDHHMMSS: { length: 12, parts: [[2, 'month'], [4, 'day'], [6, 'hour'], [8, 'minute'], [10, 'second']] },
-  YYYYMMDD: { length: 8, parts: [[4, 'month'], [6, 'day']] },
-  YYYYMMDDHHMM: { length: 12, parts: [[4, 'month'], [6, 'day'], [8, 'hour'], [10, 'minute']] }
+  YYMMDDHHMMSS: {
+    length: 12,
+    parts: [
+      [2, 'month'],
+      [4, 'day'],
+      [6, 'hour'],
+      [8, 'minute'],
+      [10, 'second']
+    ]
+  },
+  YYYYMMDD: {
+    length: 8,
+    parts: [
+      [4, 'month'],
+      [6, 'day']
+    ]
+  },
+  YYYYMMDDHHMM: {
+    length: 12,
+    parts: [
+      [4, 'month'],
+      [6, 'day'],
+      [8, 'hour'],
+      [10, 'minute']
+    ]
+  }
 };
 
 function isValidDatePart(kind, num) {
@@ -129,9 +152,17 @@ export function evalAssert(assert, value, context, item, constants) {
     case 'absent':
       return { pass: isEmptyValue(value), expected: 'value absent', actual: isEmptyValue(value) ? 'absent' : value };
     case 'notEmpty':
-      return { pass: !isEmptyValue(value), expected: 'one or more entries', actual: Array.isArray(value) ? `${value.length} entries` : value };
+      return {
+        pass: !isEmptyValue(value),
+        expected: 'one or more entries',
+        actual: Array.isArray(value) ? `${value.length} entries` : value
+      };
     case 'empty':
-      return { pass: isEmptyValue(value), expected: 'no entries', actual: Array.isArray(value) ? `${value.length} entries` : value };
+      return {
+        pass: isEmptyValue(value),
+        expected: 'no entries',
+        actual: Array.isArray(value) ? `${value.length} entries` : value
+      };
     case 'matches': {
       const pattern = assert.flags ? new RegExp(assert.value, assert.flags) : new RegExp(assert.value);
       return { pass: pattern.test(str), expected: `matches ${assert.value}`, actual: str || 'missing' };
@@ -148,31 +179,55 @@ export function evalAssert(assert, value, context, item, constants) {
       const other = resolvePath(assert.path, context, item);
       const otherNorm = applyNormalize(other, normalize);
       const pass = !isEmptyValue(other) && applyNormalize(value, normalize) === otherNorm;
-      return { pass, expected: `${assert.path} = ${isEmptyValue(other) ? 'missing' : otherNorm}`, actual: applyNormalize(value, normalize) || 'missing' };
+      return {
+        pass,
+        expected: `${assert.path} = ${isEmptyValue(other) ? 'missing' : otherNorm}`,
+        actual: applyNormalize(value, normalize) || 'missing'
+      };
     }
     case 'in': {
       const list = (Array.isArray(right) ? right : []).map(v => applyNormalize(v, normalize));
-      return { pass: list.includes(applyNormalize(value, normalize)), expected: `one of ${list.join(', ')}`, actual: str || 'missing' };
+      return {
+        pass: list.includes(applyNormalize(value, normalize)),
+        expected: `one of ${list.join(', ')}`,
+        actual: str || 'missing'
+      };
     }
     case 'notIn': {
       const list = (Array.isArray(right) ? right : []).map(v => applyNormalize(v, normalize));
-      return { pass: !list.includes(applyNormalize(value, normalize)), expected: `none of ${list.join(', ')}`, actual: str };
+      return {
+        pass: !list.includes(applyNormalize(value, normalize)),
+        expected: `none of ${list.join(', ')}`,
+        actual: str
+      };
     }
     case 'lengthIn': {
       const lengths = Array.isArray(assert.value) ? assert.value : [assert.value];
-      return { pass: lengths.includes(str.length), expected: `length ${lengths.join(' or ')}`, actual: `length ${str.length} (${str || 'missing'})` };
+      return {
+        pass: lengths.includes(str.length),
+        expected: `length ${lengths.join(' or ')}`,
+        actual: `length ${str.length} (${str || 'missing'})`
+      };
     }
     case 'range': {
       const num = Number(str);
       const min = assert.min ?? -Infinity;
       const max = assert.max ?? Infinity;
       const pass = str !== '' && Number.isFinite(num) && num >= min && num <= max;
-      return { pass, expected: `number between ${assert.min ?? '-'} and ${assert.max ?? '-'}`, actual: str || 'missing' };
+      return {
+        pass,
+        expected: `number between ${assert.min ?? '-'} and ${assert.max ?? '-'}`,
+        actual: str || 'missing'
+      };
     }
     case 'ltePath': {
       const other = resolvePath(assert.path, context, item);
       if (isEmptyValue(value) || isEmptyValue(other)) return { pass: true, actual: str, expected: `<= ${assert.path}` };
-      return { pass: Number(applyNormalize(value, ['digitsOnly'])) <= Number(applyNormalize(other, ['digitsOnly'])), expected: `<= ${other}`, actual: str };
+      return {
+        pass: Number(applyNormalize(value, ['digitsOnly'])) <= Number(applyNormalize(other, ['digitsOnly'])),
+        expected: `<= ${other}`,
+        actual: str
+      };
     }
     case 'uppercase':
       return { pass: str === str.toUpperCase(), expected: 'fully capitalised', actual: str || 'missing' };
@@ -228,8 +283,10 @@ function buildResult(rule, ruleSet, status, assertRes, inputPath, inputValue, co
   const actual = assertRes.actual !== undefined ? assertRes.actual : inputValue;
   const messageParts = { value: inputValue, expected, actual, path: inputPath };
   const template = status === 'pass' ? rule.messages?.pass : rule.messages?.fail;
-  const message = assertRes.message || formatMessage(template, messageParts)
-    || (status === 'pass' ? `${rule.title} requirement met.` : `${rule.title} requirement not met.`);
+  const message =
+    assertRes.message ||
+    formatMessage(template, messageParts) ||
+    (status === 'pass' ? `${rule.title} requirement met.` : `${rule.title} requirement not met.`);
   const evidencePaths = rule.evidence || [];
   const inputEvidence = evidencePaths
     .map(path => ({ path, value: resolvePath(path, context, item) }))
@@ -242,8 +299,12 @@ function buildResult(rule, ruleSet, status, assertRes, inputPath, inputValue, co
     status,
     message,
     expected: expected === undefined ? '' : String(expected),
-    actual: actual === undefined || actual === null ? '' : (typeof actual === 'string' ? actual : JSON.stringify(actual)),
-    evidence: assertRes.evidence || inputEvidence.map(e => `${e.path}: ${typeof e.value === 'string' ? e.value : JSON.stringify(e.value)}`).join('\n'),
+    actual: actual === undefined || actual === null ? '' : typeof actual === 'string' ? actual : JSON.stringify(actual),
+    evidence:
+      assertRes.evidence ||
+      inputEvidence
+        .map(e => `${e.path}: ${typeof e.value === 'string' ? e.value : JSON.stringify(e.value)}`)
+        .join('\n'),
     rule: {
       id: rule.id,
       ruleSet: ruleSet.id,
@@ -251,7 +312,13 @@ function buildResult(rule, ruleSet, status, assertRes, inputPath, inputValue, co
       description: rule.description || '',
       obligation: rule.obligation || 'mandatory',
       source: rule.source || ruleSet.spec || null,
-      logic: { when: rule.when, forEach: rule.forEach, input: rule.input, assert: rule.assert, onMissing: rule.onMissing }
+      logic: {
+        when: rule.when,
+        forEach: rule.forEach,
+        input: rule.input,
+        assert: rule.assert,
+        onMissing: rule.onMissing
+      }
     },
     input: {
       path: inputPath || rule.forEach || '',
@@ -272,32 +339,78 @@ export function evaluateRuleSet(ruleSet, context) {
     if (rule.disabled) continue;
     if (!evalWhen(rule.when, context, null, constants)) {
       if (rule.reportWhenSkipped) {
-        results.push(buildResult(rule, ruleSet, 'not_applicable', { actual: '', message: rule.messages?.skipped || `${rule.title} does not apply to this label.` }, rule.input, null, context, null, 0, false));
+        results.push(
+          buildResult(
+            rule,
+            ruleSet,
+            'not_applicable',
+            { actual: '', message: rule.messages?.skipped || `${rule.title} does not apply to this label.` },
+            rule.input,
+            null,
+            context,
+            null,
+            0,
+            false
+          )
+        );
       }
       continue;
     }
-    const items = rule.forEach ? (resolvePath(rule.forEach, context) || []) : [null];
+    const items = rule.forEach ? resolvePath(rule.forEach, context) || [] : [null];
     if (rule.forEach && items.length === 0) {
       const onEmpty = rule.onEmpty || 'skip';
       if (onEmpty !== 'skip') {
-        results.push(buildResult(rule, ruleSet, onEmpty, { expected: `${rule.forEach} populated`, actual: 'none decoded' }, rule.input, null, context, null, 0, false));
+        results.push(
+          buildResult(
+            rule,
+            ruleSet,
+            onEmpty,
+            { expected: `${rule.forEach} populated`, actual: 'none decoded' },
+            rule.input,
+            null,
+            context,
+            null,
+            0,
+            false
+          )
+        );
       }
       continue;
     }
     items.forEach((item, index) => {
       if (rule.itemWhen && !evalWhen(rule.itemWhen, context, item, constants)) return;
       const inputValue = rule.input ? resolvePath(rule.input, context, item) : item;
-      const wantsAbsence = rule.assert && (rule.assert.op === 'absent' || rule.assert.op === 'empty' || rule.assert.op === 'notEmpty' || rule.assert.op === 'present');
+      const wantsAbsence =
+        rule.assert &&
+        (rule.assert.op === 'absent' ||
+          rule.assert.op === 'empty' ||
+          rule.assert.op === 'notEmpty' ||
+          rule.assert.op === 'present');
       if (isEmptyValue(inputValue) && !wantsAbsence) {
         const onMissing = rule.onMissing || 'fail';
         if (onMissing === 'skip') return;
-        const status = onMissing === 'fail' ? (rule.failStatus || 'fail') : onMissing;
-        results.push(buildResult(rule, ruleSet, status, { expected: 'value present', actual: 'missing', message: rule.messages?.missing }, rule.input, inputValue, context, item, index, items.length > 1));
+        const status = onMissing === 'fail' ? rule.failStatus || 'fail' : onMissing;
+        results.push(
+          buildResult(
+            rule,
+            ruleSet,
+            status,
+            { expected: 'value present', actual: 'missing', message: rule.messages?.missing },
+            rule.input,
+            inputValue,
+            context,
+            item,
+            index,
+            items.length > 1
+          )
+        );
         return;
       }
       const assertRes = evalAssert(rule.assert, inputValue, context, item, constants);
-      const status = assertRes.pass ? 'pass' : (assertRes.status || rule.failStatus || 'fail');
-      results.push(buildResult(rule, ruleSet, status, assertRes, rule.input, inputValue, context, item, index, items.length > 1));
+      const status = assertRes.pass ? 'pass' : assertRes.status || rule.failStatus || 'fail';
+      results.push(
+        buildResult(rule, ruleSet, status, assertRes, rule.input, inputValue, context, item, index, items.length > 1)
+      );
     });
   }
   return results;

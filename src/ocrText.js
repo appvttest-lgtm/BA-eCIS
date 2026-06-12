@@ -14,19 +14,24 @@ async function getOcrWorker() {
     if (!createOcrWorkerPromise) {
       createOcrWorkerPromise = import('tesseract.js').then(module => module.createWorker);
     }
-    ocrWorkerPromise = createOcrWorkerPromise.then(createOcrWorker => createOcrWorker('eng', 1, {
-      workerPath: appAssetUrl('tesseract/worker.min.js'),
-      corePath: appAssetUrl('tesseract-core'),
-      langPath: appAssetUrl('tessdata'),
-      gzip: true,
-      cacheMethod: 'write'
-    })).then(async worker => {
-      await worker.setParameters({ preserve_interword_spaces: '1' });
-      return worker;
-    }).catch(error => {
-      ocrWorkerPromise = null;
-      throw error;
-    });
+    ocrWorkerPromise = createOcrWorkerPromise
+      .then(createOcrWorker =>
+        createOcrWorker('eng', 1, {
+          workerPath: appAssetUrl('tesseract/worker.min.js'),
+          corePath: appAssetUrl('tesseract-core'),
+          langPath: appAssetUrl('tessdata'),
+          gzip: true,
+          cacheMethod: 'write'
+        })
+      )
+      .then(async worker => {
+        await worker.setParameters({ preserve_interword_spaces: '1' });
+        return worker;
+      })
+      .catch(error => {
+        ocrWorkerPromise = null;
+        throw error;
+      });
   }
   return ocrWorkerPromise;
 }
