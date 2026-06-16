@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "vite build",
+    "build:portable": "node scripts/build-portable.mjs",
     "test": "node --test",
     "lint": "eslint .",
     "sbom": "npm sbom --sbom-format cyclonedx > docs/security/sbom.cyclonedx.json",
@@ -32,7 +33,7 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "tesseract.js": "7.0.0",
-    "vite": "5.4.21",
+    "vite": "^8.0.16",
     "zxing-wasm": "3.0.3"
   }
 }
