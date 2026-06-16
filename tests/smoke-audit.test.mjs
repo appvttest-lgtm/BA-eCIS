@@ -188,3 +188,35 @@ expect('ST-QR-F24 skipped for despatch movement', !find(startrackAudit, 'ST-QR-F
 expect('ST-PRD-01 product allowed for express', find(startrackAudit, 'ST-PRD-01')?.status === 'pass');
 const stFails = (startrackAudit.validations || []).filter(r => r.status === 'fail');
 expect('no failures on conforming label', stFails.length === 0, stFails.map(r => `${r.id}: ${r.message}`).join(' | '));
+
+// --- SSCC is proven by the linear scan, never borrowed from the Data Matrix ---
+// A GS1 Data Matrix legitimately repeats AI (00) SSCC, but the SSCC barcode check
+// must reflect the linear scan being to spec - the DM value must not stand in for it.
+const ssccValue = '00393153450000000700';
+const ssccInDmOnly = auditLabel({
+  carrier: 'eparcel',
+  labelFamily: 'eparcel',
+  labelFormat: 'sscc',
+  fileInfo: { name: 'sscc-dm.pdf', widthMm: 150, heightMm: 100, pageCount: 1 },
+  detectedBarcodes: [{ rawValue: `${ssccValue}|4202190|8008250609142233`, format: 'data_matrix' }],
+  extractedText: ['Parcel Post', 'CHULLORA NSW 2190'].join('\n')
+});
+expect(
+  'EP-SS-01 does not pass when the SSCC is only in the Data Matrix',
+  find(ssccInDmOnly, 'EP-SS-01')?.status !== 'pass',
+  find(ssccInDmOnly, 'EP-SS-01')?.message
+);
+
+const ssccInLinear = auditLabel({
+  carrier: 'eparcel',
+  labelFamily: 'eparcel',
+  labelFormat: 'sscc',
+  fileInfo: { name: 'sscc-linear.pdf', widthMm: 150, heightMm: 100, pageCount: 1 },
+  detectedBarcodes: [{ rawValue: ssccValue, format: 'code_128' }],
+  extractedText: ['Parcel Post', 'CHULLORA NSW 2190'].join('\n')
+});
+expect(
+  'EP-SS-01 passes when the SSCC is carried by the linear barcode',
+  find(ssccInLinear, 'EP-SS-01')?.status === 'pass',
+  find(ssccInLinear, 'EP-SS-01')?.message
+);

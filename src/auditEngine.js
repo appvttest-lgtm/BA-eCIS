@@ -856,6 +856,23 @@ function decodedRawValues(detectedBarcodes) {
   return detectedBarcodes.map(b => b.rawValue || b.raw || b.text || '').filter(Boolean);
 }
 
+// The SSCC is an article identifier that, per spec, must be carried by the linear
+// (Code 128 / GS1-128) barcode. A GS1 Data Matrix on the same label legitimately
+// repeats AI (00) SSCC, so parsing SSCC from any decoded symbol would let the Data
+// Matrix stand in for an absent or unreadable linear barcode. Classify by decoded
+// symbology only (never by payload content - a real SSCC's digits can coincidentally
+// contain "8008"/"420") so the SSCC check reflects the linear scan being to spec.
+function decodedLinearRawValues(detectedBarcodes) {
+  return detectedBarcodes
+    .filter(b => {
+      const fmt = String(b.format || b.symbology || '');
+      if (/data[_\s-]?matrix|qr/i.test(fmt)) return false;
+      return /code[_\s-]?128|gs1/i.test(fmt) || b.kind === 'linear';
+    })
+    .map(b => b.rawValue || b.raw || b.text || '')
+    .filter(Boolean);
+}
+
 // Manual entries are useful for investigation counts, but never substitute for decoded barcode proof.
 function diagnosticManualValues(manualBarcodes) {
   return String(manualBarcodes || '')
@@ -1386,7 +1403,9 @@ function auditEparcelLabel({
   const parsed = allRawBarcodes.map(raw =>
     looksLikeDataMatrix(raw) ? parseGs1DataMatrix(raw) : parseEparcelBarcode(raw)
   );
-  const ssccParses = allRawBarcodes
+  // SSCC is proven by the linear barcode only (EP-SS-01); never let a GS1 Data
+  // Matrix that repeats AI (00) SSCC stand in for the linear scan.
+  const ssccParses = decodedLinearRawValues(detectedBarcodes)
     .map(parseSsccBarcode)
     .filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
   const validSsccs = ssccParses.filter(p => p.valid);
@@ -1884,7 +1903,10 @@ function auditStarTrackLabel({
       return parsed.valid && Number.isInteger(b.barCount) ? { ...parsed, barCount: b.barCount } : parsed;
     })
     .filter(p => p.valid);
-  const ssccParses = decodedValues
+  // SSCC is an article identifier carried by the linear (Code 128) freight barcode,
+  // so parse it from linear decodes only. Sourcing from every decoded value would let
+  // a "00" + 18-digit run inside the QR payload masquerade as an SSCC article.
+  const ssccParses = linearValues
     .map(parseSsccBarcode)
     .filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
   const validSsccs = ssccParses.filter(p => p.valid);
@@ -1935,9 +1957,9 @@ function auditStarTrackLabel({
   );
   validations.push(...validateStarTrackTextFacts(facts));
   // SSCC validation only runs when the user explicitly selected SSCC mode, or when
-  // auto-detection found only SSCC barcodes (no freight item barcodes). On standard
-  // labels, parseSsccBarcode can match digit sequences inside the QR payload, producing
-  // false CRITICAL failures — so we suppress those results here.
+  // auto-detection found only SSCC barcodes (no freight item barcodes). SSCC is now
+  // parsed from linear decodes only, but the gate still keeps a coincidental "00" +
+  // 18-digit linear run on a standard label from raising false CRITICAL failures.
   if (ssccOnly) {
     validations.push(
       ...validateExpectedSsccPrefix({
