@@ -102,6 +102,124 @@ export function thresholdCanvas(sourceCanvas, threshold = BINARY_THRESHOLD_DEFAU
   return out;
 }
 
+/**
+ * Returns a smoothly-upscaled, unsharp-masked grayscale copy. Used as an extra decode
+ * variant to recover crisp bar edges on blurry or low-resolution barcode crops. This
+ * copy is only ever fed to the decoder; the original canvas still backs every evidence
+ * crop, so the report image stays true to the source document.
+ */
+export function sharpenCanvas(sourceCanvas, factor = 2, amount = 1.0) {
+  const out = document.createElement('canvas');
+  out.width = Math.max(1, Math.round(sourceCanvas.width * factor));
+  out.height = Math.max(1, Math.round(sourceCanvas.height * factor));
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
+  const w = out.width;
+  const h = out.height;
+  const image = ctx.getImageData(0, 0, w, h);
+  const data = image.data;
+  const n = w * h;
+  const gray = new Float32Array(n);
+  for (let i = 0; i < n; i += 1) {
+    const o = i * 4;
+    gray[i] = data[o] * 0.299 + data[o + 1] * 0.587 + data[o + 2] * 0.114;
+  }
+  // Separable 3x3 box blur, then amplify (original - blur) to crisp the edges.
+  const tmp = new Float32Array(n);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const i = y * w + x;
+      const l = x > 0 ? gray[i - 1] : gray[i];
+      const r = x < w - 1 ? gray[i + 1] : gray[i];
+      tmp[i] = (l + gray[i] + r) / 3;
+    }
+  }
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const i = y * w + x;
+      const u = y > 0 ? tmp[i - w] : tmp[i];
+      const d = y < h - 1 ? tmp[i + w] : tmp[i];
+      const blur = (u + tmp[i] + d) / 3;
+      const v = Math.max(0, Math.min(255, gray[i] + amount * (gray[i] - blur)));
+      const o = i * 4;
+      data[o] = data[o + 1] = data[o + 2] = v;
+      data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  return out;
+}
+
+/**
+ * Gentle, colour-preserving contrast stretch (2nd-98th luminance percentile),
+ * applied in place. Only stretches when the dynamic range is compressed, so a clean
+ * full-range scan (or a crisp PDF render) is left untouched. Content is preserved -
+ * the remap is monotonic, so bar/space and glyph relationships are never inverted.
+ */
+function normalizeCanvasContrast(ctx, width, height) {
+  const image = ctx.getImageData(0, 0, width, height);
+  const data = image.data;
+  const total = width * height;
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < data.length; i += 4) {
+    hist[(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) | 0] += 1;
+  }
+  let lo = 0;
+  let hi = 255;
+  let cum = 0;
+  for (let v = 0; v < 256; v += 1) {
+    cum += hist[v];
+    if (cum >= total * 0.02) {
+      lo = v;
+      break;
+    }
+  }
+  cum = 0;
+  for (let v = 255; v >= 0; v -= 1) {
+    cum += hist[v];
+    if (cum >= total * 0.02) {
+      hi = v;
+      break;
+    }
+  }
+  if (hi <= lo || hi - lo >= 205) return false; // already full-range: leave the input untouched
+  const gain = 255 / (hi - lo);
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.max(0, Math.min(255, (data[i] - lo) * gain));
+    data[i + 1] = Math.max(0, Math.min(255, (data[i + 1] - lo) * gain));
+    data[i + 2] = Math.max(0, Math.min(255, (data[i + 2] - lo) * gain));
+  }
+  ctx.putImageData(image, 0, 0);
+  return true;
+}
+
+/**
+ * Upfront, content-preserving quality pass run on every rendered page/image before any
+ * decode or OCR, so downstream operations work from the most readable copy possible
+ * instead of being limited by the raw file's presentation.
+ *
+ * It deliberately does NOT resize: smoothly upscaling the shared canvas blurs barcode
+ * bars and can drop an otherwise-decodable symbol, while nearest-neighbour upscaling
+ * hurts OCR. Resolution is therefore handled per operation - crisp nearest-neighbour
+ * variants when decoding, smooth upscale + sharpen when running OCR. The one globally
+ * safe lift is a gentle, monotonic contrast stretch that rescues faded/low-contrast
+ * scans for both decode and OCR without altering geometry or values.
+ *
+ * Returns `{ canvas, factor }`; `factor` is always 1 (no resize) and is kept so callers
+ * can report the true source resolution unconditionally.
+ */
+export function enhanceInputForQuality(canvas) {
+  const out = document.createElement('canvas');
+  out.width = canvas.width;
+  out.height = canvas.height;
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(canvas, 0, 0); // same-size copy: an exact, non-interpolated duplicate
+  const contrastApplied = normalizeCanvasContrast(ctx, out.width, out.height);
+  return { canvas: out, factor: 1, contrastApplied };
+}
+
 /** Returns a copy with a white quiet-zone border added on all sides. */
 export function addWhiteBorder(sourceCanvas, borderRatio = 0.1) {
   const border = Math.max(12, Math.round(Math.min(sourceCanvas.width, sourceCanvas.height) * borderRatio));
@@ -249,13 +367,21 @@ export function countLinearBars(canvas, box) {
 }
 
 /** Encodes the canvas as a bounded-width JPEG/PNG data URL for report embedding. */
+export const CROP_MAX_DISPLAY_UPSCALE = 4;
+
 export function canvasToDataUrl(sourceCanvas, maxWidth = 700, mime = 'image/jpeg', quality = 0.86) {
   if (!sourceCanvas?.width || !sourceCanvas?.height) return '';
-  const scale = Math.min(1, maxWidth / sourceCanvas.width);
+  // Scale evidence crops up to fill the display width so low-resolution barcodes/text stay
+  // legible. Upscaling uses nearest-neighbour: an honest, content-preserving magnification
+  // that invents no detail (capped to avoid extreme blockiness). Downscaling stays smooth
+  // to avoid aliasing. The source pixels are untouched - this only affects the report image.
+  const scale = Math.min(CROP_MAX_DISPLAY_UPSCALE, maxWidth / sourceCanvas.width);
   const out = document.createElement('canvas');
   out.width = Math.max(1, Math.round(sourceCanvas.width * scale));
   out.height = Math.max(1, Math.round(sourceCanvas.height * scale));
   const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = scale < 1;
+  if (scale < 1) ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
   try {
     return out.toDataURL(mime, quality);

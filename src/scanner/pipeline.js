@@ -5,7 +5,7 @@ import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { readBarcodes as readWasmBarcodes } from 'zxing-wasm/reader';
 import { mergeExtractedText, recognizeCanvasText } from '../ocrText.js';
 import { isUprightOrientation, pickRotationCandidates, findLabelRegions } from '../preprocess.js';
-import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from './barcodeTypes.js';
+import { FORMAT_KIND } from './barcodeTypes.js';
 import { debugWarn } from './debugLog.js';
 import {
   clampBox,
@@ -13,6 +13,8 @@ import {
   cropCanvas,
   scaleCanvas,
   thresholdCanvas,
+  sharpenCanvas,
+  enhanceInputForQuality,
   addWhiteBorder,
   trimDarkBounds,
   squareCanvas,
@@ -36,10 +38,10 @@ export const MAX_IMAGE_PIXELS = 50_000_000;
 export const PDF_TEXT_LAYER_MIN_USEFUL_CHARS = 80;
 
 export const SCAN_VARIANT_LABELS = {
-  linear: ['original', 'trimmed + border', '2x nearest', '4x nearest', 'threshold 150', 'threshold 185'],
-  qr: ['original', 'trimmed + border', '2x nearest', 'square pure 2x'],
-  datamatrix: ['original', 'trimmed + border', '2x nearest', '4x nearest', 'threshold 150', 'square pure 2x'],
-  mixed: ['original', 'trimmed + border', '2x nearest']
+  linear: ['original', 'trimmed + border', '2x nearest', '4x nearest', 'threshold 150', 'threshold 185', 'sharpen 2x'],
+  qr: ['original', 'trimmed + border', '2x nearest', 'square pure 2x', 'sharpen 2x'],
+  datamatrix: ['original', 'trimmed + border', '2x nearest', '4x nearest', 'threshold 150', 'square pure 2x', 'sharpen 2x'],
+  mixed: ['original', 'trimmed + border', '2x nearest', 'sharpen 2x']
 };
 
 export const SCAN_TRIM_SETTINGS = {
@@ -77,6 +79,8 @@ export function makeScanVariants(baseCanvas, kind, labels = null) {
   add('4x nearest', () => scaleCanvas(bordered, 4));
   add('threshold 150', () => thresholdCanvas(getBordered2x(), 150), { binarizer: 'FixedThreshold' });
   add('threshold 185', () => thresholdCanvas(getBordered2x(), 185), { binarizer: 'FixedThreshold' });
+  // Smooth-upscale + unsharp: recovers crisp bar edges on blurry/low-resolution input.
+  add('sharpen 2x', () => sharpenCanvas(bordered, 2, 1.0));
   if (kind === FORMAT_KIND.datamatrix || kind === FORMAT_KIND.qr) {
     add('square pure 2x', () => scaleCanvas(squareCanvas(trimmed, 0.2), 2), {
       isPure: true,
@@ -161,28 +165,6 @@ export function makeTarget(sourceCanvas, kind, label, x, y, w, h, formats) {
       ? sourceCanvas
       : cropCanvas(sourceCanvas, x, y, w, h);
   return { kind, label, x, y, w, h, canvas: targetCanvas, formats };
-}
-
-/** True when any decoded barcode matches the given kind. */
-export function hasBarcodeKind(barcodes, kind) {
-  return (barcodes || []).some(barcode =>
-    kind === FORMAT_KIND.qr
-      ? isQrBarcode(barcode)
-      : kind === FORMAT_KIND.datamatrix
-        ? isDataMatrixBarcode(barcode)
-        : kind === FORMAT_KIND.linear
-          ? isLinearBarcode(barcode) && !isDataMatrixBarcode(barcode) && !isQrBarcode(barcode)
-          : false
-  );
-}
-
-/** Skips the expensive full-page scan when targeted scans already found everything. */
-export function shouldSkipFullPageSafetyScan(found, labelFamily = 'eparcel') {
-  const unique = dedupeBarcodes(found);
-  if (labelFamily === 'startrack') {
-    return unique.length >= 3 && hasBarcodeKind(unique, FORMAT_KIND.qr);
-  }
-  return unique.length >= 2;
 }
 
 /** Plans the ordered list of crop scan targets for the carrier label family. */
@@ -473,14 +455,11 @@ export async function detectOnCanvas(canvas, detector, pageNumber = 1, onDebug =
   const scanDiagnostics = [];
   const targets = buildCategorizedScanTargets(canvas, labelFamily);
 
+  // The full-page safety scan now always runs (never skipped): a barcode that a
+  // targeted per-role crop misses - like an ATL that reads from the whole label but
+  // not its tight crop - must still be captured, so value capture never depends on
+  // crop alignment. Each target's own variants already include a sharpen+upscale pass.
   for (const target of targets) {
-    if (target.kind === FORMAT_KIND.mixed && shouldSkipFullPageSafetyScan(found, labelFamily)) {
-      const decodedCount = dedupeBarcodes(found).length;
-      scanDiagnostics.push(scanDiagnostic(target, [], pageNumber, 0, { skipped: true }));
-      onDebug?.(`Skipped ${target.label}; targeted scans already found ${decodedCount} barcode candidate(s)`, 0);
-      continue;
-    }
-
     const scanStart = performance.now();
     const decoded = await scanTargetWithAllEngines(target, detector, pageNumber);
     const durationMs = performance.now() - scanStart;
@@ -666,8 +645,19 @@ export async function processImageLabels(file, detector, onDebug = null, labelFa
     ctx.drawImage(img, 0, 0);
     mark('Rendered image to canvas', drawStart);
     await yieldToBrowser();
+    // First step: normalize input quality (upscale small scans, lift faded contrast)
+    // so every later operation reads the clearest copy. The factor lets us still report
+    // the true source resolution rather than the enhanced one.
+    const enhanceStart = performance.now();
+    const enhanced = enhanceInputForQuality(baseCanvas);
+    const qualityFactor = enhanced.factor;
+    mark(
+      `Quality preprocess (image ${file.name}): contrast ${enhanced.contrastApplied ? 'normalized for faded scan' : 'already full-range, left unchanged'}`,
+      enhanceStart
+    );
+    await yieldToBrowser();
 
-    const oriented = await normalizeCanvasOrientation(baseCanvas, mark, `image ${file.name}`);
+    const oriented = await normalizeCanvasOrientation(enhanced.canvas, mark, `image ${file.name}`);
     await yieldToBrowser();
     const segments = segmentLabelCanvases(oriented.canvas, mark, `image ${file.name}`);
 
@@ -676,8 +666,6 @@ export async function processImageLabels(file, detector, onDebug = null, labelFa
       const canvas = segments[segIndex].canvas;
       const segLabel = segments.length > 1 ? `label ${segIndex + 1} of ${segments.length}` : null;
       const segContext = `image ${file.name}${segLabel ? ` ${segLabel}` : ''}`;
-      const ocrText = await recognizeCanvasText(canvas, mark, segContext);
-      await yieldToBrowser();
       const visualStart = performance.now();
       const visualEvidence = detectVisualBarcodeEvidence(canvas);
       mark(`Checked visual barcode evidence (${segContext})`, visualStart);
@@ -690,14 +678,22 @@ export async function processImageLabels(file, detector, onDebug = null, labelFa
       const imageStart = performance.now();
       const labelImages = createLabelImages(canvas, detected, labelFamily);
       mark(`Generated label preview and barcode crops (${segContext})`, imageStart);
+      await yieldToBrowser();
+      // OCR is the final information grab: barcodes are the primary source of truth,
+      // so they are decoded first; OCR then reads the whole label as text to supplement
+      // them for validation (the label prints every barcode value in human-readable form,
+      // so OCR backs up any value a barcode failed to decode).
+      const ocr = await recognizeCanvasText(canvas, mark, segContext);
+      const ocrText = ocr.text;
+      await yieldToBrowser();
 
       labels.push({
         fileInfo: {
           filename: file.name,
           fileType: file.type || 'image',
           pageCount: 1,
-          pixelWidth: canvas.width,
-          pixelHeight: canvas.height,
+          pixelWidth: Math.round(canvas.width / qualityFactor),
+          pixelHeight: Math.round(canvas.height / qualityFactor),
           widthMm: null,
           heightMm: null,
           pageLabel: segLabel || undefined,
@@ -707,7 +703,8 @@ export async function processImageLabels(file, detector, onDebug = null, labelFa
             segmentCount: segments.length
           },
           note: 'Raster images do not reliably expose physical DPI. A6 dimensions are assumed for layout heuristics.',
-          textSources: ocrText ? ['ocr'] : []
+          textSources: ocrText ? ['ocr'] : [],
+          ocr: { status: ocr.status, charCount: ocr.charCount, detail: ocr.detail }
         },
         detectedBarcodes: detected,
         visualEvidence,
@@ -770,8 +767,18 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
     await page.render({ canvasContext: ctx, viewport }).promise;
     mark(`Rendered page ${pageNumber} to canvas (${renderCanvas.width}x${renderCanvas.height}px)`, renderStart);
     await yieldToBrowser();
+    // First step: normalize input quality. High-DPI vector renders are already
+    // full-range and pass through; this mainly lifts faded contrast on scanned-image PDFs.
+    const enhanceStart = performance.now();
+    const enhanced = enhanceInputForQuality(renderCanvas);
+    const qualityFactor = enhanced.factor;
+    mark(
+      `Quality preprocess (page ${pageNumber}): contrast ${enhanced.contrastApplied ? 'normalized for faded scan' : 'already full-range, left unchanged'}`,
+      enhanceStart
+    );
+    await yieldToBrowser();
 
-    const oriented = await normalizeCanvasOrientation(renderCanvas, mark, `page ${pageNumber}`);
+    const oriented = await normalizeCanvasOrientation(enhanced.canvas, mark, `page ${pageNumber}`);
     const rotatedQuarter = oriented.rotation === 90 || oriented.rotation === 270;
     const orientedMm = rotatedQuarter ? { widthMm: pageMm.heightMm, heightMm: pageMm.widthMm } : pageMm;
     // Only hunt for multiple labels when the sheet is bigger than any single
@@ -794,15 +801,6 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
       const useTextLayer = !isSegmented && oriented.rotation === 0;
       const segLines = useTextLayer ? pageLines : [];
       const shouldOcrPage = useTextLayer ? pdfTextLayerNeedsOcr(segLines) : true;
-      const ocrText = shouldOcrPage ? await recognizeCanvasText(canvas, mark, segContext) : '';
-      if (!shouldOcrPage) {
-        mark(
-          `Skipped OCR on page ${pageNumber}; selectable PDF text layer provided sufficient audit text`,
-          performance.now()
-        );
-      }
-      const extractedText = mergeExtractedText(segLines.join('\n'), ocrText);
-      await yieldToBrowser();
       const visualStart = performance.now();
       const visualEvidence = detectVisualBarcodeEvidence(canvas);
       mark(`Checked visual barcode evidence on ${segContext}`, visualStart);
@@ -815,6 +813,22 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
       const imageStart = performance.now();
       const labelImages = createLabelImages(canvas, detected, labelFamily);
       mark(`Generated ${segContext} label preview and barcode crops`, imageStart);
+      await yieldToBrowser();
+      // OCR is the final information grab, after barcodes are decoded. It runs on the
+      // rendered page only when the selectable PDF text layer is too sparse to audit;
+      // its text is merged with the text layer to supplement the decoded barcodes.
+      const ocr = shouldOcrPage
+        ? await recognizeCanvasText(canvas, mark, segContext)
+        : { text: '', status: 'skipped', charCount: 0, detail: 'Selectable PDF text layer was sufficient; OCR not required.' };
+      const ocrText = ocr.text;
+      if (!shouldOcrPage) {
+        mark(
+          `Skipped OCR on page ${pageNumber}; selectable PDF text layer provided sufficient audit text`,
+          performance.now()
+        );
+      }
+      const extractedText = mergeExtractedText(segLines.join('\n'), ocrText);
+      await yieldToBrowser();
 
       const basePageLabel = pdf.numPages > 1 ? `page ${pageNumber} of ${pdf.numPages}` : 'page 1';
       labels.push({
@@ -828,8 +842,8 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
           widthMm: isSegmented && region ? orientedMm.widthMm * (region.w / oriented.canvas.width) : orientedMm.widthMm,
           heightMm:
             isSegmented && region ? orientedMm.heightMm * (region.h / oriented.canvas.height) : orientedMm.heightMm,
-          pixelWidth: canvas.width,
-          pixelHeight: canvas.height,
+          pixelWidth: Math.round(canvas.width / qualityFactor),
+          pixelHeight: Math.round(canvas.height / qualityFactor),
           preprocess: {
             rotationApplied: oriented.rotation,
             segmentIndex: segIndex + 1,
@@ -838,7 +852,8 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
           note: isSegmented
             ? 'Label region cropped from a multi-label sheet and audited as an individual label.'
             : 'PDF page rendered locally in the browser and audited as an individual label.',
-          textSources: [...(segLines.length ? ['pdf-text-layer'] : []), ...(ocrText ? ['ocr'] : [])]
+          textSources: [...(segLines.length ? ['pdf-text-layer'] : []), ...(ocrText ? ['ocr'] : [])],
+          ocr: { status: ocr.status, charCount: ocr.charCount, detail: ocr.detail }
         },
         detectedBarcodes: detected,
         visualEvidence,

@@ -12,35 +12,34 @@
     {
       "id": "ST-LAY-01",
       "title": "StarTrack label dimensions",
-      "description": "Despatch labels are 100 x 150 mm (optionally 100 x 200 mm with the top 150 mm reserved for StarTrack); controlled returns/transfer labels are 150 x 100 mm.",
+      "description": "Despatch labels are 100 x 150 mm (optionally 100 x 200 mm with the top 150 mm reserved for StarTrack); controlled returns/transfer labels are 150 x 100 mm. Page size is a presentation concern, not label content, so a mismatch or an unmeasurable raster image is reported as an informational note rather than driving the label to review.",
       "obligation": "mandatory",
-      "severity": "WARNING",
+      "severity": "INFO",
       "category": "startrack-label-layout",
       "source": { "doc": "MOS v9", "ref": "1.001 / 3.001" },
       "input": "page",
-      "assert": { "op": "fn", "name": "pageSizeWithin", "args": { "sizesMm": [[100, 150], [100, 200], [150, 100]], "toleranceMm": 10 } },
-      "onMissing": "manual_review",
-      "failStatus": "warning",
+      "assert": { "op": "fn", "name": "pageSizeWithin", "args": { "sizesMm": [[100, 150], [100, 200], [150, 100]], "toleranceMm": 10, "unverifiedStatus": "info" } },
+      "failStatus": "info",
       "messages": {
         "pass": "Page dimensions match an accepted StarTrack label size ({actual}).",
-        "fail": "Page dimensions do not match the accepted StarTrack label sizes ({actual}).",
-        "missing": "Physical dimensions could not be determined. Review whether the label is 100 x 150 mm, 100 x 200 mm or 150 x 100 mm."
+        "fail": "Page size ({actual}) is not a standard StarTrack label size. Presentation note only - the label content is audited regardless."
       }
     },
     {
       "id": "ST-HDR-01",
       "title": "StarTrack logo/header",
-      "description": "The P-StarTrack logo must appear on the left side of the label header.",
+      "description": "The P-StarTrack logo must appear on the left side of the label header. A decoded StarTrack barcode is authoritative proof of label identity and confirms this; otherwise the header wordmark must be found in the extracted text.",
       "obligation": "mandatory",
       "severity": "INFO",
       "category": "startrack-label-layout",
       "source": { "doc": "MOS v9", "ref": "1.002" },
-      "input": "text.hasStarTrackHeader",
+      "input": "derived.starTrackConfirmed",
       "assert": { "op": "equals", "value": true },
+      "evidence": ["barcodes.qrPresent", "text.hasStarTrackHeader"],
       "failStatus": "manual_review",
       "messages": {
-        "pass": "StarTrack header text was found.",
-        "fail": "StarTrack logo/header may be image-only or was not extracted as text. Confirm on the preview."
+        "pass": "StarTrack label confirmed from a decoded barcode and/or header text. Verify the logo placement on the preview.",
+        "fail": "Could not confirm a StarTrack label: no StarTrack barcode decoded and no header wordmark in the extracted text. Check the logo on the preview."
       }
     },
     {

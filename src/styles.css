@@ -200,6 +200,23 @@ th {
   white-space: nowrap;
   background: #eee;
 }
+/* Provenance pills: mark each rule field as barcode-decoded vs visible-text/OCR. */
+.prov-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.prov-barcode { background: #e7f0ff; color: #0d4f9b; border-color: #c3dbff; }
+.prov-text { background: #fff0c2; color: #7a4b00; border-color: #f2d27e; }
+.prov-derived { background: #eef1f5; color: #53606d; border-color: #d7dde5; }
+.prov-meta { background: #f1f4f8; color: #5b6672; border-color: #e0e6ee; }
+
 .badge-critical, .badge-fail, .badge-error { background: #ffe1e5; color: #a00018; }
 .badge-warning, .badge-review { background: #fff0c2; color: #7a4b00; }
 .badge-info, .badge-not_applicable, .badge-manual_review { background: #e7f0ff; color: #0d4f9b; }
@@ -228,7 +245,26 @@ details summary { cursor: pointer; color: #0d4f9b; margin-top: 6px; }
   font-weight: 700;
 }
 .review-list { margin-top: 14px; border-top: 1px solid #ececec; padding-top: 10px; }
-.review-list h3 { margin: 0 0 8px; }
+.review-list > summary {
+  margin: 0;
+  font-size: var(--text-heading);
+  font-weight: 800;
+  color: var(--color-text);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.review-list > summary::-webkit-details-marker { display: none; }
+.review-list > summary::before {
+  content: '▾';
+  font-size: 0.8em;
+  color: #0d4f9b;
+  transition: transform 0.15s ease;
+}
+.review-list:not([open]) > summary::before { transform: rotate(-90deg); }
+.review-list > summary .review-count { font-weight: 600; color: var(--color-muted); font-size: 0.8em; }
+.review-list > ul { margin-top: 8px; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .section-heading h2 { margin: 0; }
 .section-status {
@@ -621,6 +657,20 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
 .dropzone-disabled {
   opacity: .65;
   cursor: not-allowed;
+}
+/* Placeholder shown in place of the upload box until both audit-mode choices are made. */
+.dropzone-pending {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 130px;
+  margin: 0;
+  border: 2px dashed #d3dae3;
+  border-radius: 18px;
+  background: repeating-linear-gradient(135deg, #f7f9fc 0 12px, #f1f4f8 12px 24px);
+  padding: 18px;
+  text-align: center;
+  font-weight: 600;
 }
 .file-input-hidden {
   position: absolute;

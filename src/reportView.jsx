@@ -9,7 +9,8 @@ const STATUS_LABELS = {
   fail: 'FAIL',
   warning: 'WARNING',
   manual_review: 'MANUAL REVIEW',
-  not_applicable: 'N/A'
+  not_applicable: 'N/A',
+  info: 'INFO'
 };
 
 function statusKey(status) {
@@ -30,6 +31,34 @@ function formatInputValue(value) {
   } catch {
     return String(value);
   }
+}
+
+// Maps a rule input path to its data provenance so every field is clearly marked
+// as coming from a decoded barcode versus visible text / OCR. Barcode decode is the
+// source of truth; text is only ever cross-checked against it, never a value source.
+const PROVENANCE = {
+  barcode: { label: 'Decoded barcode', cls: 'prov-barcode' },
+  qr: { label: 'QR payload (decoded)', cls: 'prov-barcode' },
+  text: { label: 'Visible text / OCR', cls: 'prov-text' },
+  derived: { label: 'Derived / expected', cls: 'prov-derived' },
+  meta: { label: 'Document / selection', cls: 'prov-meta' }
+};
+
+/** Classifies a rule input/evidence path (e.g. "barcodes.atl", "text.toBlock") by data source. */
+export function fieldProvenance(path) {
+  const p = String(path || '');
+  if (/^text(\.|$)/.test(p)) return PROVENANCE.text;
+  if (/^item\.fields(\.|$)/.test(p)) return PROVENANCE.qr;
+  if (/^(barcodes|item|articles)(\.|$)/.test(p)) return PROVENANCE.barcode;
+  if (/^derived(\.|$)/.test(p)) return PROVENANCE.derived;
+  return PROVENANCE.meta;
+}
+
+/** Small pill that labels where a rule's data came from (barcode scan vs text/OCR). */
+function ProvenanceBadge({ path }) {
+  if (!path) return null;
+  const prov = fieldProvenance(path);
+  return <span className={`prov-badge ${prov.cls}`}>{prov.label}</span>;
 }
 
 function RuleRow({ v, standardFor, showPayload, renderPayload }) {
@@ -80,12 +109,16 @@ function RuleRow({ v, standardFor, showPayload, renderPayload }) {
                 <p className="rule-kv">
                   <span className="rule-kv-label">Source</span>
                   <code>{v.input.path}</code>
+                  <ProvenanceBadge path={v.input.path} />
                 </p>
               )}
               {inputValue && <pre className="rule-input-value">{inputValue}</pre>}
               {(v.input?.evidence || []).map(e => (
                 <div key={e.path} className="rule-kv-block">
-                  <span className="rule-kv-label">{e.path}</span>
+                  <span className="rule-kv-label">
+                    <code>{e.path}</code>
+                    <ProvenanceBadge path={e.path} />
+                  </span>
                   <pre>{formatInputValue(e.value)}</pre>
                 </div>
               ))}

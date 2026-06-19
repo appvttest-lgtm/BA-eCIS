@@ -833,8 +833,10 @@ function AuditBookmarks({ audit, sections }) {
         ))}
       </div>
       {reviewItems.length > 0 && (
-        <div className="review-list">
-          <h3 id="review-bookmarks">Review bookmarks</h3>
+        <details className="review-list" open>
+          <summary id="review-bookmarks">
+            Review bookmarks <span className="review-count">({reviewItems.length})</span>
+          </summary>
           <ul>
             {reviewItems.map(v => (
               <li key={v.id}>
@@ -842,7 +844,7 @@ function AuditBookmarks({ audit, sections }) {
               </li>
             ))}
           </ul>
-        </div>
+        </details>
       )}
     </section>
   );
@@ -1665,6 +1667,30 @@ function ServiceArticleBreakdownSection({ audit, items }) {
   );
 }
 
+/**
+ * Plain-language description of where a label's audit text came from, so a
+ * reviewer can tell selectable PDF text, successful OCR, and a failed/empty OCR
+ * run apart instead of seeing only "No raw text extracted".
+ */
+function describeTextSource(fileInfo) {
+  const sources = fileInfo?.textSources || [];
+  const ocr = fileInfo?.ocr || null;
+  const hasPdf = sources.includes('pdf-text-layer');
+  const hasOcr = sources.includes('ocr');
+  if (hasPdf && hasOcr) return 'Text source: selectable PDF text layer plus OCR of the rendered page.';
+  if (hasPdf) return 'Text source: selectable PDF text layer (image OCR was not required).';
+  if (hasOcr)
+    return `Text source: OCR of the label image${ocr?.charCount ? ` — ${ocr.charCount} characters read` : ''}.`;
+  if (!ocr) return 'Text source: none — no selectable text was found and OCR did not run.';
+  if (ocr.status === 'failed')
+    return `OCR could not run on this image (engine error: ${ocr.detail || 'unknown'}). See the scan log below for details.`;
+  if (ocr.status === 'empty') return 'OCR ran on the label image but found no readable text.';
+  if (ocr.status === 'low')
+    return `OCR found only ${ocr.charCount} character${ocr.charCount === 1 ? '' : 's'} — below the usefulness threshold, so it was treated as no text.`;
+  if (ocr.status === 'skipped') return 'OCR was skipped because the selectable PDF text layer was sufficient.';
+  return 'Text source: none.';
+}
+
 function TextContentSection({ audit, items, otherItems }) {
   const facts = audit?.labelFacts || {};
   return (
@@ -1698,6 +1724,7 @@ function TextContentSection({ audit, items, otherItems }) {
         <div>
           <strong>Raw extracted text</strong>
           <pre>{audit.extractedText || 'No raw text extracted.'}</pre>
+          <p className="small muted">{describeTextSource(audit?.fileInfo)}</p>
         </div>
       </div>
       <ValidationTable items={items} />
@@ -1770,8 +1797,11 @@ function App() {
   // Optional Get Shipments payload pasted by the user. It is never sent anywhere; it is
   // parsed locally and compared only after the label identity appears to match.
   const [manifestJson, setManifestJson] = useState('');
-  const [selectedCarrier, setSelectedCarrier] = useState('eparcel');
-  const [selectedLabelFormat, setSelectedLabelFormat] = useState('standard');
+  // No carrier or label format is pre-selected: the user must consciously choose
+  // both before the upload box is revealed, so a label is never audited against a
+  // defaulted (and possibly wrong) rule set.
+  const [selectedCarrier, setSelectedCarrier] = useState(null);
+  const [selectedLabelFormat, setSelectedLabelFormat] = useState(null);
   const [ssccExtensionDigit, setSsccExtensionDigit] = useState('');
   const [ssccCompanyPrefix, setSsccCompanyPrefix] = useState('');
   const [workflow, dispatch] = useReducer(workflowReducer, INITIAL_WORKFLOW);
@@ -1779,6 +1809,8 @@ function App() {
 
   const { processing, scanDebugLines, message, scanDatas, audits, activeIndex } = workflow;
   const setMessage = text => dispatch({ type: 'message', message: text });
+  // The upload box stays hidden until both audit-mode choices are made.
+  const auditModeReady = Boolean(selectedCarrier && selectedLabelFormat);
 
   const activeAudit = audits[activeIndex] || null;
   const activeScanData = scanDatas[activeIndex] || null;
@@ -1809,6 +1841,10 @@ function App() {
 
   /** Starts the full audit immediately after a user drops or chooses files. */
   async function acceptSelectedFiles(selectedFiles) {
+    if (!selectedCarrier || !selectedLabelFormat) {
+      setMessage('Select a carrier branch and a label format before uploading a label.');
+      return;
+    }
     const { accepted, rejected } = normaliseSelectedFiles(selectedFiles);
     const selected = accepted.slice(0, MAX_FILES_PER_BATCH);
     const limitMessages = [
@@ -2019,33 +2055,43 @@ function App() {
               </div>
             </div>
           </div>
-          <label
-            className={`dropzone dropzone-${selectedCarrier} ${processing ? 'dropzone-disabled' : ''}`}
-            onDragOver={e => {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = 'copy';
-            }}
-            onDrop={e => {
-              e.preventDefault();
-              if (!processing) acceptSelectedFiles(e.dataTransfer.files);
-            }}
-          >
-            <input
-              className="file-input-hidden"
-              type="file"
-              multiple
-              accept={ACCEPTED_LABEL_FILE_TYPES}
-              disabled={processing}
-              onChange={e => {
-                acceptSelectedFiles(e.target.files);
-                e.target.value = '';
+          {auditModeReady ? (
+            <label
+              className={`dropzone dropzone-${selectedCarrier} ${processing ? 'dropzone-disabled' : ''}`}
+              onDragOver={e => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
               }}
-            />
-            <span className="dropzone-title">
-              Drop {LABEL_FAMILY_NAMES[selectedCarrier]} {LABEL_FORMAT_NAMES[selectedLabelFormat]} labels here
-            </span>
-            <span className="dropzone-subtitle">PDF, PNG, JPG, WebP or BMP</span>
-          </label>
+              onDrop={e => {
+                e.preventDefault();
+                if (!processing) acceptSelectedFiles(e.dataTransfer.files);
+              }}
+            >
+              <input
+                className="file-input-hidden"
+                type="file"
+                multiple
+                accept={ACCEPTED_LABEL_FILE_TYPES}
+                disabled={processing}
+                onChange={e => {
+                  acceptSelectedFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+              <span className="dropzone-title">
+                Drop {LABEL_FAMILY_NAMES[selectedCarrier]} {LABEL_FORMAT_NAMES[selectedLabelFormat]} labels here
+              </span>
+              <span className="dropzone-subtitle">PDF, PNG, JPG, WebP or BMP</span>
+            </label>
+          ) : (
+            <p className="dropzone-pending muted" role="status">
+              {!selectedCarrier && !selectedLabelFormat
+                ? 'Choose a carrier branch and a label format above to enable label upload.'
+                : !selectedCarrier
+                  ? 'Choose a carrier branch above to enable label upload.'
+                  : 'Choose a label format above to enable label upload.'}
+            </p>
+          )}
         </section>
         <div className="optional-input-grid">
           <section className="payload-input-panel" aria-labelledby="payload-input-title">

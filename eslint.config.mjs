@@ -29,7 +29,7 @@ export default [
     }
   },
   {
-    files: ['server.mjs', 'tests/**/*.mjs'],
+    files: ['server.mjs', 'tests/**/*.mjs', 'scripts/**/*.mjs'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

@@ -11,6 +11,7 @@
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "vite build",
     "build:portable": "node scripts/build-portable.mjs",
+    "sync:ocr": "node scripts/sync-ocr-assets.mjs",
     "test": "node --test",
     "lint": "eslint .",
     "sbom": "npm sbom --sbom-format cyclonedx > docs/security/sbom.cyclonedx.json",

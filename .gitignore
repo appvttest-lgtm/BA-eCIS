@@ -12,3 +12,15 @@ release/
 *.zip
 *.sha256
 *.obj
+
+# Code-analysis tool output (graphify) — generated, not part of the app or build
+graphify-out/
+
+# Scratch test receipts / sample exports — not required for code or output
+receipt-session-*.pdf
+
+# Editor / OS cruft
+.vscode/
+Thumbs.db
+*.tmp
+*.bak

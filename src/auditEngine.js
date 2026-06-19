@@ -1048,7 +1048,7 @@ registerRuleFunction('pageSizeWithin', (page, { args }) => {
   if (!widthMm || !heightMm) {
     return {
       pass: false,
-      status: 'manual_review',
+      status: args?.unverifiedStatus || 'manual_review',
       message: 'Physical dimensions could not be determined from this file.'
     };
   }
@@ -1332,11 +1332,20 @@ function buildStarTrackRuleContext({
   visualEvidence
 }) {
   const lines = facts.lines || [];
+  const hasStarTrackHeaderText = lines.some(l => /STAR\s*TRACK|STARTRACK/i.test(l));
+  // A decoded StarTrack barcode is authoritative proof of label identity, so it
+  // confirms the StarTrack header without needing OCR of the logo wordmark.
+  const starTrackBarcodeDecoded =
+    qrParses.length > 0 ||
+    freightParses.length > 0 ||
+    routingParses.length > 0 ||
+    atlParses.length > 0 ||
+    validSsccs.length > 0;
   return {
     page: buildPageContext(fileInfo),
     text: {
       ...facts,
-      hasStarTrackHeader: lines.some(l => /STAR\s*TRACK|STARTRACK/i.test(l)),
+      hasStarTrackHeader: hasStarTrackHeaderText,
       returnTransferIndicator: ((lines.join('\n').match(/\*\s*(RETURN|TRANSFER)\s*\*/i) || [])[0] || '').trim()
     },
     barcodes: {
@@ -1358,6 +1367,7 @@ function buildStarTrackRuleContext({
       primaryProductCode: freightParses[0]?.productCode || qrParses[0]?.productCode || '',
       expectedAtlNumbers,
       atlExpected: Boolean(atlExpected),
+      starTrackConfirmed: starTrackBarcodeDecoded || hasStarTrackHeaderText,
       invalidSsccReasons: invalidSsccs.map(s => s.reason).join('\n'),
       receiverEvidence: [...(facts.toBlock || []), ...(facts.postcodeLines || [])]
     },

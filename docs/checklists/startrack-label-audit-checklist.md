@@ -18,7 +18,7 @@ This checklist enumerates every label conformance rule in the specification. Eac
 
 | ID | Requirement | Obligation | Audit | Coverage | Spec ref |
 | --- | --- | --- | --- | --- | --- |
-| ST-LAY-01 | Despatch label is 10 cm × 15 cm; an optional extra 5 cm (total 20 cm height) may be added for warehouse use, with the **top** 15 cm reserved for StarTrack content | M | AUTO (page dims) | ✅ `ST_LABEL_SIZE` (accepts 100×150, 100×200, 150×100; "StarTrack content in top 15 cm" not asserted) | 1.001, p19 |
+| ST-LAY-01 | Despatch label is 10 cm × 15 cm; an optional extra 5 cm (total 20 cm height) may be added for warehouse use, with the **top** 15 cm reserved for StarTrack content | M | AUTO (page dims) | ✅ `ST_LABEL_SIZE` (accepts 100×150, 100×200, 150×100; "StarTrack content in top 15 cm" not asserted). Reported as **INFO** — a non-standard or unmeasurable (raster) page size is a presentation note and does not drive the label to review | 1.001, p19 |
 | ST-LAY-02 | Controlled Returns / Transfer Movements label is 15 cm × 10 cm | M | AUTO | ✅ `ST_LABEL_SIZE` (landscape acceptance) | 3.001 |
 | ST-LAY-03 | Label stock is white (no colour background) and matt (non-glossy) | M | PARTIAL (raster sampling) / MANUAL (texture) | ❌ gap (background); ⛔ texture | p11, p19, p30 |
 | ST-LAY-04 | Printers re-calibrated regularly for print quality | REC | MANUAL | ⛔ physical | p11, p19 |
@@ -27,7 +27,7 @@ This checklist enumerates every label conformance rule in the specification. Eac
 
 | ID | Requirement | Obligation | Audit | Coverage | Spec ref |
 | --- | --- | --- | --- | --- | --- |
-| ST-HDR-01 | `P-StarTrack` logo on the left side of the header | M | PARTIAL (logo is image; text heuristic) | 🟡 `ST_LOGO_HEADER` (text heuristic only) | 1.002 |
+| ST-HDR-01 | `P-StarTrack` logo on the left side of the header | M | AUTO (decoded barcode) + PARTIAL (text fallback) | ✅ `ST_LOGO_HEADER` — confirmed when any StarTrack barcode (QR/freight/routing/ATL/SSCC) decodes (authoritative identity); falls back to the header text heuristic, and only flags manual review when neither is present | 1.002 |
 | ST-HDR-02 | 3-character Label Code printed above the logo; Arial Bold 22pt | M | PARTIAL (text) | 🟡 `ST_LABEL_CODE_VISIBLE` (presence; position/font not asserted) | 1.003 |
 | ST-HDR-03 | Label Code contrast: Premium products = white text on black; Express/Special Services = black text on white | M | PARTIAL (raster sampling) | ❌ gap | 1.003 |
 | ST-HDR-04 | Consignment number centred in the header under a `CONNOTE:` heading, catering for up to 20 characters; Arial Bold 22pt | M | PARTIAL (text) | 🟡 `ST_CONNOTE_VISIBLE` (presence; heading/position/font not asserted) | 1.004 |
