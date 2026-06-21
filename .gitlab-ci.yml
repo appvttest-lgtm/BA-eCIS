@@ -1,0 +1,105 @@
+# GitLab CI build plan for the portable Windows tool.
+#
+# Produces the same portable artifact as build-portable-release.bat, but entirely
+# on a standard Linux Docker runner so it can run on a locked-down workstation /
+# GitLab instance where local .bat scripts are not permitted.
+#
+# Output: release/BarcodeAuditer-v<version>-windows-x64-portable.zip (+ .sha256),
+# published as a downloadable pipeline artifact (Pipeline > Jobs > Browse/Download).
+#
+# How the .exe is built without a Windows runner:
+#   The launcher (wrapper/windows/BarcodeAuditerLauncher.cpp) uses only standard
+#   Win32 headers, so MinGW-w64 cross-compiles it into a real Windows .exe on Linux.
+#
+# Prerequisites to confirm with your GitLab admin (both are normal/default):
+#   1. A Linux Docker-executor runner is available (the shared default on most instances).
+#   2. CI jobs can reach the internet (or a mirror) to apt-get mingw-w64 and download
+#      the Node Windows runtime. If your CI is air-gapped, see the NODE runtime note below.
+
+stages:
+  - build
+
+variables:
+  # Windows Node runtime bundled into the portable folder as node\node.exe.
+  # Pin deliberately; bump this and re-run to ship a newer runtime.
+  NODE_WIN_VERSION: "22.11.0"
+
+build-portable:
+  stage: build
+  image: node:22-bookworm
+  before_script:
+    # mingw-w64 = the cross-compiler that emits the Windows .exe; zip/unzip for packaging.
+    - apt-get update
+    - apt-get install -y --no-install-recommends mingw-w64 zip unzip curl
+  script:
+    - npm ci
+    - npm run build
+
+    # Derive the release name from package.json so it can never drift from the app version.
+    - VERSION=$(node -p "require('./package.json').version")
+    - RELEASE_NAME="BarcodeAuditer-v${VERSION}-windows-x64-portable"
+    - RELEASE_ROOT="release/${RELEASE_NAME}"
+    - rm -rf "$RELEASE_ROOT"
+    - mkdir -p "$RELEASE_ROOT/node"
+
+    # Assemble the portable payload (mirrors build-portable-release.bat).
+    - cp -r dist "$RELEASE_ROOT/dist"
+    - cp server.mjs README.md README_LOCAL_SETUP.txt release_notes.md "$RELEASE_ROOT/"
+
+    # Fetch the Windows Node runtime the launcher starts as node\node.exe.
+    # Air-gapped CI note: replace these two lines by committing node.exe to the repo
+    # (or pulling it from your internal mirror) and copying it into "$RELEASE_ROOT/node".
+    - curl -fsSLo node-win.zip "https://nodejs.org/dist/v${NODE_WIN_VERSION}/node-v${NODE_WIN_VERSION}-win-x64.zip"
+    - unzip -q node-win.zip
+    - cp "node-v${NODE_WIN_VERSION}-win-x64/node.exe" "$RELEASE_ROOT/node/node.exe"
+
+    # Cross-compile the launcher exactly like the .bat does, but with MinGW on Linux.
+    #   -municode  -> use the wWinMain (wide) entry point the source defines
+    #   -mwindows  -> GUI subsystem, matching /SUBSYSTEM:WINDOWS (no console window)
+    #   -static    -> no MinGW runtime DLL dependency on the target machine
+    - x86_64-w64-mingw32-g++ -O2 -municode -mwindows -static
+      -o "$RELEASE_ROOT/BarcodeAuditer.exe"
+      wrapper/windows/BarcodeAuditerLauncher.cpp
+      -lshell32 -luser32
+
+    # Package + checksum.
+    - (cd release && zip -qr "${RELEASE_NAME}.zip" "${RELEASE_NAME}")
+    - (cd release && sha256sum "${RELEASE_NAME}.zip" > "${RELEASE_NAME}.zip.sha256")
+    - echo "Built release/${RELEASE_NAME}.zip"
+  artifacts:
+    name: "BarcodeAuditer-portable-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - release/*portable*.zip
+      - release/*portable*.zip.sha256
+    expire_in: 30 days
+
+# "Run with Node.js" share build — NO prebuilt .exe.
+#
+# Packages just the web app (dist/) + server.mjs + a README that tells the recipient
+# to install Node.js from the company portal and launch with `node server.mjs`, then
+# open http://127.0.0.1:3000. Use this to share the tool locally for feedback without
+# hitting unsigned-exe / AppLocker blocks. Needs no MinGW, no Windows runtime, and no
+# internet beyond the npm registry.
+build-source-share:
+  stage: build
+  image: node:22-bookworm
+  script:
+    - npm ci
+    - npm run build
+    - VERSION=$(node -p "require('./package.json').version")
+    - SHARE_NAME="BarcodeAuditer-v${VERSION}-run-with-nodejs"
+    - SHARE_ROOT="release/${SHARE_NAME}"
+    - rm -rf "$SHARE_ROOT"
+    - mkdir -p "$SHARE_ROOT"
+    - cp -r dist "$SHARE_ROOT/dist"
+    - cp server.mjs "$SHARE_ROOT/"
+    - cp share/README.md "$SHARE_ROOT/README.md"
+    - (cd release && zip -qr "${SHARE_NAME}.zip" "${SHARE_NAME}")
+    - (cd release && sha256sum "${SHARE_NAME}.zip" > "${SHARE_NAME}.zip.sha256")
+    - echo "Built release/${SHARE_NAME}.zip"
+  artifacts:
+    name: "BarcodeAuditer-run-with-nodejs-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - release/*run-with-nodejs*.zip
+      - release/*run-with-nodejs*.zip.sha256
+    expire_in: 30 days
