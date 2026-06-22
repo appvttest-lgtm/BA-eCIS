@@ -902,6 +902,13 @@ function FullLabelImageSection({ audit, items, onZoomLabel }) {
           ) : (
             <p className="muted">No label preview captured.</p>
           )}
+          {images.labelPreview && (
+            <p className="small muted preview-legend">
+              Barcode outlines: <span className="legend-dot legend-valid" /> decoded &amp; valid{' · '}
+              <span className="legend-dot legend-invalid" /> decoded but invalid{' · '}
+              <span className="legend-dot legend-missing" /> expected, not decoded
+            </p>
+          )}
         </div>
         <div>
           <h3>Visible label facts</h3>

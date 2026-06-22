@@ -212,6 +212,13 @@ th {
   border: 1px solid transparent;
   white-space: nowrap;
 }
+/* Label-preview barcode-outline colour key (green valid / red invalid / amber missing). */
+.preview-legend { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; }
+.legend-valid { background: #087a2e; }
+.legend-invalid { background: #b00020; }
+.legend-missing { background: #9a5a00; }
+
 .prov-barcode { background: #e7f0ff; color: #0d4f9b; border-color: #c3dbff; }
 .prov-text { background: #fff0c2; color: #7a4b00; border-color: #f2d27e; }
 .prov-derived { background: #eef1f5; color: #53606d; border-color: #d7dde5; }

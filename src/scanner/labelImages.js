@@ -1,5 +1,5 @@
 // Label preview images and per-barcode evidence crops for the report UI.
-import { STARTRACK_LABEL_CODE_MAP } from '../auditEngine.js';
+import { STARTRACK_LABEL_CODE_MAP, parseEparcelBarcode } from '../auditEngine.js';
 import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from './barcodeTypes.js';
 import {
   BARCODE_BOX_MARGIN_PX,
@@ -161,8 +161,39 @@ export function drawPreviewBarcodeBox(ctx, scale, outputWidth, box, label, style
   ctx.restore();
 }
 
+// Preview overlay status colours: green = decoded and valid for its carrier role,
+// red = decoded but not a valid symbol (e.g. an unexpected/garbled linear read).
+// Missing-but-expected zones use the amber/yellow candidate-box style below.
+const PREVIEW_BOX_STYLE = {
+  valid: { stroke: '#087a2e', fill: 'rgba(8,122,46,0.14)', labelFill: '#087a2e' },
+  invalid: { stroke: '#b00020', fill: 'rgba(176,0,32,0.12)', labelFill: '#b00020' }
+};
+
+/** True when a decoded barcode reads as a valid symbol for its carrier role (drives green vs red). */
+export function isDecodedBarcodeValid(barcode, labelFamily = 'eparcel') {
+  // 2D symbols carry strong error correction, so a successful decode is a valid read.
+  if (isQrBarcode(barcode) || isDataMatrixBarcode(barcode)) return true;
+  const value = normalizeBarcodeValueForRole(barcode.rawValue);
+  if (labelFamily === 'startrack') {
+    return (
+      isStarTrackAtlValue(value) ||
+      isStarTrackRoutingValue(value) ||
+      isStarTrackFreightItemValue(value) ||
+      /^00\d{18}$/.test(value)
+    );
+  }
+  const parsed = parseEparcelBarcode(barcode.rawValue || '');
+  return Boolean(parsed.articleAnalysis?.valid || parsed.article?.valid);
+}
+
 /** Renders the label preview with decoded/candidate barcode boxes burned in. */
-export function canvasToDataUrlWithBarcodeBoxes(sourceCanvas, barcodes = [], maxWidth = 820, candidateBoxes = []) {
+export function canvasToDataUrlWithBarcodeBoxes(
+  sourceCanvas,
+  barcodes = [],
+  maxWidth = 820,
+  candidateBoxes = [],
+  labelFamily = 'eparcel'
+) {
   if (!sourceCanvas?.width || !sourceCanvas?.height) return '';
   const scale = Math.min(1, maxWidth / sourceCanvas.width);
   const out = document.createElement('canvas');
@@ -186,12 +217,9 @@ export function canvasToDataUrlWithBarcodeBoxes(sourceCanvas, barcodes = [], max
   for (const b of located) {
     const box = expandBox(b.pageBoundingBox, sourceCanvas.width, sourceCanvas.height, PREVIEW_BARCODE_BOX_MARGIN_PX);
     if (!box) continue;
-    const isDm = isDataMatrixBarcode(b);
-    const isQr = isQrBarcode(b);
+    const style = isDecodedBarcodeValid(b, labelFamily) ? PREVIEW_BOX_STYLE.valid : PREVIEW_BOX_STYLE.invalid;
     drawPreviewBarcodeBox(ctx, scale, out.width, box, barcodeKindLabel(b), {
-      stroke: isDm || isQr ? '#0b5cad' : '#c40018',
-      fill: isDm || isQr ? 'rgba(11,92,173,.12)' : 'rgba(196,0,24,.10)',
-      labelFill: isDm || isQr ? '#0b5cad' : '#c40018',
+      ...style,
       lineWidth: Math.max(3, Math.round(4 * scale))
     });
   }
@@ -249,7 +277,7 @@ export function createLabelImages(canvas, detectedBarcodes = [], labelFamily = '
 
   return {
     labelPreviewPlain: canvasToDataUrl(canvas, 760),
-    labelPreview: canvasToDataUrlWithBarcodeBoxes(canvas, detectedBarcodes, 820, previewCandidateBoxes),
+    labelPreview: canvasToDataUrlWithBarcodeBoxes(canvas, detectedBarcodes, 820, previewCandidateBoxes, labelFamily),
     dataMatrixCrop: canvasToDataUrl(dmLocated?.canvas || dmCrop, 420),
     dataMatrixFocusedCrop: canvasToDataUrl(dmLocated?.canvas || dmFocusedCrop, 320),
     dataMatrixBox: dmLocated?.box || null,
