@@ -156,6 +156,22 @@
       }
     },
     {
+      "id": "ST-QR-03",
+      "title": "QR fixed-width payload length",
+      "description": "The StarTrack QR payload is fixed-width: 290 mandatory characters, extending to 334 with the optional book-in, ATL and RA fields. A shorter payload means the fixed-width fields are truncated or misaligned.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.length",
+      "assert": { "op": "range", "min": 290 },
+      "messages": {
+        "pass": "QR payload length is {actual} characters, consistent with the fixed-width layout.",
+        "fail": "QR payload is only {actual} characters; a conforming StarTrack QR is at least 290, so some fixed-width fields below may be truncated or misaligned."
+      }
+    },
+    {
       "id": "ST-IMG-01",
       "title": "Source image resolution",
       "description": "Raster label images need roughly 300 DPI for reliable linear barcode decoding. Low-resolution exports collapse the narrow bars and spaces, destroying the encoded data.",

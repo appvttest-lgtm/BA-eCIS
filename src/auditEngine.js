@@ -1658,8 +1658,6 @@ function fixed(raw, start, length) {
 /** Parses the StarTrack fixed-width QR payload into named fields used by validation and reports. */
 export function parseStarTrackQrBarcode(raw) {
   const text = String(raw || '').replace(/^\]Q[0-9]/, '');
-  if (text.length < 290)
-    return { valid: false, raw, length: text.length, reason: 'Not a StarTrack fixed-width QR payload.' };
   const fields = {
     receiverSuburb: fixed(text, 1, 30).trim(),
     receiverPostcode: fixed(text, 31, 4).trim(),
@@ -1687,6 +1685,19 @@ export function parseStarTrackQrBarcode(raw) {
     raNumber: fixed(text, 325, 10).trim()
   };
   const product = STARTRACK_PRODUCT_CODE_MAP[fields.productCode] || null;
+  // A conforming StarTrack QR is fixed-width (290 mandatory chars, up to 334 with the
+  // optional book-in/ATL/RA tail). A truncated or non-conforming payload is still
+  // recognised as the StarTrack QR by its field shapes so the field-by-field breakdown
+  // can still be reported (the length non-conformance is flagged by ST-QR-03). Unrelated
+  // QR codes (URLs, marketing) match none of these and are rejected.
+  const looksStarTrack =
+    text.length >= 290 ||
+    /^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(fields.freightItemNumber) ||
+    /^[A-Z0-9]{4}\d{8}$/.test(fields.connoteNumber) ||
+    Boolean(product);
+  if (!looksStarTrack) {
+    return { valid: false, raw, length: text.length, reason: 'Not a StarTrack fixed-width QR payload.' };
+  }
   return {
     valid: true,
     type: 'startrack-qr',

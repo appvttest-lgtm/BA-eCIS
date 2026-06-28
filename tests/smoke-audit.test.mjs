@@ -189,6 +189,34 @@ expect('ST-PRD-01 product allowed for express', find(startrackAudit, 'ST-PRD-01'
 const stFails = (startrackAudit.validations || []).filter(r => r.status === 'fail');
 expect('no failures on conforming label', stFails.length === 0, stFails.map(r => `${r.id}: ${r.message}`).join(' | '));
 
+// --- A decoded-but-truncated StarTrack QR still yields the field-by-field breakdown ---
+// The strict fixed-width gate used to suppress every per-field row (and report the QR as
+// "not decoded") when the payload was short. A truncated payload that still carries the
+// freight item / connote shape must be recognised so the breakdown renders, ST-QR-01
+// reports "decoded", and ST-QR-03 flags the length non-conformance.
+const truncatedQr = qrPayload.slice(0, 200);
+const truncatedAudit = auditLabel({
+  carrier: 'startrack',
+  labelFamily: 'startrack',
+  labelFormat: 'standard',
+  fileInfo: { name: 'st-truncated.pdf', widthMm: 100, heightMm: 150, pageCount: 1 },
+  detectedBarcodes: [{ rawValue: truncatedQr, format: 'qrcode' }],
+  extractedText: ['STARTRACK', 'EXP'].join('\n')
+});
+expect('truncated QR still reports decoded', find(truncatedAudit, 'ST-QR-01')?.status === 'pass');
+expect('truncated QR fails the fixed-width length check', find(truncatedAudit, 'ST-QR-03')?.status === 'fail');
+expect('truncated QR still produces a per-field row', find(truncatedAudit, 'ST-QR-F03')?.status === 'pass');
+// A non-StarTrack QR (e.g. a marketing URL) must not be force-parsed into field rows.
+const urlQrAudit = auditLabel({
+  carrier: 'startrack',
+  labelFamily: 'startrack',
+  labelFormat: 'standard',
+  fileInfo: { name: 'st-url-qr.pdf', widthMm: 100, heightMm: 150, pageCount: 1 },
+  detectedBarcodes: [{ rawValue: 'https://auspost.com.au/track/ABC123', format: 'qrcode' }],
+  extractedText: ['STARTRACK', 'EXP'].join('\n')
+});
+expect('non-StarTrack QR produces no field rows', !find(urlQrAudit, 'ST-QR-F03'));
+
 // --- SSCC is proven by the linear scan, never borrowed from the Data Matrix ---
 // A GS1 Data Matrix legitimately repeats AI (00) SSCC, but the SSCC barcode check
 // must reflect the linear scan being to spec - the DM value must not stand in for it.
