@@ -127,30 +127,32 @@ This checklist enumerates every label conformance rule in the specification. Eac
 
 | # | Field | Pos | Len | Required | Format rule | Coverage |
 | --- | --- | --- | --- | --- | --- | --- |
-| 01 | Receiver Suburb | 1 | 30 | M | non-blank | ✅ `ST_QR_MANDATORY` |
-| 02 | Receiver Postcode | 31 | 4 | M | 4 digits; `9901` for NZ Premium | ✅ `ST_QR_POSTCODE` |
-| 03 | Consignment Number | 35 | 12 | M | `XXXZ99999999` | 🟡 presence only; format/equality vs freight barcode not asserted |
-| 04 | Freight Item Number | 47 | 20 | M | 20-char freight item ID | 🟡 presence only; equality vs freight barcode not asserted |
-| 05 | Product Code | 67 | 3 | M | valid product code | ✅ `ST_QR_PRODUCT` |
-| 06 | Payer Account | 70 | 8 | COND | required for controlled return/transfer, or third-party-paid despatch | ❌ conditional logic absent |
-| 07 | Sender Account | 78 | 8 | COND | required for despatch movements; left-justified | ❌ conditional logic absent |
-| 08 | Consignment Quantity | 86 | 4 | M | numeric, left-justified | 🟡 presence only |
-| 09 | Consignment Weight | 90 | 5 | M | total kg rounded up; numeric | 🟡 presence only |
-| 10 | Consignment Cube | 95 | 5 | COND | m³ × 1000; `*****` when overflow; required when not a satchel | ❌ conditional/overflow logic absent |
-| 11 | Despatch Date | 100 | 8 | M | `YYYYMMDD`, valid calendar date | 🟡 presence only; format/validity unchecked |
-| 12 | Receiver Name 1 | 108 | 40 | M | non-blank | ✅ `ST_QR_MANDATORY` |
+| 01 | Receiver Suburb | 1 | 30 | M | non-blank | ✅ `ST-QR-F01` (own line) + `ST-QR-MAND` aggregate |
+| 02 | Receiver Postcode | 31 | 4 | M | 4 digits; `9901` for NZ Premium | ✅ `ST-QR-F02` |
+| 03 | Consignment Number | 35 | 12 | M | `XXXZ99999999` | ✅ `ST-QR-F03` (format) + `ST-X-01` (= freight connote) |
+| 04 | Freight Item Number | 47 | 20 | M | 20-char freight item ID | ✅ `ST-QR-F04` (format) + `ST-X-02` (= freight barcode) |
+| 05 | Product Code | 67 | 3 | M | valid product code | ✅ `ST-QR-F05` (known) + `ST-PRD-02` (in audited family) |
+| 06 | Payer Account | 70 | 8 | COND | required for controlled return/transfer, or third-party-paid despatch | ✅ `ST-QR-F06` (required for movement C/T; manual-review) |
+| 07 | Sender Account | 78 | 8 | COND | required for despatch movements; left-justified | ✅ `ST-QR-F07` (required for movement N; manual-review) |
+| 08 | Consignment Quantity | 86 | 4 | M | numeric, left-justified | ✅ `ST-QR-F08` (numeric ≥ 1) |
+| 09 | Consignment Weight | 90 | 5 | M | total kg rounded up; numeric | ✅ `ST-QR-F09` (numeric range) |
+| 10 | Consignment Cube | 95 | 5 | COND | m³ × 1000; `*****` when overflow; required when not a satchel | ✅ `ST-QR-F10` (format + required for non-satchel; manual-review) |
+| 11 | Despatch Date | 100 | 8 | M | `YYYYMMDD`, valid calendar date | ✅ `ST-QR-F11` (format + calendar validity) |
+| 12 | Receiver Name 1 | 108 | 40 | M | non-blank | ✅ `ST-QR-F12` (own line) + `ST-QR-MAND` aggregate |
 | 13 | Receiver Name 2 | 148 | 40 | O | — | n/a |
-| 14 | Unit Type | 188 | 3 | M | Appendix A value permitted for the product | ✅ `ST_QR_UNIT` |
-| 15 | Destination Depot | 191 | 4 | M | Nearest Depot (EXP) / Secondary Port (PRM) / `ZNA` (NZ) | 🟡 presence only; LMF validity unchecked |
-| 16 | Receiver Address 1 | 195 | 40 | M | non-blank, left justified | ✅ `ST_QR_MANDATORY` |
+| 14 | Unit Type | 188 | 3 | M | Appendix A value permitted for the product | ✅ `ST-QR-F14` |
+| 15 | Destination Depot | 191 | 4 | M | Nearest Depot (EXP) / Secondary Port (PRM) / `ZNA` (NZ) | ✅ `ST-QR-F15` (presence; LMF validity unchecked) |
+| 16 | Receiver Address 1 | 195 | 40 | M | non-blank, left justified | ✅ `ST-QR-F16` (own line) + `ST-QR-MAND` aggregate |
 | 17 | Receiver Address 2 | 235 | 40 | O | — | n/a |
-| 18 | Receiver Phone | 275 | 14 | O | numeric | ❌ format unchecked |
-| 19 | Dangerous Goods Indicator | 289 | 1 | M | `Y` or `N` | ✅ `ST_QR_DG` |
-| 20 | Movement Type Indicator | 290 | 1 | M | `N` despatch / `C` controlled return / `T` transfer | ✅ `ST_QR_MOVEMENT` |
-| 21 | Not Before Date | 291 | 12 | O | `YYYYMMDDHHMM`; must be ≤ Not After Date | ❌ format & cross-field rule absent |
-| 22 | Not After Date | 303 | 12 | O | `YYYYMMDDHHMM`; must be ≥ Not Before Date | ❌ format & cross-field rule absent |
-| 23 | ATL Number | 315 | 10 | COND | `C999999999`; required when ATL selected | ✅ `ST_QR_ATL` (format when populated; requiredness heuristic) |
-| 24 | RA Number | 325 | 10 | COND | mandatory for Controlled Returns & Transfer Movements | ❌ conditional rule absent (movement type C/T ⇒ RA required) |
+| 18 | Receiver Phone | 275 | 14 | O | numeric | ✅ `ST-QR-F18` (numeric when populated; warning) |
+| 19 | Dangerous Goods Indicator | 289 | 1 | M | `Y` or `N` | ✅ `ST-QR-F19` |
+| 20 | Movement Type Indicator | 290 | 1 | M | `N` despatch / `C` controlled return / `T` transfer | ✅ `ST-QR-F20` |
+| 21 | Not Before Date | 291 | 12 | O | `YYYYMMDDHHMM`; must be ≤ Not After Date | ✅ `ST-QR-F21` (format + ≤ Not After) |
+| 22 | Not After Date | 303 | 12 | O | `YYYYMMDDHHMM`; must be ≥ Not Before Date | ✅ `ST-QR-F22` (format) |
+| 23 | ATL Number | 315 | 10 | COND | `C999999999`; required when ATL selected | ✅ `ST-QR-F23` (format when populated; requiredness via `ST-ATL-EXPECTED`) |
+| 24 | RA Number | 325 | 10 | COND | mandatory for Controlled Returns & Transfer Movements | ✅ `ST-QR-F24` (required for movement C/T) |
+
+> **Display note:** all QR field checks above are categorised `startrack-qr`, so they render together in field order under the report's **StarTrack 2D QR Barcode** section. Fields 13 and 17 are optional with no format rule, so they have no dedicated row.
 
 ## 11. Authority To Leave (ATL) barcode
 

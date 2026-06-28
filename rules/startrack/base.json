@@ -397,6 +397,18 @@
       "assert": { "op": "fn", "name": "qrMandatoryFields" }
     },
     {
+      "id": "ST-QR-F01",
+      "title": "QR receiver suburb",
+      "description": "QR field 1 must carry the receiver suburb (up to 30 characters) and must not be blank.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.receiverSuburb",
+      "assert": { "op": "present" }
+    },
+    {
       "id": "ST-QR-F02",
       "title": "QR receiver postcode",
       "description": "QR field 2 must be a four-digit postcode (9901 for NZ Premium).",
@@ -439,7 +451,7 @@
       "description": "QR field 5 must be a valid StarTrack product code.",
       "obligation": "mandatory",
       "severity": "ERROR",
-      "category": "startrack-product",
+      "category": "startrack-qr",
       "source": { "doc": "MOS v9", "page": 7 },
       "forEach": "barcodes.qr",
       "input": "item.fields.productCode",
@@ -451,11 +463,49 @@
       "description": "The QR product code must belong to the product family selected for this audit.",
       "obligation": "mandatory",
       "severity": "ERROR",
-      "category": "startrack-product",
+      "category": "startrack-qr",
       "source": { "doc": "MOS v9", "page": 7 },
       "forEach": "barcodes.qr",
       "input": "item.fields.productCode",
       "assert": { "op": "in", "value": "$constants.allowedProducts" }
+    },
+    {
+      "id": "ST-QR-F06",
+      "title": "QR payer account",
+      "description": "QR field 6 (payer account) is required for controlled returns and transfers, and for third-party-paid despatch consignments.",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.movementTypeIndicator", "op": "in", "value": ["C", "T"] },
+      "input": "item.fields.payerAccount",
+      "assert": { "op": "present" },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Payer account is populated for this return/transfer movement: {actual}.",
+        "fail": "Movement type indicates a controlled return or transfer, but the payer account field is blank.",
+        "missing": "Movement type indicates a controlled return or transfer, but the payer account field is blank."
+      }
+    },
+    {
+      "id": "ST-QR-F07",
+      "title": "QR sender account",
+      "description": "QR field 7 (sender account) is required for despatch movements and must be left-justified.",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.movementTypeIndicator", "op": "equals", "value": "N" },
+      "input": "item.fields.senderAccount",
+      "assert": { "op": "present" },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Sender account is populated for this despatch movement: {actual}.",
+        "fail": "Movement type indicates a despatch, but the sender account field is blank.",
+        "missing": "Movement type indicates a despatch, but the sender account field is blank."
+      }
     },
     {
       "id": "ST-QR-F08",
@@ -482,6 +532,26 @@
       "assert": { "all": [{ "op": "matches", "value": "^\\s*\\d+\\s*$" }, { "op": "range", "min": 1, "max": 99999 }] }
     },
     {
+      "id": "ST-QR-F10",
+      "title": "QR consignment cube",
+      "description": "QR field 10 carries the consignment cubic volume as cubic metres x 1000 (or ***** on overflow). It is required for all non-satchel unit types.",
+      "obligation": "conditional",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.unitType", "op": "notIn", "value": ["SAT"] },
+      "input": "item.fields.consignmentCube",
+      "assert": { "op": "matches", "value": "^(\\d{1,5}|\\*{5})$" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Consignment cube populated: {actual}.",
+        "fail": "Consignment cube must be a numeric m3 x 1000 value (or ***** on overflow): {actual}.",
+        "missing": "Unit type is not a satchel, but the consignment cube field is blank."
+      }
+    },
+    {
       "id": "ST-QR-F11",
       "title": "QR despatch date",
       "description": "QR field 11 must be a valid calendar date in YYYYMMDD format.",
@@ -494,17 +564,71 @@
       "assert": { "op": "dateFormat", "value": "YYYYMMDD" }
     },
     {
+      "id": "ST-QR-F12",
+      "title": "QR receiver name",
+      "description": "QR field 12 must carry the receiver name (up to 40 characters) and must not be blank.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.receiverName1",
+      "assert": { "op": "present" }
+    },
+    {
       "id": "ST-QR-F14",
       "title": "QR unit type permitted",
       "description": "QR field 14 must be an Appendix A unit type permitted for the product code.",
       "obligation": "mandatory",
       "severity": "ERROR",
-      "category": "startrack-product",
+      "category": "startrack-qr",
       "source": { "doc": "MOS v9", "ref": "Appendix A" },
       "forEach": "barcodes.qr",
       "input": "item.fields",
       "assert": { "op": "fn", "name": "startrackUnitPermitted" },
       "failStatus": "manual_review"
+    },
+    {
+      "id": "ST-QR-F15",
+      "title": "QR destination depot",
+      "description": "QR field 15 must carry the destination depot (Nearest Depot for Express, Secondary Port for Premium, ZNA for NZ) and must not be blank.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.destinationDepot",
+      "assert": { "op": "present" }
+    },
+    {
+      "id": "ST-QR-F16",
+      "title": "QR receiver address",
+      "description": "QR field 16 must carry receiver address line 1 (up to 40 characters, left-justified) and must not be blank.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.receiverAddress1",
+      "assert": { "op": "present" }
+    },
+    {
+      "id": "ST-QR-F18",
+      "title": "QR receiver phone",
+      "description": "QR field 18 (receiver phone) is optional; when populated it must be numeric.",
+      "obligation": "optional",
+      "severity": "INFO",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 16 },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.receiverPhone", "op": "present" },
+      "input": "item.fields.receiverPhone",
+      "assert": { "op": "matches", "value": "^[0-9 +()-]+$" },
+      "failStatus": "warning",
+      "messages": {
+        "pass": "Receiver phone is numeric: {actual}.",
+        "fail": "Receiver phone should be numeric: {actual}."
+      }
     },
     {
       "id": "ST-QR-F19",
@@ -568,7 +692,7 @@
       "description": "When populated, QR field 23 must use the C999999999 ATL format.",
       "obligation": "conditional",
       "severity": "ERROR",
-      "category": "startrack-atl",
+      "category": "startrack-qr",
       "source": { "doc": "MOS v9", "page": 17 },
       "forEach": "barcodes.qr",
       "itemWhen": { "path": "item.fields.atlNumber", "op": "present" },
