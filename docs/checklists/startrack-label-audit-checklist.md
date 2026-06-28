@@ -119,9 +119,9 @@ This checklist enumerates every label conformance rule in the specification. Eac
 
 | ID | Requirement | Obligation | Audit | Coverage | Spec ref |
 | --- | --- | --- | --- | --- | --- |
-| ST-QR-01 | QR barcode present on **all** labels | M | AUTO | ✅ `ST_QR_PRESENT` | p15–16, 1.015 |
+| ST-QR-01 | QR barcode present on **all** labels | M | AUTO | ✅ `ST-QR-01` — passes when a StarTrack QR is decoded (recognised by field shape, not exact length, so a truncated payload still counts as "decoded" and the field breakdown still renders) | p15–16, 1.015 |
 | ST-QR-02 | Symbol 26 mm × 26 mm; error correction level L | M | PARTIAL (crop geometry; EC level from decoder metadata if exposed) | ❌ gap | p16 |
-| ST-QR-03 | Payload is fixed-width; spaces pad blank optional fields (field positions below) | M | AUTO | ✅ `parseStarTrackQrBarcode` (fixed-slice parsing) | p16 |
+| ST-QR-03 | Payload is fixed-width (290 mandatory chars, up to 334 with the optional book-in/ATL/RA tail); spaces pad blank optional fields (field positions below) | M | AUTO | ✅ `ST-QR-03` (length ≥ 290) + `parseStarTrackQrBarcode` (fixed-slice parsing). A decoded-but-short payload fails `ST-QR-03` while the per-field rows below still report which fields parsed | p16 |
 
 ### QR payload fields (fixed positions)
 
