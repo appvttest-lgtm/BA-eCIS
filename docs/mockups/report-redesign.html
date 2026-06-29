@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>eCIS Label Auditor — report redesign mockup</title>
+<style>
+  :root{
+    --surface-0:#f4f3ee; --surface-1:#faf9f5; --surface-2:#ffffff;
+    --text-primary:#26251f; --text-secondary:#5f5e57; --text-muted:#8a887f;
+    --border:#e4e2d9; --border-strong:#d3d1c7;
+    --radius:8px;
+    --bg-success:#eaf3de; --text-success:#3b6d11; --border-success:#c0dd97;
+    --bg-danger:#fceaea;  --text-danger:#a32d2d;  --border-danger:#f0acac;
+    --bg-warning:#faeeda;  --text-warning:#854f0b; --border-warning:#f0c87a;
+    --ap-red:#dc1928;
+    --s-a-bg:#e6f1fb; --s-a-fg:#0c447c;
+    --s-b-bg:#e1f5ee; --s-b-fg:#0f6e56;
+    --s-c-bg:#eeedfe; --s-c-fg:#3c3489;
+    --s-d-bg:#faeeda; --s-d-fg:#854f0b;
+    --s-e-bg:#faece7; --s-e-fg:#993c1d;
+    --s-x-bg:#f1efe8; --s-x-fg:#444441;
+    --font-sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:ui-monospace,"SFMono-Regular","Cascadia Code","Consolas",monospace;
+  }
+  html[data-theme="dark"]{
+    --surface-0:#1d1c1a; --surface-1:#262522; --surface-2:#2f2e2a;
+    --text-primary:#ecebe4; --text-secondary:#b4b2a8; --text-muted:#8a887f;
+    --border:#3a3935; --border-strong:#4a4843;
+    --bg-success:#27500a; --text-success:#c0dd97; --border-success:#3b6d11;
+    --bg-danger:#5a1f1f; --text-danger:#f0acac; --border-danger:#a32d2d;
+    --bg-warning:#5a3806; --text-warning:#fac775; --border-warning:#854f0b;
+    --s-a-bg:#0c447c; --s-a-fg:#b5d4f4;
+    --s-b-bg:#0f6e56; --s-b-fg:#9fe1cb;
+    --s-c-bg:#3c3489; --s-c-fg:#cecbf6;
+    --s-d-bg:#854f0b; --s-d-fg:#fac775;
+    --s-e-bg:#993c1d; --s-e-fg:#f5c4b3;
+    --s-x-bg:#444441; --s-x-fg:#d3d1c7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface-0);color:var(--text-primary);font-family:var(--font-sans);line-height:1.6;}
+  .appbar{display:flex;align-items:center;gap:12px;background:var(--surface-2);border-bottom:0.5px solid var(--border);padding:12px 20px;position:sticky;top:0;z-index:5;}
+  .appbar .mark{width:26px;height:26px;border-radius:6px;background:var(--ap-red);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;}
+  .appbar h1{font-size:16px;font-weight:500;margin:0;}
+  .appbar .sub{font-size:12px;color:var(--text-muted);}
+  .spacer{flex:1}
+  .toggle{font-size:13px;border:0.5px solid var(--border-strong);background:transparent;color:var(--text-secondary);border-radius:var(--radius);padding:5px 11px;cursor:pointer;display:flex;align-items:center;gap:6px;}
+  .toggle:hover{background:var(--surface-1)}
+  .wrap{max-width:880px;margin:0 auto;padding:22px 20px 60px;}
+
+  .banner{display:flex;align-items:center;gap:12px;border-radius:12px;padding:12px 14px;margin-bottom:16px;}
+  .banner svg{width:24px;height:24px;flex:0 0 auto}
+  .banner p{margin:0}
+  .banner .t{font-weight:500;font-size:15px}
+  .banner .m{font-size:13px}
+
+  .controls{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  .legend{display:flex;align-items:center;gap:14px;font-size:12px;color:var(--text-secondary);flex-wrap:wrap;}
+  .legend span{display:flex;align-items:center;gap:5px}
+  .btns{display:flex;gap:6px}
+  .tbtn{font-size:12px;border:0.5px solid var(--border-strong);background:transparent;color:var(--text-secondary);border-radius:var(--radius);padding:4px 11px;cursor:pointer;display:flex;align-items:center;gap:5px}
+  .tbtn:hover{background:var(--surface-1)}
+
+  .index{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .chip{display:flex;align-items:center;gap:7px;background:var(--surface-2);border:0.5px solid var(--border);border-radius:999px;padding:5px 13px;font-size:13px}
+  .chip svg{width:16px;height:16px}
+
+  .card{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+  .chd{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .chd .lhs{display:flex;align-items:center;gap:9px}
+  .chd .lhs svg{width:19px;height:19px;color:var(--text-secondary)}
+  .chd .name{font-weight:500;font-size:15px}
+  .chd .meta{font-size:12px;color:var(--text-muted);font-family:var(--font-mono)}
+  .pill{font-size:12px;padding:3px 10px;border-radius:var(--radius)}
+  .pill.ok{background:var(--bg-success);color:var(--text-success)}
+  .pill.rev{background:var(--bg-warning);color:var(--text-warning)}
+
+  .cap{margin:0 0 6px;font-size:12px;color:var(--text-secondary)}
+  .raw{background:var(--surface-0);border:0.5px solid var(--border);border-radius:var(--radius);padding:11px 11px 12px;font-family:var(--font-mono);font-size:12.5px;line-height:2;letter-spacing:.3px;margin-bottom:9px;white-space:normal;overflow-wrap:anywhere}
+  .seg{padding:2px 3px 1px;border-radius:3px 3px 0 0;border-bottom:3px solid var(--text-success)}
+  .seg.f{border-bottom-color:var(--text-danger)}
+  .seg.r{border-bottom-color:var(--text-warning)}
+  .s-a{background:var(--s-a-bg);color:var(--s-a-fg)} .s-b{background:var(--s-b-bg);color:var(--s-b-fg)}
+  .s-c{background:var(--s-c-bg);color:var(--s-c-fg)} .s-d{background:var(--s-d-bg);color:var(--s-d-fg)}
+  .s-e{background:var(--s-e-bg);color:var(--s-e-fg)} .s-x{background:var(--s-x-bg);color:var(--s-x-fg)}
+  .muted{color:var(--text-muted)}
+
+  .keys{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 9px;font-size:12px;color:var(--text-secondary)}
+  .keys span{display:flex;align-items:center;gap:5px}
+  .sw{display:inline-block;width:11px;height:11px;border-radius:3px}
+
+  .thead{display:grid;grid-template-columns:18px 1.3fr 1.9fr 1fr 22px;gap:11px;padding:2px 4px 7px;font-size:11px;color:var(--text-muted)}
+  details.row>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:18px 1.3fr 1.9fr 1fr 22px;gap:11px;align-items:start;padding:10px 4px;border-top:0.5px solid var(--border)}
+  details.row>summary::-webkit-details-marker{display:none}
+  details.row[open]>summary{background:var(--surface-1)}
+  .chev{transition:transform .12s;color:var(--text-muted);width:16px;height:16px;margin-top:1px}
+  details.row[open] .chev{transform:rotate(90deg)}
+  .fname{font-size:14px}
+  .spec{font-size:13px;color:var(--text-secondary);line-height:1.45}
+  .fval{font-family:var(--font-mono);font-size:13px;word-break:break-all}
+  .st{width:19px;height:19px;flex:0 0 auto}
+  .drawer{font-size:13px;color:var(--text-secondary);line-height:1.55;padding:4px 4px 13px 41px}
+  .kv{font-family:var(--font-mono);color:var(--text-muted)}
+  .more{font-size:12px;color:var(--text-muted);padding:9px 4px 1px;border-top:0.5px solid var(--border);display:flex;align-items:center;gap:6px}
+  .more svg{width:14px;height:14px}
+  .ok-c{color:var(--text-success)} .bad-c{color:var(--text-danger)} .rev-c{color:var(--text-warning)}
+
+  @media (max-width:640px){
+    .thead{display:none}
+    details.row>summary{grid-template-columns:18px 1fr 22px}
+    .spec,.fval{grid-column:2 / 3}
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6m0-6 6 6"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4m0 3v.5"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 5 6v5c0 4 3 7 7 9 4-2 7-5 7-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3m4 0v4m-7 0h3"/></symbol>
+  <symbol id="i-bar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5v14M8 5v14M12 5v14M16 5v14M20 5v14"/></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h6a4 4 0 0 0 0-8H10a4 4 0 0 1 0-8h6"/></symbol>
+  <symbol id="i-sign" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3 0 3-9 6-9s2 6 4 6 2-3 4-3 2 3 4 3"/><path d="M3 21h18"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2M9 5v14m-2 0h4"/><path d="M14 13h6M14 17h6"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-theme" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6l1.4 1.4m10 10 1.4 1.4m0-13.8-1.4 1.4m-10 10-1.4 1.4"/></symbol>
+</svg>
+
+<div class="appbar">
+  <div class="mark">AP</div>
+  <div>
+    <h1>eCIS Label Auditor</h1>
+    <div class="sub">Audit report · local preview</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="toggle" id="theme"><svg width="16" height="16"><use href="#i-theme"/></svg> Theme</button>
+</div>
+
+<div class="wrap" id="report">
+
+  <div class="banner" style="background:var(--bg-success);border:0.5px solid var(--border-success);">
+    <svg style="color:var(--text-success)"><use href="#i-shield"/></svg>
+    <div>
+      <p class="t" style="color:var(--text-success)">All barcodes conform</p>
+      <p class="m" style="color:var(--text-success)">st-sample.pdf · StarTrack Express · standard · 50 passed · 0 failed · 1 review</p>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="legend">
+      <span><svg width="16" height="16" class="ok-c"><use href="#i-check"/></svg> pass</span>
+      <span><svg width="16" height="16" class="rev-c"><use href="#i-minus"/></svg> review</span>
+      <span><svg width="16" height="16" class="bad-c"><use href="#i-x"/></svg> fail</span>
+      <span class="muted">fill = field · underline = result</span>
+    </div>
+    <div class="btns">
+      <button class="tbtn" data-act="open"><svg width="14" height="14"><use href="#i-down"/></svg> Expand all</button>
+      <button class="tbtn" data-act="close"><svg width="14" height="14"><use href="#i-up"/></svg> Collapse all</button>
+    </div>
+  </div>
+
+  <div class="index">
+    <span class="chip"><svg><use href="#i-qr"/></svg> QR <svg width="15" height="15" class="ok-c"><use href="#i-check"/></svg></span>
+    <span class="chip"><svg><use href="#i-bar"/></svg> Freight <svg width="15" height="15" class="ok-c"><use href="#i-check"/></svg></span>
+    <span class="chip"><svg><use href="#i-route"/></svg> Routing <svg width="15" height="15" class="ok-c"><use href="#i-check"/></svg></span>
+    <span class="chip"><svg><use href="#i-sign"/></svg> ATL <svg width="15" height="15" class="ok-c"><use href="#i-check"/></svg></span>
+    <span class="chip"><svg><use href="#i-text"/></svg> Text <svg width="15" height="15" class="rev-c"><use href="#i-minus"/></svg></span>
+  </div>
+
+  <div class="card">
+    <div class="chd">
+      <div class="lhs"><svg><use href="#i-qr"/></svg><span class="name">StarTrack 2D QR barcode</span><span class="meta">QR · 290 chars</span></div>
+      <span class="pill ok">Conforms</span>
+    </div>
+    <p class="cap">Raw payload — fill colour marks the field, underline marks the result.</p>
+    <div class="raw"><span class="seg s-a">CHULLORA</span><span class="seg s-b">2190</span><span class="seg s-c">ABCD12345678</span><span class="seg s-d">ABCD12345678EXP00001</span><span class="seg s-e">EXP</span><span class="seg s-x">12345678</span><span class="seg s-a">0001</span><span class="seg s-b">00005</span><span class="seg s-c">00015</span><span class="seg s-d">20260610</span><span class="seg s-e">CAROL RECEIVER</span><span class="seg s-x">CTN</span><span class="seg s-a">SYD</span><span class="seg s-b">8 TEST CLOSE</span><span class="seg s-c">N</span><span class="seg s-d">N</span><span class="muted"> …optional fields blank</span></div>
+    <div class="keys">
+      <span><span class="sw s-a"></span>suburb</span><span><span class="sw s-b"></span>postcode</span>
+      <span><span class="sw s-c"></span>connote</span><span><span class="sw s-d"></span>freight item</span>
+      <span><span class="sw s-e"></span>product</span>
+    </div>
+    <div class="thead"><span></span><span>Field</span><span>Specification</span><span>Raw value</span><span></span></div>
+
+    <details class="row" open>
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Receiver suburb</span><span class="spec">Mandatory. Non-blank text.</span><span class="fval">CHULLORA</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-QR-F01 · position 1, length 30.</span> Value present and trimmed.</div>
+    </details>
+    <details class="row">
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Receiver postcode</span><span class="spec">Mandatory. 4 digits (9901 for NZ Premium).</span><span class="fval">2190</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-QR-F02 · position 31, length 4.</span> Expected 4 digits; got 2190. Matches the routing postcode.</div>
+    </details>
+    <details class="row">
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Consignment number</span><span class="spec">Mandatory. 4 alphanumeric followed by 8 digits.</span><span class="fval">ABCD12345678</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-QR-F03 · position 35, length 12.</span> Cross-check ST-X-01: equals the connote in the freight barcode.</div>
+    </details>
+    <details class="row">
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Freight item number</span><span class="spec">Mandatory. 20-character freight item ID.</span><span class="fval">ABCD12345678EXP00001</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-QR-F04 · position 47, length 20.</span> Cross-check ST-X-02: equals the decoded Code 128 freight value.</div>
+    </details>
+    <details class="row">
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Product code</span><span class="spec">Mandatory. Valid StarTrack product code.</span><span class="fval">EXP</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-QR-F05 · position 67, length 3.</span> EXP = Express; permitted for this label variant (ST-PRD-01).</div>
+    </details>
+    <details class="row">
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Despatch date</span><span class="spec">Mandatory. YYYYMMDD, valid calendar date.</span><span class="fval">20260610</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-QR-F11 · position 100, length 8.</span> Parses to 2026-06-10 — a valid date.</div>
+    </details>
+    <div class="more"><svg><use href="#i-down"/></svg> Showing 6 of 24 fields — all pass</div>
+  </div>
+
+  <div class="card">
+    <div class="chd">
+      <div class="lhs"><svg><use href="#i-bar"/></svg><span class="name">Freight item barcode</span><span class="meta">Code 128 · 61 bars</span></div>
+      <span class="pill ok">Conforms</span>
+    </div>
+    <p class="cap">Decoded string, split into freight components.</p>
+    <div class="raw"><span class="seg s-c">ABCD12345678</span><span class="seg s-e">EXP</span><span class="seg s-x">00001</span></div>
+    <div class="keys"><span><span class="sw s-c"></span>connote</span><span><span class="sw s-e"></span>product</span><span><span class="sw s-x"></span>sequence</span></div>
+    <div class="thead"><span></span><span>Check</span><span>Specification</span><span>Raw value</span><span></span></div>
+
+    <details class="row" open>
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Connote</span><span class="spec">Equals the QR consignment number.</span><span class="fval">ABCD12345678</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-X-01 · chars 1–12.</span> Both read ABCD12345678 — the QR and freight barcode agree.</div>
+    </details>
+    <details class="row">
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Product</span><span class="spec">Matches the QR product code.</span><span class="fval">EXP</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-FRT-03 · chars 13–15.</span> Both are EXP.</div>
+    </details>
+    <details class="row">
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Encodation</span><span class="spec">Compressed symbol is exactly 61 bars.</span><span class="fval">61 bars</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-FRT-09.</span> Measured 61 bars — encodation is to spec.</div>
+    </details>
+    <div class="more"><svg><use href="#i-down"/></svg> +6 more checks — all pass</div>
+  </div>
+
+  <div class="card">
+    <div class="chd">
+      <div class="lhs"><svg><use href="#i-route"/></svg><span class="name">Routing barcode</span><span class="meta">Code 128</span></div>
+      <span class="pill ok">Conforms</span>
+    </div>
+    <p class="cap">Decoded string, split into routing components.</p>
+    <div class="raw"><span class="seg s-e">EXP</span><span class="seg s-b">2190</span><span class="seg s-a">SYD</span></div>
+    <div class="keys"><span><span class="sw s-e"></span>label code</span><span><span class="sw s-b"></span>postcode</span><span><span class="sw s-a"></span>depot</span></div>
+    <div class="thead"><span></span><span>Check</span><span>Specification</span><span>Raw value</span><span></span></div>
+
+    <details class="row" open>
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Postcode</span><span class="spec">Equals the QR receiver postcode.</span><span class="fval">2190</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-RTE-04.</span> Routing postcode 2190 matches the decoded QR receiver postcode.</div>
+    </details>
+    <details class="row">
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Label code</span><span class="spec">Matches the product.</span><span class="fval">EXP</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-RTE-03.</span> Routing label code maps to product EXP.</div>
+    </details>
+    <div class="more"><svg><use href="#i-down"/></svg> +3 more checks — all pass</div>
+  </div>
+
+  <div class="card">
+    <div class="chd">
+      <div class="lhs"><svg><use href="#i-sign"/></svg><span class="name">ATL barcode</span><span class="meta">Code 128 · authority to leave</span></div>
+      <span class="pill ok">Conforms</span>
+    </div>
+    <p class="cap">Decoded string, split into ATL components.</p>
+    <div class="raw"><span class="seg s-d">C</span><span class="seg s-x">239196552</span></div>
+    <div class="keys"><span><span class="sw s-d"></span>prefix</span><span><span class="sw s-x"></span>counter</span></div>
+    <div class="thead"><span></span><span>Check</span><span>Specification</span><span>Raw value</span><span></span></div>
+
+    <details class="row" open>
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Structure</span><span class="spec">C followed by 9 digits (Code B/C compression).</span><span class="fval">C239196552</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-ATL-06.</span> Decoded as the literal C plus 9 digits — consistent with the required compression pattern.</div>
+    </details>
+    <details class="row">
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Counter</span><span class="spec">Within range 1–999999999.</span><span class="fval">239196552</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-ATL-01.</span> Counter 239196552 is within range.</div>
+    </details>
+    <div class="more rev-c"><svg><use href="#i-alert"/></svg> Not checked: identical ATL across the same consignment (no rule yet)</div>
+  </div>
+
+  <div class="card" style="margin-bottom:0">
+    <div class="chd"><div class="lhs"><svg><use href="#i-text"/></svg><span class="name">Text-collected checks</span></div></div>
+    <p class="cap">Read from label text (OCR / PDF layer). Unconfirmable checks become review, never a hard fail.</p>
+    <div class="thead"><span></span><span>Check</span><span>Specification</span><span>Raw value</span><span></span></div>
+
+    <details class="row" open>
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Weight visible</span><span class="spec">Weight value present in the label text.</span><span class="fval">5 kg</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">WEIGHT_PRESENT · source: OCR.</span> Heading-aware match found "5 kg".</div>
+    </details>
+    <details class="row">
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Cube visible</span><span class="spec">Cube value present (cube / cubic, with or without a colon).</span><span class="fval">0.015 m3</span><svg class="st ok-c"><use href="#i-check"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-ITM-05 · source: OCR.</span> Matched "cube"/"cubic" heading variants; value 0.015 m3.</div>
+    </details>
+    <details class="row">
+      <summary><svg class="chev"><use href="#i-chev"/></svg><span class="fname">Sender block present</span><span class="spec">A sender block is present in the label text.</span><span class="fval">—</span><svg class="st rev-c"><use href="#i-minus"/></svg></summary>
+      <div class="drawer"><span class="kv">ST-SND-01 · source: OCR.</span> Could not confirm a sender block — check the label manually for content. Text extraction is heuristic, so this is flagged for review, not failed.</div>
+    </details>
+  </div>
+
+</div>
+
+<script>
+  var report = document.getElementById('report');
+  document.querySelectorAll('[data-act]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var open = b.getAttribute('data-act') === 'open';
+      report.querySelectorAll('details.row').forEach(function(d){ d.open = open; });
+    });
+  });
+  document.getElementById('theme').addEventListener('click', function(){
+    var html = document.documentElement;
+    html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  });
+</script>
+</body>
+</html>
