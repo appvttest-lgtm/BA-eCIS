@@ -6,6 +6,22 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.9.1 - colour-coded raw strings for every barcode + warm theme
+----------------------------------------------------------------
+Every decoded barcode now shows its raw string colour-segmented by field, and the app adopts the
+warm cream/paper theme from the report mockups.
+- Each raw decoded value is split into colour-coded field segments by the barcode's fixed format and
+  field lengths, operating on the literal scanned value (with a legend mapping colour to field). The
+  separate duplicate "field map" panels are removed - the raw string itself is now the colour map.
+- Coverage: StarTrack QR (24 fixed-width fields), freight item (despatch/connote-seq/product/item),
+  routing (label code/postcode/depot and the GS1 421 form), ATL (C + counter), AI 00 SSCC
+  (AI/extension/prefix+serial/check), eParcel GS1-128 linear (AI 01 GTIN + AI 91 article) and bare
+  article IDs, and GS1 DataMatrix (AI 01/91/420/92/8008) - the DataMatrix had no colour map before.
+- A faithfulness guard guarantees the coloured segments always reproduce the decoded value exactly;
+  an unrecognised value falls back to a single coloured block rather than dropping characters.
+- Theme: warm cream page, flat white cards with warm borders at 12px radius, status badges and icons
+  re-skinned to green tick (pass) / amber dash (review) / red cross (fail).
+
 v1.9.0 - report redesign: per-field lines, status icons, collapsible detail
 ---------------------------------------------------------------------------
 The audit report is reorganised so each barcode reads as plain language first, with the engineering detail one click away.

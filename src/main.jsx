@@ -1010,8 +1010,8 @@ function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)' })
   const segs = (segments || []).filter(s => s && s.text != null && String(s.text).length > 0);
   if (!segs.length) return null;
   return (
-    <div className="decoded-panel segmented-panel">
-      <h3>{title}</h3>
+    <div className={title ? 'decoded-panel segmented-panel' : 'segmented-inline'}>
+      {title ? <h3>{title}</h3> : null}
       <code className="segmented-code">
         {segs.map((s, i) => (
           <span key={i} className={`seg seg-c${i % SEG_PALETTE}`} title={s.label}>
@@ -1032,80 +1032,175 @@ function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)' })
   );
 }
 
-/** Slices a decoded StarTrack QR by its fixed-width field positions (padding preserved). */
-function qrFieldSegments(qr) {
-  const raw = String(qr?.raw || '').replace(/^\]Q[0-9]/, '');
-  return STARTRACK_QR_FIELDS.map(f => ({
-    text: raw.slice(f.pos - 1, f.pos - 1 + f.len),
-    label: `${f.num}. ${f.label}`
-  })).filter(s => s.text.length > 0);
+/** Best-effort GS1 DataMatrix segmentation: split on group separators, else match the
+ *  Australia Post AI pattern (01 GTIN, 91 article, 420 postcode, 92 DPID, 8008 date/time). */
+function dataMatrixSegments(value) {
+  const seg = (text, label) => ({ text, label });
+  const AI_LABEL = {
+    '00': 'AI 00 SSCC',
+    '01': 'AI 01 GTIN',
+    91: 'AI 91 article',
+    420: 'AI 420 postcode',
+    92: 'AI 92 DPID',
+    8008: 'AI 8008 date/time'
+  };
+  // Fixed-value-length AIs can be consumed back-to-back without a separator; AI 91 (article) is
+  // variable so it always runs to the end of its element.
+  const FIXED = { '00': 18, '01': 14, 420: 4, 92: 8, 8008: 12 };
+  const splitElement = s => {
+    const out = [];
+    let i = 0;
+    while (i < s.length) {
+      const fixed = Object.keys(FIXED).find(ai => s.startsWith(ai, i));
+      if (fixed) {
+        out.push(
+          seg(fixed, AI_LABEL[fixed]),
+          seg(s.slice(i + fixed.length, i + fixed.length + FIXED[fixed]), `${AI_LABEL[fixed]} value`)
+        );
+        i += fixed.length + FIXED[fixed];
+        continue;
+      }
+      if (s.startsWith('91', i)) {
+        out.push(seg('91', AI_LABEL['91']), seg(s.slice(i + 2), `${AI_LABEL['91']} value`));
+        return out;
+      }
+      out.push(seg(s.slice(i), 'GS1 element'));
+      return out;
+    }
+    return out;
+  };
+  const parts = String(value)
+    .replace(/[()]/g, '')
+    .split(/[\x1d\x1e\x1c|]+/)
+    .filter(Boolean);
+  const out = parts.flatMap(splitElement).filter(s => String(s.text).length > 0);
+  return out.length ? out : [seg(String(value), 'Decoded value')];
 }
 
-/** Segments for a StarTrack 20-character freight item barcode (XXXZ 99999999 AAA 99999). */
-function freightSegments(f) {
-  if (!f?.freightItemId) return [];
-  return [
-    { text: f.despatchId, label: 'Despatch ID' },
-    { text: f.consignmentSequence, label: 'Connote sequence' },
-    { text: f.productCode, label: 'Product code' },
-    { text: f.itemNumber, label: 'Item sequence' }
-  ];
-}
-
-/** Segments for a StarTrack routing barcode (SSS9999DDD) or the GS1 421 routing form. */
-function routingSegments(r) {
-  if (!r) return [];
-  if (r.type === 'gs1-421-routing') {
-    return [
-      { text: '421', label: 'AI 421' },
-      { text: r.countryCode, label: 'Country code' },
-      { text: r.postcode, label: 'Postcode' },
-      { text: '403', label: 'AI 403' },
-      { text: r.labelCode, label: 'Label code' }
-    ];
+/** Splits a decoded barcode value into colour-coded field segments by its fixed format and field
+ *  lengths, operating on the literal decoded value so the highlighted string matches the scan.
+ *  Always returns at least one segment for a non-empty value; a concat check guarantees no
+ *  character is dropped or duplicated (falls back to a single block when slicing is unreliable). */
+function rawSegments(rawValue, kind) {
+  const v = String(rawValue || '').replace(/^\][A-Za-z0-9]{2}/, '');
+  if (!v) return [];
+  const seg = (text, label) => ({ text, label });
+  const whole = [seg(v, 'Decoded value')];
+  let out;
+  switch (kind) {
+    case 'qr': {
+      out = STARTRACK_QR_FIELDS.map(f => seg(v.slice(f.pos - 1, f.pos - 1 + f.len), `${f.num}. ${f.label}`)).filter(
+        s => s.text.length > 0
+      );
+      const consumed = STARTRACK_QR_FIELDS.reduce((m, f) => Math.max(m, f.pos - 1 + f.len), 0);
+      if (v.length > consumed) out.push(seg(v.slice(consumed), 'Overflow / extra'));
+      break;
+    }
+    case 'freight': {
+      const c = v.replace(/[()]/g, '');
+      if (/^00\d{18}$/.test(c)) return rawSegments(c, 'sscc');
+      out = /^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(c)
+        ? [
+            seg(c.slice(0, 4), 'Despatch ID'),
+            seg(c.slice(4, 12), 'Connote sequence'),
+            seg(c.slice(12, 15), 'Product code'),
+            seg(c.slice(15, 20), 'Item sequence')
+          ]
+        : whole;
+      break;
+    }
+    case 'routing': {
+      const c = v.replace(/[()\s]/g, '');
+      const m421 = c.match(/^421(\d{3})(\d{4})(?:403([A-Z0-9]+))?$/);
+      if (m421) {
+        out = [seg('421', 'AI 421'), seg(m421[1], 'Country code'), seg(m421[2], 'Postcode')];
+        if (m421[3]) out.push(seg('403', 'AI 403'), seg(m421[3], 'Label code'));
+      } else {
+        const m = c.match(/^([A-Z]{2,3})(\d{4})([A-Z0-9]{2,3})?$/);
+        out = m ? [seg(m[1], 'Label code'), seg(m[2], 'Postcode'), ...(m[3] ? [seg(m[3], 'Depot/port')] : [])] : whole;
+      }
+      break;
+    }
+    case 'atl': {
+      const m = v.replace(/[()]/g, '').match(/^(C)(\d{9})$/);
+      out = m ? [seg('C', 'Prefix'), seg(m[2], 'Counter')] : whole;
+      break;
+    }
+    case 'sscc': {
+      const d = v.replace(/[()\s]/g, '');
+      if (/^00\d{18}$/.test(d))
+        out = [
+          seg('00', 'AI 00'),
+          seg(d.slice(2, 3), 'Extension digit'),
+          seg(d.slice(3, 19), 'Company prefix + serial'),
+          seg(d.slice(19), 'Check digit')
+        ];
+      else if (/^\d{18}$/.test(d))
+        out = [
+          seg(d.slice(0, 1), 'Extension digit'),
+          seg(d.slice(1, 17), 'Company prefix + serial'),
+          seg(d.slice(17), 'Check digit')
+        ];
+      else out = whole;
+      break;
+    }
+    case 'eparcel-linear': {
+      const c = v.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      if (/^00\d{18}$/.test(c)) return rawSegments(c, 'sscc');
+      // GS1-128 carries AI 01 GTIN + AI 91 article; segment it by AI like the DataMatrix.
+      if (/^01\d{14}91[A-Z0-9]+/.test(c)) return dataMatrixSegments(c);
+      return rawSegments(c, 'article');
+    }
+    case 'article': {
+      const c = v.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      const mlid = c.length === 23 ? 5 : c.length === 21 ? 3 : 0;
+      out = mlid
+        ? [
+            seg(c.slice(0, mlid), 'MLID'),
+            seg(c.slice(mlid, mlid + 7), 'Consignment serial'),
+            seg(c.slice(mlid + 7, mlid + 9), 'Article count'),
+            seg(c.slice(mlid + 9, mlid + 14), 'Product code'),
+            seg(c.slice(mlid + 14, mlid + 16), 'Service code'),
+            seg(c.slice(mlid + 16, mlid + 17), 'Postage paid'),
+            seg(c.slice(mlid + 17, mlid + 18), 'Check digit')
+          ]
+        : whole;
+      break;
+    }
+    case 'datamatrix':
+      return dataMatrixSegments(v);
+    default:
+      out = whole;
   }
-  return [
-    { text: r.labelCode, label: 'Label code' },
-    { text: r.postcode, label: 'Postcode' },
-    { text: r.depotOrPort, label: 'Depot/port' }
-  ];
+  out = (out || []).filter(s => s && String(s.text).length > 0);
+  if (!out.length) return whole;
+  // Faithfulness guard: the coloured segments must reproduce the decoded value exactly.
+  const joined = out.map(s => String(s.text)).join('');
+  const cleaned = v.replace(/[()\s]/g, '').toUpperCase();
+  if (joined !== v && joined.toUpperCase() !== cleaned) return whole;
+  return out;
 }
 
-/** Segments for a StarTrack ATL barcode (C + 9-digit counter). */
-function atlSegments(a) {
-  const n = String(a?.atlNumber || '');
-  if (!/^C\d{9}$/.test(n)) return [];
-  return [
-    { text: 'C', label: 'Prefix' },
-    { text: n.slice(1), label: 'Counter' }
-  ];
-}
-
-/** Segments for an AI 00 SSCC (accepts an 18-digit body or a full 20-digit AI 00 value). */
-function ssccSegments(s) {
-  let digits = String(s?.sscc || '').replace(/\D/g, '');
-  if (digits.length === 20 && digits.startsWith('00')) digits = digits.slice(2);
-  if (digits.length !== 18) return [];
-  return [
-    { text: '00', label: 'AI 00' },
-    { text: digits.slice(0, 1), label: 'Extension digit' },
-    { text: digits.slice(1, -1), label: 'Company prefix + serial' },
-    { text: digits.slice(-1), label: 'Check digit' }
-  ];
-}
-
-/** Segments for a standard eParcel article ID (MLID + serial + count + product + service + PP + check). */
-function articleSegments(a) {
-  if (!a || a.type !== 'eparcel-standard') return [];
-  return [
-    { text: a.mlid, label: 'MLID' },
-    { text: a.consignmentSuffix, label: 'Consignment serial' },
-    { text: a.articleCount, label: 'Article count' },
-    { text: a.productCode, label: 'Product code' },
-    { text: a.serviceCode, label: 'Service code' },
-    { text: a.postagePaidIndicator, label: 'Postage paid' },
-    { text: a.checkDigit, label: 'Check digit' }
-  ];
+/** Renders each decoded barcode value colour-coded by its field format/lengths, with a legend. */
+function DecodedBarcodes({ barcodes, kind, label, emptyText }) {
+  if (!barcodes || !barcodes.length) return <p className="muted">{emptyText}</p>;
+  return (
+    <ul className="barcode-list decoded-list">
+      {barcodes.map(b => (
+        <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
+          <div className="barcode-meta">
+            <strong>{label}</strong> {b.pageNumber ? `page ${b.pageNumber}` : ''}
+          </div>
+          <SegmentedCode segments={rawSegments(b.rawValue, kind)} title={null} />
+          <div className="muted small">
+            {b.pageBoundingBox
+              ? 'Barcode location verified on this label.'
+              : 'Barcode decoded; exact location not mapped.'}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function StarTrackQrSection({ audit, items }) {
@@ -1136,26 +1231,13 @@ function StarTrackQrSection({ audit, items }) {
             product code, quantity, weight, despatch date, unit type, destination depot, DG indicator and movement type.
           </StandardLine>
           <div className="decoded-panel">
-            <h3>Raw decoded QR string</h3>
-            {qrBarcodes.length ? (
-              <ul className="barcode-list decoded-list">
-                {qrBarcodes.map(b => (
-                  <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
-                    <div className="barcode-meta">
-                      <strong>QR</strong> page {b.pageNumber || ''}
-                    </div>
-                    <code className="raw-code raw-code-block">{b.rawValue}</code>
-                    <div className="muted small">
-                      {b.pageBoundingBox
-                        ? 'Barcode location verified on this label.'
-                        : 'Barcode decoded; exact location not mapped.'}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="muted">No StarTrack QR value decoded from the uploaded file.</p>
-            )}
+            <h3>Raw decoded QR string (colour-coded by field)</h3>
+            <DecodedBarcodes
+              barcodes={qrBarcodes}
+              kind="qr"
+              label="QR"
+              emptyText="No StarTrack QR value decoded from the uploaded file."
+            />
           </div>
           {qrs.length > 0 &&
             qrs.map(qr => (
@@ -1165,7 +1247,6 @@ function StarTrackQrSection({ audit, items }) {
                   Product {qr.productCode || '—'}
                   {qr.productName ? ` — ${qr.productName}` : ''} · payload {qr.length} chars
                 </p>
-                <SegmentedCode segments={qrFieldSegments(qr)} title="QR payload field map (colour-coded)" />
                 <div className="qr-lines">
                   <StatusKeyLegend />
                   <div className="qr-lines-head">
@@ -1215,24 +1296,13 @@ function StarTrackRoutingSection({ audit, items }) {
           )}
         </div>
         <div>
-          <h3>Decoded routing barcode values</h3>
-          {routingBarcodes.length ? (
-            <ul className="barcode-list">
-              {routingBarcodes.map(b => (
-                <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
-                  <strong>Routing barcode</strong>: <code>{b.rawValue}</code>
-                  <br />
-                  <span className="muted small">
-                    {b.pageBoundingBox
-                      ? 'Barcode location verified on this label.'
-                      : 'Barcode decoded; exact location not mapped.'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted">No StarTrack routing barcode value decoded.</p>
-          )}
+          <h3>Decoded routing barcode values (colour-coded by field)</h3>
+          <DecodedBarcodes
+            barcodes={routingBarcodes}
+            kind="routing"
+            label="Routing barcode"
+            emptyText="No StarTrack routing barcode value decoded."
+          />
           {routes.length > 0 && (
             <div className="fact-cards fact-cards-wide">
               {routes.map(route => (
@@ -1257,13 +1327,6 @@ function StarTrackRoutingSection({ audit, items }) {
               ))}
             </div>
           )}
-          {routes.map(route => (
-            <SegmentedCode
-              key={`seg-${route.raw}`}
-              segments={routingSegments(route)}
-              title="Routing barcode field map (colour-coded)"
-            />
-          ))}
           <StandardLine>
             StarTrack routing barcode is required separately from the freight item and ATL barcodes. Standard format is
             SSS9999DD/DDD: Premium and Fixed Price Premium labels commonly use a three-character depot/port suffix,
@@ -1298,24 +1361,13 @@ function StarTrackAtlSection({ audit, items }) {
           )}
         </div>
         <div>
-          <h3>Decoded ATL barcode values</h3>
-          {atlBarcodes.length ? (
-            <ul className="barcode-list">
-              {atlBarcodes.map(b => (
-                <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
-                  <strong>ATL barcode</strong>: <code>{b.rawValue}</code>
-                  <br />
-                  <span className="muted small">
-                    {b.pageBoundingBox
-                      ? 'Barcode location verified on this label.'
-                      : 'Barcode decoded; exact location not mapped.'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted">No StarTrack ATL barcode value decoded.</p>
-          )}
+          <h3>Decoded ATL barcode values (colour-coded by field)</h3>
+          <DecodedBarcodes
+            barcodes={atlBarcodes}
+            kind="atl"
+            label="ATL barcode"
+            emptyText="No StarTrack ATL barcode value decoded."
+          />
           {atlParses.length > 0 && (
             <div className="fact-cards fact-cards-wide">
               {atlParses.map(atl => (
@@ -1340,13 +1392,6 @@ function StarTrackAtlSection({ audit, items }) {
               ))}
             </div>
           )}
-          {atlParses.map(atl => (
-            <SegmentedCode
-              key={`seg-${atl.atlNumber}`}
-              segments={atlSegments(atl)}
-              title="ATL barcode field map (colour-coded)"
-            />
-          ))}
           <StandardLine>
             StarTrack ATL barcode content is C999999999. C is always the character C and the nine-digit sequential
             counter starts at 000000001. Preferred orientation is Picket Fence, minimum bar height 10mm, minimum barcode
@@ -1382,24 +1427,13 @@ function StarTrackFreightItemSection({ audit, items }) {
           )}
         </div>
         <div>
-          <h3>Decoded freight item barcode values</h3>
-          {freightBarcodes.length ? (
-            <ul className="barcode-list">
-              {freightBarcodes.map(b => (
-                <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
-                  <strong>Freight item barcode</strong>: <code>{b.rawValue}</code>
-                  <br />
-                  <span className="muted small">
-                    {b.pageBoundingBox
-                      ? 'Barcode location verified on this label.'
-                      : 'Barcode decoded; exact location not mapped.'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted">No StarTrack freight item / SSCC barcode value decoded.</p>
-          )}
+          <h3>Decoded freight item barcode values (colour-coded by field)</h3>
+          <DecodedBarcodes
+            barcodes={freightBarcodes}
+            kind="freight"
+            label="Freight item barcode"
+            emptyText="No StarTrack freight item / SSCC barcode value decoded."
+          />
           {freightParses.length > 0 && (
             <div className="fact-cards fact-cards-wide">
               {freightParses.map(f => (
@@ -1426,13 +1460,6 @@ function StarTrackFreightItemSection({ audit, items }) {
               ))}
             </div>
           )}
-          {freightParses.map(f => (
-            <SegmentedCode
-              key={`seg-${f.freightItemId}`}
-              segments={freightSegments(f)}
-              title="Freight item field map (colour-coded)"
-            />
-          ))}
           {ssccs.length > 0 && (
             <details className="reference-details sscc-details">
               <summary>SSCC details ({ssccs.length})</summary>
@@ -1459,7 +1486,11 @@ function StarTrackFreightItemSection({ audit, items }) {
                 ))}
               </div>
               {ssccs.map(s => (
-                <SegmentedCode key={`seg-${s.sscc}`} segments={ssccSegments(s)} title="SSCC field map (colour-coded)" />
+                <SegmentedCode
+                  key={`seg-${s.sscc}`}
+                  segments={rawSegments(`00${s.sscc}`, 'sscc')}
+                  title="SSCC field map (colour-coded)"
+                />
               ))}
             </details>
           )}
@@ -1507,26 +1538,13 @@ function DataMatrixSection({ audit, items }) {
           )}
 
           <div className="decoded-panel">
-            <h3>Raw decoded GS1 DataMatrix string</h3>
-            {dataMatrixBarcodes.length ? (
-              <ul className="barcode-list decoded-list">
-                {dataMatrixBarcodes.map(b => (
-                  <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
-                    <div className="barcode-meta">
-                      <strong>{b.format || b.symbology || 'DataMatrix'}</strong> page {b.pageNumber || ''}
-                    </div>
-                    <code className="raw-code raw-code-block">{b.rawValue}</code>
-                    <div className="muted small">
-                      {b.pageBoundingBox
-                        ? 'Barcode location verified on this label.'
-                        : 'Barcode decoded; exact location not mapped.'}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="muted">No GS1 DataMatrix value decoded from the uploaded file.</p>
-            )}
+            <h3>Raw decoded GS1 DataMatrix string (colour-coded by AI)</h3>
+            <DecodedBarcodes
+              barcodes={dataMatrixBarcodes}
+              kind="datamatrix"
+              label="DataMatrix"
+              emptyText="No GS1 DataMatrix value decoded from the uploaded file."
+            />
           </div>
 
           {dmParses.length > 0 && (
@@ -1592,31 +1610,13 @@ function LinearBarcodeSection({ audit, items }) {
           )}
         </div>
         <div>
-          <h3>Decoded linear barcode values</h3>
-          {linearBarcodes.length ? (
-            <ul className="barcode-list">
-              {linearBarcodes.map(b => (
-                <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
-                  <strong>{barcodeDisplayName(b)}</strong>: <code>{b.rawValue}</code>
-                  <br />
-                  <span className="muted small">
-                    {b.pageBoundingBox
-                      ? 'Barcode location verified on this label.'
-                      : 'Barcode decoded; exact location not mapped.'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted">No Code128/GS1-128 value decoded.</p>
-          )}
-          {(audit?.articles || []).map(a => (
-            <SegmentedCode
-              key={`seg-${a.articleId || a.sscc}`}
-              segments={a.type === 'sscc' ? ssccSegments(a) : articleSegments(a)}
-              title={a.type === 'sscc' ? 'SSCC field map (colour-coded)' : 'Article ID field map (colour-coded)'}
-            />
-          ))}
+          <h3>Decoded linear barcode values (colour-coded by field)</h3>
+          <DecodedBarcodes
+            barcodes={linearBarcodes}
+            kind="eparcel-linear"
+            label="Linear barcode"
+            emptyText="No Code128/GS1-128 value decoded."
+          />
           {auditHasSsccOnly(audit) ? (
             <StandardLine>
               SSCC linear barcodes use AI 00 and should decode to a valid SSCC value. eParcel
