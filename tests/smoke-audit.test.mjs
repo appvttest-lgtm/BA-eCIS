@@ -217,6 +217,28 @@ const urlQrAudit = auditLabel({
 });
 expect('non-StarTrack QR produces no field rows', !find(urlQrAudit, 'ST-QR-F03'));
 
+// --- A decoded but non-conforming QR (issue #16) is reported field-by-field, not "not decoded" ---
+// SSCC-retailer QR with a different field order (SSCC first, suburb/postcode at the end). It does
+// not match the MOS v9 suburb-first layout, so the report must say "decoded" and expose each field's
+// pass/fail against the spec positions, rather than hiding it behind a single "not decoded" failure.
+const nonConformingQr =
+  'LA00393278068436543128 F SMIGGLE-MARION SHOP 2062 WFIELD MARION 297 DIAGONAL ROAD OAKLANDS PARK 5046 4C0182 S000008 NNN';
+const nonConformingAudit = auditLabel({
+  carrier: 'startrack',
+  labelFamily: 'startrack',
+  labelFormat: 'sscc',
+  fileInfo: { name: 'st-nonconforming-qr.pdf', widthMm: 100, heightMm: 150, pageCount: 1 },
+  detectedBarcodes: [
+    { rawValue: nonConformingQr, format: 'qrcode' },
+    { rawValue: '00393278068436543128', format: 'code_128' }
+  ],
+  extractedText: ['STARTRACK', 'OAKLANDS PARK SA 5046'].join('\n')
+});
+expect('non-conforming QR reports decoded (not "not decoded")', find(nonConformingAudit, 'ST-QR-01')?.status === 'pass');
+expect('non-conforming QR exposes per-field rows', !!find(nonConformingAudit, 'ST-QR-F02'));
+expect('non-conforming QR postcode position fails', find(nonConformingAudit, 'ST-QR-F02')?.status === 'fail');
+expect('non-conforming QR length flagged', find(nonConformingAudit, 'ST-QR-03')?.status === 'fail');
+
 // --- Heading-aware weight/cube extraction survives label-text variation ---
 // "cube" vs "cubic", with or without a colon or m3 unit, and value on the next line.
 function stFacts(extractedText) {

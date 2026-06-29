@@ -1031,6 +1031,7 @@ function StarTrackQrSection({ audit, items }) {
                       <th>#</th>
                       <th>Field</th>
                       <th>Pos·Len</th>
+                      <th>Validation criteria</th>
                       <th>Parsed value</th>
                       <th>Check</th>
                     </tr>
@@ -1049,6 +1050,7 @@ function StarTrackQrSection({ audit, items }) {
                           <td className="muted small">
                             {f.pos}·{f.len}
                           </td>
+                          <td className="small">{f.criteria}</td>
                           <td>{value ? <code>{value}</code> : <span className="muted small">blank</span>}</td>
                           <td>
                             {status ? (

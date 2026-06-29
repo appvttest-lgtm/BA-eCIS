@@ -6,6 +6,14 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.8.0 - StarTrack QR field-by-field exposure (issue #16)
+--------------------------------------------------------
+The StarTrack 2D QR report previously showed only a single "decoded" check and hid every parsed field, so a QR that decoded but did not match the fixed-width layout (e.g. an SSCC-retailer QR with a different field order) reported a misleading "not decoded" failure with no detail.
+- Any decoded QR long enough to carry the mandatory fields (>= 67 chars) is now sliced against the MOS v9 fixed-width positions and exposed field-by-field, even when non-conforming, so the failing positions are visible instead of hidden.
+- The "Parsed QR payload fields" table now shows each field's validation criteria alongside its position, parsed value and pass/fail check.
+- ST-QR-03 continues to flag a payload shorter than the 290-character fixed width; the per-field format rules (postcode, connote, product, etc.) show exactly which positions do not conform.
+- Confirmed against issue #16: that QR is non-conforming to the MOS v9 suburb-first layout (receiver suburb/postcode appear at the end, not positions 1/31) and is now reported field-by-field rather than as "not decoded".
+
 v1.7.9 - bar count scan-quality warning
 ---------------------------------------
 ST-FRT-09 no longer skips silently when the freight barcode's bar count cannot be measured reliably (low contrast or inconsistent scanlines). It now reports a warning that names the likely scan-quality cause and recommends the original PDF or a 300 DPI export, so an unconfirmed compression check is always visible in the report. A wrong count still warns with the 61-vs-70 explanation; neither case ever fails the label.
