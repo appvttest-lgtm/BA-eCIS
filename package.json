@@ -1,6 +1,6 @@
 {
   "name": "ecommerce-integration-label-auditor-local",
-  "version": "1.8.1",
+  "version": "1.9.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -13,6 +13,8 @@
     "build:portable": "node scripts/build-portable.mjs",
     "sync:ocr": "node scripts/sync-ocr-assets.mjs",
     "checklist": "node scripts/checklist-coverage.mjs",
+    "golden:fixtures": "node scripts/make-golden-fixtures.mjs",
+    "golden:update": "node scripts/golden-update.mjs",
     "test": "node --test",
     "lint": "eslint .",
     "sbom": "npm sbom --sbom-format cyclonedx > docs/security/sbom.cyclonedx.json",

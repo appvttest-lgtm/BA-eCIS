@@ -7,7 +7,7 @@ import {
   STARTRACK_PRODUCT_CODE_MAP,
   STARTRACK_QR_FIELDS
 } from './auditEngine.js';
-import { RuleReport } from './reportView.jsx';
+import { RuleReport, StatusIcon } from './reportView.jsx';
 import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from './scanner/barcodeTypes.js';
 import { createDetector } from './scanner/decoders.js';
 import { isStarTrackFreightItemValue, isStarTrackAtlValue, isStarTrackRoutingValue } from './scanner/labelImages.js';
@@ -945,17 +945,49 @@ function FullLabelImageSection({ audit, items, onZoomLabel }) {
   );
 }
 
-const QR_FIELD_STATUS_LABEL = {
-  pass: 'PASS',
-  fail: 'FAIL',
-  warning: 'WARN',
-  manual_review: 'REVIEW',
-  not_applicable: 'N/A',
-  info: 'INFO'
-};
+const QR_OBLIGATION_LABEL = { M: 'Mandatory', COND: 'Conditional', O: 'Optional' };
 
-function statusKey(status) {
-  return QR_FIELD_STATUS_LABEL[status] ? status : 'not_applicable';
+/** Small pass / review / fail key shown above a field breakdown. */
+function StatusKeyLegend() {
+  return (
+    <div className="status-key-legend">
+      <span>
+        <StatusIcon status="pass" /> pass
+      </span>
+      <span>
+        <StatusIcon status="manual_review" /> review
+      </span>
+      <span>
+        <StatusIcon status="fail" /> fail
+      </span>
+    </div>
+  );
+}
+
+/** One expandable QR field line: name + spec + raw value + status; the rule id and char
+ *  position live in the drawer so the line itself stays readable. */
+function QrFieldLine({ field, value, status }) {
+  const obligation = QR_OBLIGATION_LABEL[field.obligation] || field.obligation;
+  const spec = field.obligation === 'M' ? field.criteria : `${obligation}. ${field.criteria}`;
+  return (
+    <details className="qr-line">
+      <summary>
+        <span className="qr-chev" aria-hidden="true">
+          ▸
+        </span>
+        <span className="qr-name">{field.label}</span>
+        <span className="qr-spec">{spec}</span>
+        <span className="qr-val">{value ? <code>{value}</code> : <span className="muted small">blank</span>}</span>
+        {status ? <StatusIcon status={status} /> : <span className="qr-noico muted small">—</span>}
+      </summary>
+      <div className="qr-drawer">
+        <code>
+          {field.rule ? `${field.rule} · ` : ''}field {field.num} · position {field.pos}, length {field.len} ·{' '}
+          {obligation}
+        </code>
+      </div>
+    </details>
+  );
 }
 
 /** Status of the per-field rule (ST-QR-Fnn) for a QR field, matching exact or forEach-suffixed ids. */
@@ -1134,45 +1166,24 @@ function StarTrackQrSection({ audit, items }) {
                   {qr.productName ? ` — ${qr.productName}` : ''} · payload {qr.length} chars
                 </p>
                 <SegmentedCode segments={qrFieldSegments(qr)} title="QR payload field map (colour-coded)" />
-                <table className="qr-field-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Field</th>
-                      <th>Pos·Len</th>
-                      <th>Validation criteria</th>
-                      <th>Parsed value</th>
-                      <th>Check</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {STARTRACK_QR_FIELDS.map(f => {
-                      const value = qr.fields?.[f.key] ?? '';
-                      const status = qrFieldStatus(items, f.rule);
-                      return (
-                        <tr key={f.key}>
-                          <td>{f.num}</td>
-                          <td>
-                            {f.label}
-                            {f.obligation !== 'M' ? <span className="muted small"> ({f.obligation})</span> : null}
-                          </td>
-                          <td className="muted small">
-                            {f.pos}·{f.len}
-                          </td>
-                          <td className="small">{f.criteria}</td>
-                          <td>{value ? <code>{value}</code> : <span className="muted small">blank</span>}</td>
-                          <td>
-                            {status ? (
-                              <span className={`badge badge-${statusKey(status)}`}>{QR_FIELD_STATUS_LABEL[status] || status}</span>
-                            ) : (
-                              <span className="muted small">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div className="qr-lines">
+                  <StatusKeyLegend />
+                  <div className="qr-lines-head">
+                    <span />
+                    <span>Field</span>
+                    <span>Specification</span>
+                    <span>Raw value</span>
+                    <span />
+                  </div>
+                  {STARTRACK_QR_FIELDS.map(f => (
+                    <QrFieldLine
+                      key={f.key}
+                      field={f}
+                      value={qr.fields?.[f.key] ?? ''}
+                      status={qrFieldStatus(items, f.rule)}
+                    />
+                  ))}
+                </div>
               </div>
             ))}
           <ValidationTable items={items} />
@@ -1247,7 +1258,11 @@ function StarTrackRoutingSection({ audit, items }) {
             </div>
           )}
           {routes.map(route => (
-            <SegmentedCode key={`seg-${route.raw}`} segments={routingSegments(route)} title="Routing barcode field map (colour-coded)" />
+            <SegmentedCode
+              key={`seg-${route.raw}`}
+              segments={routingSegments(route)}
+              title="Routing barcode field map (colour-coded)"
+            />
           ))}
           <StandardLine>
             StarTrack routing barcode is required separately from the freight item and ATL barcodes. Standard format is
@@ -1326,7 +1341,11 @@ function StarTrackAtlSection({ audit, items }) {
             </div>
           )}
           {atlParses.map(atl => (
-            <SegmentedCode key={`seg-${atl.atlNumber}`} segments={atlSegments(atl)} title="ATL barcode field map (colour-coded)" />
+            <SegmentedCode
+              key={`seg-${atl.atlNumber}`}
+              segments={atlSegments(atl)}
+              title="ATL barcode field map (colour-coded)"
+            />
           ))}
           <StandardLine>
             StarTrack ATL barcode content is C999999999. C is always the character C and the nine-digit sequential
@@ -1407,36 +1426,43 @@ function StarTrackFreightItemSection({ audit, items }) {
               ))}
             </div>
           )}
-          {ssccs.length > 0 && (
-            <div className="fact-cards fact-cards-wide">
-              {ssccs.map(s => (
-                <React.Fragment key={s.sscc}>
-                  <div>
-                    <span>SSCC</span>
-                    <strong>00{s.sscc}</strong>
-                  </div>
-                  <div>
-                    <span>Extension digit</span>
-                    <strong>{s.extensionDigit}</strong>
-                  </div>
-                  <div>
-                    <span>Check digit</span>
-                    <strong>{s.checkDigit}</strong>
-                  </div>
-                  <div>
-                    <span>Expected check digit</span>
-                    <strong>{s.expectedCheckDigit}</strong>
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-          )}
           {freightParses.map(f => (
-            <SegmentedCode key={`seg-${f.freightItemId}`} segments={freightSegments(f)} title="Freight item field map (colour-coded)" />
+            <SegmentedCode
+              key={`seg-${f.freightItemId}`}
+              segments={freightSegments(f)}
+              title="Freight item field map (colour-coded)"
+            />
           ))}
-          {ssccs.map(s => (
-            <SegmentedCode key={`seg-${s.sscc}`} segments={ssccSegments(s)} title="SSCC field map (colour-coded)" />
-          ))}
+          {ssccs.length > 0 && (
+            <details className="reference-details sscc-details">
+              <summary>SSCC details ({ssccs.length})</summary>
+              <div className="fact-cards fact-cards-wide">
+                {ssccs.map(s => (
+                  <React.Fragment key={s.sscc}>
+                    <div>
+                      <span>SSCC</span>
+                      <strong>00{s.sscc}</strong>
+                    </div>
+                    <div>
+                      <span>Extension digit</span>
+                      <strong>{s.extensionDigit}</strong>
+                    </div>
+                    <div>
+                      <span>Check digit</span>
+                      <strong>{s.checkDigit}</strong>
+                    </div>
+                    <div>
+                      <span>Expected check digit</span>
+                      <strong>{s.expectedCheckDigit}</strong>
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+              {ssccs.map(s => (
+                <SegmentedCode key={`seg-${s.sscc}`} segments={ssccSegments(s)} title="SSCC field map (colour-coded)" />
+              ))}
+            </details>
+          )}
           <StandardLine>
             StarTrack freight item barcode is mandatory and is separate from the routing barcode. It is either
             20-character Code128 XXXZ99999999AAA99999 or GS1 AI 00 SSCC.
@@ -1668,7 +1694,7 @@ function StarTrackProductArticleSection({ audit, items }) {
         relationships include EXP→EXP, PRM/FPP→PRM and ARL/FPA→ARL.
       </StandardLine>
       <ValidationTable items={items} />
-      <details open className="reference-details">
+      <details className="reference-details">
         <summary>StarTrack product and label-code reference</summary>
         <StarTrackProductMatrix audit={audit} />
       </details>
@@ -1840,7 +1866,7 @@ function ServiceArticleBreakdownSection({ audit, items }) {
       )}
       <ValidationTable items={items} />
       {!ssccOnly && (
-        <details open className="reference-details">
+        <details className="reference-details">
           <summary>Service code and product matrix</summary>
           <ServiceCodeMatrix audit={audit} />
         </details>

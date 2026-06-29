@@ -22,6 +22,44 @@ function RuleStatusBadge({ status }) {
   return <span className={`badge badge-${key}`}>{STATUS_LABELS[key]}</span>;
 }
 
+const STATUS_ICON_VARIANT = {
+  pass: 'pass',
+  fail: 'fail',
+  warning: 'review',
+  manual_review: 'review',
+  not_applicable: 'neutral',
+  info: 'neutral'
+};
+
+const STATUS_ICON_PATH = {
+  pass: 'M8.5 12.5l2.5 2.5 4.5-5',
+  fail: 'M15 9l-6 6M9 9l6 6',
+  review: 'M8 12h8',
+  neutral: 'M8 12h8'
+};
+
+/** Result icon used across the report: green tick (pass), amber dash (review) or red cross (fail). */
+export function StatusIcon({ status }) {
+  const key = statusKey(status);
+  const variant = STATUS_ICON_VARIANT[key] || 'neutral';
+  return (
+    <svg
+      className={`status-ico status-ico-${variant}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      role="img"
+      aria-label={STATUS_LABELS[key]}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d={STATUS_ICON_PATH[variant]} />
+    </svg>
+  );
+}
+
 function formatInputValue(value) {
   if (value === null || value === undefined || value === '') return '';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -83,7 +121,7 @@ function RuleRow({ v, standardFor, showPayload, renderPayload }) {
   return (
     <div className={`rule-row tone-${statusKey(v.status)}`} id={`rule-${v.id}`}>
       <button type="button" className="rule-row-head" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-        <span className={`rule-status-dot dot-${statusKey(v.status)}`} aria-hidden="true" />
+        <StatusIcon status={v.status} />
         <code className="rule-id">{rule?.id || v.id}</code>
         <span className="rule-title">{v.title}</span>
         {isIssue(v) && (

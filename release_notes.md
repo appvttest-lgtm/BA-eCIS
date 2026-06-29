@@ -6,6 +6,14 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.9.0 - report redesign: per-field lines, status icons, collapsible detail
+---------------------------------------------------------------------------
+The audit report is reorganised so each barcode reads as plain language first, with the engineering detail one click away.
+- The StarTrack 2D QR breakdown is now one expandable line per field: field name, the plain-English specification, the raw decoded value and a status icon. The rule id and char position (e.g. ST-QR-F02, position 31, length 4) move into the expanded drawer so the line itself stays readable.
+- A single status-icon vocabulary across the whole report - green tick (pass), amber dash (review) and red cross (fail) - replacing the previous coloured status dot.
+- SSCC details (extension/check-digit cards plus the SSCC field map) are collapsed behind an "SSCC details" button in the freight-item section; the freight item field map stays visible.
+- The StarTrack product/label-code and eParcel service-code reference matrices now start collapsed behind their existing button instead of open.
+
 v1.8.1 - colour-coded barcode field maps
 ----------------------------------------
 Every decoded barcode now renders a colour-coded "field map" above its breakdown: each data element is highlighted in a distinct colour with a legend mapping colour to field, so reviewers can see at a glance which character ranges map to which validated field (e.g. freight item: Despatch ID, Connote sequence, Product code, Item sequence).

@@ -372,16 +372,6 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   margin: 12px 0;
 }
 .decoded-panel h3 { margin: 0 0 8px; font-size: 15px; }
-.qr-field-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.qr-field-table th, .qr-field-table td {
-  text-align: left;
-  padding: 4px 8px;
-  border-bottom: 1px solid #eef1f5;
-  vertical-align: top;
-}
-.qr-field-table th { color: #606b76; font-weight: 600; font-size: 12px; }
-.qr-field-table td code { overflow-wrap: anywhere; }
-.qr-field-table tbody tr:last-child td { border-bottom: 0; }
 .segmented-code {
   display: block;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -424,6 +414,37 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   word-break: break-word;
   line-height: 1.45;
 }
+
+/* Status icon (pass / review / fail) shown inline in field breakdowns and rule rows. */
+.status-ico { width: 18px; height: 18px; flex: 0 0 auto; }
+.status-ico-pass { color: #15873b; }
+.status-ico-fail { color: #c01626; }
+.status-ico-review { color: #b26a00; }
+.status-ico-neutral { color: var(--color-subtle); }
+.status-key-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--color-muted); margin: 2px 0 10px; }
+.status-key-legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* StarTrack QR per-field breakdown: one expandable line per field (name · spec · value · status). */
+.qr-lines { margin-top: 12px; }
+.qr-lines-head { display: grid; grid-template-columns: 16px 1.3fr 1.9fr 1fr 20px; gap: 11px; padding: 0 4px 7px; font-size: 11px; color: var(--color-subtle); }
+.qr-line > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 16px 1.3fr 1.9fr 1fr 20px; gap: 11px; align-items: start; padding: 9px 4px; border-top: 1px solid #eef1f4; }
+.qr-line > summary::-webkit-details-marker { display: none; }
+.qr-line[open] > summary { background: #f7f9fb; }
+.qr-chev { color: var(--color-subtle); transition: transform 0.12s ease; margin-top: 1px; }
+.qr-line[open] .qr-chev { transform: rotate(90deg); }
+.qr-name { font-size: 14px; color: var(--color-text); }
+.qr-spec { font-size: 13px; color: var(--color-muted); line-height: 1.4; }
+.qr-val { font-family: var(--font-code); font-size: 13px; overflow-wrap: anywhere; }
+.qr-val code { background: none; padding: 0; }
+.qr-noico { justify-self: center; }
+.qr-drawer { padding: 4px 4px 12px 39px; font-size: 13px; color: var(--color-muted); }
+.qr-drawer code { overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .qr-lines-head { display: none; }
+  .qr-line > summary { grid-template-columns: 16px 1fr 20px; }
+  .qr-spec, .qr-val { grid-column: 2 / 3; }
+}
+
 .dm-ai-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 780px) { .dm-ai-cards { grid-template-columns: 1fr; } }
 
