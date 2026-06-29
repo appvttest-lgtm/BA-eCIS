@@ -968,6 +968,114 @@ function qrFieldStatus(items, ruleId) {
   return prefixed ? prefixed.status : null;
 }
 
+const SEG_PALETTE = 8;
+
+/** Renders a decoded barcode value with each data element highlighted in a distinct colour,
+ *  plus a legend mapping colour -> field, so reviewers can see which character ranges map to
+ *  which validated field. `segments` is an ordered [{ text, label }]; concatenated text equals
+ *  the decoded value (padding preserved for fixed-width payloads). */
+function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)' }) {
+  const segs = (segments || []).filter(s => s && s.text != null && String(s.text).length > 0);
+  if (!segs.length) return null;
+  return (
+    <div className="decoded-panel segmented-panel">
+      <h3>{title}</h3>
+      <code className="segmented-code">
+        {segs.map((s, i) => (
+          <span key={i} className={`seg seg-c${i % SEG_PALETTE}`} title={s.label}>
+            {String(s.text)}
+          </span>
+        ))}
+      </code>
+      <ul className="segmented-legend">
+        {segs.map((s, i) => (
+          <li key={i}>
+            <span className={`seg-swatch seg-c${i % SEG_PALETTE}`} aria-hidden="true" />
+            <span className="segmented-legend-label">{s.label}</span>
+            <code className="segmented-legend-val">{String(s.text).trim() || '(blank)'}</code>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Slices a decoded StarTrack QR by its fixed-width field positions (padding preserved). */
+function qrFieldSegments(qr) {
+  const raw = String(qr?.raw || '').replace(/^\]Q[0-9]/, '');
+  return STARTRACK_QR_FIELDS.map(f => ({
+    text: raw.slice(f.pos - 1, f.pos - 1 + f.len),
+    label: `${f.num}. ${f.label}`
+  })).filter(s => s.text.length > 0);
+}
+
+/** Segments for a StarTrack 20-character freight item barcode (XXXZ 99999999 AAA 99999). */
+function freightSegments(f) {
+  if (!f?.freightItemId) return [];
+  return [
+    { text: f.despatchId, label: 'Despatch ID' },
+    { text: f.consignmentSequence, label: 'Connote sequence' },
+    { text: f.productCode, label: 'Product code' },
+    { text: f.itemNumber, label: 'Item sequence' }
+  ];
+}
+
+/** Segments for a StarTrack routing barcode (SSS9999DDD) or the GS1 421 routing form. */
+function routingSegments(r) {
+  if (!r) return [];
+  if (r.type === 'gs1-421-routing') {
+    return [
+      { text: '421', label: 'AI 421' },
+      { text: r.countryCode, label: 'Country code' },
+      { text: r.postcode, label: 'Postcode' },
+      { text: '403', label: 'AI 403' },
+      { text: r.labelCode, label: 'Label code' }
+    ];
+  }
+  return [
+    { text: r.labelCode, label: 'Label code' },
+    { text: r.postcode, label: 'Postcode' },
+    { text: r.depotOrPort, label: 'Depot/port' }
+  ];
+}
+
+/** Segments for a StarTrack ATL barcode (C + 9-digit counter). */
+function atlSegments(a) {
+  const n = String(a?.atlNumber || '');
+  if (!/^C\d{9}$/.test(n)) return [];
+  return [
+    { text: 'C', label: 'Prefix' },
+    { text: n.slice(1), label: 'Counter' }
+  ];
+}
+
+/** Segments for an AI 00 SSCC (accepts an 18-digit body or a full 20-digit AI 00 value). */
+function ssccSegments(s) {
+  let digits = String(s?.sscc || '').replace(/\D/g, '');
+  if (digits.length === 20 && digits.startsWith('00')) digits = digits.slice(2);
+  if (digits.length !== 18) return [];
+  return [
+    { text: '00', label: 'AI 00' },
+    { text: digits.slice(0, 1), label: 'Extension digit' },
+    { text: digits.slice(1, -1), label: 'Company prefix + serial' },
+    { text: digits.slice(-1), label: 'Check digit' }
+  ];
+}
+
+/** Segments for a standard eParcel article ID (MLID + serial + count + product + service + PP + check). */
+function articleSegments(a) {
+  if (!a || a.type !== 'eparcel-standard') return [];
+  return [
+    { text: a.mlid, label: 'MLID' },
+    { text: a.consignmentSuffix, label: 'Consignment serial' },
+    { text: a.articleCount, label: 'Article count' },
+    { text: a.productCode, label: 'Product code' },
+    { text: a.serviceCode, label: 'Service code' },
+    { text: a.postagePaidIndicator, label: 'Postage paid' },
+    { text: a.checkDigit, label: 'Check digit' }
+  ];
+}
+
 function StarTrackQrSection({ audit, items }) {
   const images = audit?.labelImages || {};
   const qrBarcodes = decodedBarcodeList(audit, 'qr');
@@ -1025,6 +1133,7 @@ function StarTrackQrSection({ audit, items }) {
                   Product {qr.productCode || '—'}
                   {qr.productName ? ` — ${qr.productName}` : ''} · payload {qr.length} chars
                 </p>
+                <SegmentedCode segments={qrFieldSegments(qr)} title="QR payload field map (colour-coded)" />
                 <table className="qr-field-table">
                   <thead>
                     <tr>
@@ -1137,6 +1246,9 @@ function StarTrackRoutingSection({ audit, items }) {
               ))}
             </div>
           )}
+          {routes.map(route => (
+            <SegmentedCode key={`seg-${route.raw}`} segments={routingSegments(route)} title="Routing barcode field map (colour-coded)" />
+          ))}
           <StandardLine>
             StarTrack routing barcode is required separately from the freight item and ATL barcodes. Standard format is
             SSS9999DD/DDD: Premium and Fixed Price Premium labels commonly use a three-character depot/port suffix,
@@ -1213,6 +1325,9 @@ function StarTrackAtlSection({ audit, items }) {
               ))}
             </div>
           )}
+          {atlParses.map(atl => (
+            <SegmentedCode key={`seg-${atl.atlNumber}`} segments={atlSegments(atl)} title="ATL barcode field map (colour-coded)" />
+          ))}
           <StandardLine>
             StarTrack ATL barcode content is C999999999. C is always the character C and the nine-digit sequential
             counter starts at 000000001. Preferred orientation is Picket Fence, minimum bar height 10mm, minimum barcode
@@ -1316,6 +1431,12 @@ function StarTrackFreightItemSection({ audit, items }) {
               ))}
             </div>
           )}
+          {freightParses.map(f => (
+            <SegmentedCode key={`seg-${f.freightItemId}`} segments={freightSegments(f)} title="Freight item field map (colour-coded)" />
+          ))}
+          {ssccs.map(s => (
+            <SegmentedCode key={`seg-${s.sscc}`} segments={ssccSegments(s)} title="SSCC field map (colour-coded)" />
+          ))}
           <StandardLine>
             StarTrack freight item barcode is mandatory and is separate from the routing barcode. It is either
             20-character Code128 XXXZ99999999AAA99999 or GS1 AI 00 SSCC.
@@ -1463,6 +1584,13 @@ function LinearBarcodeSection({ audit, items }) {
           ) : (
             <p className="muted">No Code128/GS1-128 value decoded.</p>
           )}
+          {(audit?.articles || []).map(a => (
+            <SegmentedCode
+              key={`seg-${a.articleId || a.sscc}`}
+              segments={a.type === 'sscc' ? ssccSegments(a) : articleSegments(a)}
+              title={a.type === 'sscc' ? 'SSCC field map (colour-coded)' : 'Article ID field map (colour-coded)'}
+            />
+          ))}
           {auditHasSsccOnly(audit) ? (
             <StandardLine>
               SSCC linear barcodes use AI 00 and should decode to a valid SSCC value. eParcel

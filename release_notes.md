@@ -6,6 +6,12 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.8.1 - colour-coded barcode field maps
+----------------------------------------
+Every decoded barcode now renders a colour-coded "field map" above its breakdown: each data element is highlighted in a distinct colour with a legend mapping colour to field, so reviewers can see at a glance which character ranges map to which validated field (e.g. freight item: Despatch ID, Connote sequence, Product code, Item sequence).
+- New SegmentedCode component + per-barcode segment builders for the StarTrack QR (sliced by fixed-width position), freight item, routing, ATL and AI 00 SSCC barcodes, and the eParcel GS1-128 article ID.
+- The QR "Parsed QR payload fields" table (from v1.8.0) is unchanged and sits below the colour map; the two together give the highlight + full list breakdown.
+
 v1.8.0 - StarTrack QR field-by-field exposure (issue #16)
 --------------------------------------------------------
 The StarTrack 2D QR report previously showed only a single "decoded" check and hid every parsed field, so a QR that decoded but did not match the fixed-width layout (e.g. an SSCC-retailer QR with a different field order) reported a misleading "not decoded" failure with no detail.
