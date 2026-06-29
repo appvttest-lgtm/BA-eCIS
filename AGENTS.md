@@ -21,6 +21,15 @@ but Node installed (`node server.mjs` serves `dist/` directly).
 regenerated `dist/` together with the source change.** Otherwise the shipped app
 silently diverges from source. This is the most common way to break the repo.
 
+**Bump the version on every shipped change.** Any change that rebuilds `dist/` (i.e. any
+`src/` or `rules/` edit) must also increment `version` in `package.json` (patch for
+fixes/tweaks, minor for features) and add a matching one-line entry to `release_notes.md`.
+The version is injected at build time and renders in the app footer (`Application version
+vX.Y.Z`), so it is the user-visible signal that the updated build actually shipped — if the
+footer version did not change, the change did not reach the user. Bump first, then
+`npm run build` (and `npm run build:portable`) so the footer reflects the new version.
+Docs-only changes that do not touch `src/`/`rules/` do not need a bump.
+
 ---
 
 ## 2. Stack
@@ -129,8 +138,9 @@ SSCC values, account references.
 
 ## 7. Releases
 
-- Version lives in `package.json` (`version`) and is documented in `release_notes.md`
-  — update both together.
+- Version lives in `package.json` (`version`), renders in the app footer
+  (`Application version vX.Y.Z`), and is documented in `release_notes.md` — update all
+  together and bump it on every change (see section 1).
 - Per-release security docs follow the existing pattern
   (`security-assessment-vX.Y.Z.md`, `security-release-log-vX.Y.Z.md`).
 - Dependency versions are deliberately pinned with documented CVE assessments in
