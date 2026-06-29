@@ -234,7 +234,10 @@ const nonConformingAudit = auditLabel({
   ],
   extractedText: ['STARTRACK', 'OAKLANDS PARK SA 5046'].join('\n')
 });
-expect('non-conforming QR reports decoded (not "not decoded")', find(nonConformingAudit, 'ST-QR-01')?.status === 'pass');
+expect(
+  'non-conforming QR reports decoded (not "not decoded")',
+  find(nonConformingAudit, 'ST-QR-01')?.status === 'pass'
+);
 expect('non-conforming QR exposes per-field rows', !!find(nonConformingAudit, 'ST-QR-F02'));
 expect('non-conforming QR postcode position fails', find(nonConformingAudit, 'ST-QR-F02')?.status === 'fail');
 expect('non-conforming QR length flagged', find(nonConformingAudit, 'ST-QR-03')?.status === 'fail');

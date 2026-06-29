@@ -40,7 +40,15 @@ export const PDF_TEXT_LAYER_MIN_USEFUL_CHARS = 80;
 export const SCAN_VARIANT_LABELS = {
   linear: ['original', 'trimmed + border', '2x nearest', '4x nearest', 'threshold 150', 'threshold 185', 'sharpen 2x'],
   qr: ['original', 'trimmed + border', '2x nearest', 'square pure 2x', 'sharpen 2x'],
-  datamatrix: ['original', 'trimmed + border', '2x nearest', '4x nearest', 'threshold 150', 'square pure 2x', 'sharpen 2x'],
+  datamatrix: [
+    'original',
+    'trimmed + border',
+    '2x nearest',
+    '4x nearest',
+    'threshold 150',
+    'square pure 2x',
+    'sharpen 2x'
+  ],
   mixed: ['original', 'trimmed + border', '2x nearest', 'sharpen 2x']
 };
 
@@ -819,7 +827,12 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
       // its text is merged with the text layer to supplement the decoded barcodes.
       const ocr = shouldOcrPage
         ? await recognizeCanvasText(canvas, mark, segContext)
-        : { text: '', status: 'skipped', charCount: 0, detail: 'Selectable PDF text layer was sufficient; OCR not required.' };
+        : {
+            text: '',
+            status: 'skipped',
+            charCount: 0,
+            detail: 'Selectable PDF text layer was sufficient; OCR not required.'
+          };
       const ocrText = ocr.text;
       if (!shouldOcrPage) {
         mark(
