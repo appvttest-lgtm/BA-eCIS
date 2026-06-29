@@ -1,0 +1,27 @@
+{
+  "name": "eParcel SSCC carried by the linear barcode (focused invariant)",
+  "mustFire": [
+    "EP-SS-01"
+  ],
+  "mustPass": [
+    "EP-SS-01"
+  ],
+  "input": {
+    "carrier": "eparcel",
+    "labelFamily": "eparcel",
+    "labelFormat": "sscc",
+    "fileInfo": {
+      "name": "sscc-linear.pdf",
+      "widthMm": 150,
+      "heightMm": 100,
+      "pageCount": 1
+    },
+    "detectedBarcodes": [
+      {
+        "rawValue": "00393153450000000700",
+        "format": "code_128"
+      }
+    ],
+    "extractedText": "Parcel Post\nCHULLORA NSW 2190"
+  }
+}

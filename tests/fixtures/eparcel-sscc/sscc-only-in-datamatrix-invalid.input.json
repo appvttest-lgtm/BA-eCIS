@@ -1,0 +1,28 @@
+{
+  "name": "eParcel SSCC present only in the Data Matrix - must NOT satisfy the linear SSCC check",
+  "expectFail": true,
+  "mustFire": [
+    "EP-SS-01"
+  ],
+  "mustNotPass": [
+    "EP-SS-01"
+  ],
+  "input": {
+    "carrier": "eparcel",
+    "labelFamily": "eparcel",
+    "labelFormat": "sscc",
+    "fileInfo": {
+      "name": "sscc-dm.pdf",
+      "widthMm": 150,
+      "heightMm": 100,
+      "pageCount": 1
+    },
+    "detectedBarcodes": [
+      {
+        "rawValue": "00393153450000000700|4202190|8008250609142233",
+        "format": "data_matrix"
+      }
+    ],
+    "extractedText": "Parcel Post\nCHULLORA NSW 2190"
+  }
+}

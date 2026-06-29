@@ -1,0 +1,40 @@
+{
+  "carrier": "eparcel",
+  "ruleSet": {
+    "id": "eparcel-sscc",
+    "variant": "sscc"
+  },
+  "overallStatus": "FAIL",
+  "counts": {
+    "total": 20,
+    "passed": 12,
+    "failed": 1,
+    "manualReview": 4,
+    "critical": 8,
+    "errors": 3,
+    "warnings": 2
+  },
+  "firedRuleCount": 20,
+  "results": {
+    "AUDIT_MODE_CARRIER": "pass",
+    "AUDIT_MODE_FORMAT": "pass",
+    "EP-ART-01": "pass",
+    "EP-DM-01": "fail",
+    "EP-FR-01": "warning",
+    "EP-LAY-01": "pass",
+    "EP-LAY-06": "manual_review",
+    "EP-LAY-07": "manual_review",
+    "EP-LIN-01": "pass",
+    "EP-SS-01": "pass",
+    "EP-SS-02": "pass",
+    "EP-SS-05": "pass",
+    "EP-TO-01": "warning",
+    "LABEL_TYPE": "pass",
+    "SSCC_0": "pass",
+    "SSCC_EXPECTED_DECODED": "pass",
+    "TEXT_EXTRACTED": "pass",
+    "VISIBLE_ARTICLE_ID": "warning",
+    "VISIBLE_CONS_NO": "manual_review",
+    "WEIGHT_PRESENT": "manual_review"
+  }
+}

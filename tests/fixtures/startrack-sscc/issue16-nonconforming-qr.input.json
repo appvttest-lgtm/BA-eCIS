@@ -1,0 +1,38 @@
+{
+  "name": "StarTrack SSCC-retailer QR (issue #16) - decoded but non-conforming to MOS v9 layout",
+  "expectFail": true,
+  "mustFire": [
+    "ST-QR-01",
+    "ST-QR-F02",
+    "ST-QR-03"
+  ],
+  "mustPass": [
+    "ST-QR-01"
+  ],
+  "mustNotPass": [
+    "ST-QR-F02",
+    "ST-QR-03"
+  ],
+  "input": {
+    "carrier": "startrack",
+    "labelFamily": "startrack",
+    "labelFormat": "sscc",
+    "fileInfo": {
+      "name": "st-nonconforming-qr.pdf",
+      "widthMm": 100,
+      "heightMm": 150,
+      "pageCount": 1
+    },
+    "detectedBarcodes": [
+      {
+        "rawValue": "LA00393278068436543128 F SMIGGLE-MARION SHOP 2062 WFIELD MARION 297 DIAGONAL ROAD OAKLANDS PARK 5046 4C0182 S000008 NNN",
+        "format": "qrcode"
+      },
+      {
+        "rawValue": "00393278068436543128",
+        "format": "code_128"
+      }
+    ],
+    "extractedText": "STARTRACK\nOAKLANDS PARK SA 5046"
+  }
+}

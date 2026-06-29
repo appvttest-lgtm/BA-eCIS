@@ -1,0 +1,51 @@
+{
+  "name": "StarTrack Express full label (QR + freight + routing + ATL, all agree)",
+  "noFail": true,
+  "mustFire": [
+    "ST-QR-01",
+    "ST-FRT-01",
+    "ST-RTE-01",
+    "ST-ATL-06",
+    "ST-X-01",
+    "ST-X-02",
+    "ST-PRD-01"
+  ],
+  "mustPass": [
+    "ST-QR-01",
+    "ST-FRT-01",
+    "ST-RTE-01",
+    "ST-X-01",
+    "ST-X-02"
+  ],
+  "input": {
+    "carrier": "startrack",
+    "labelFamily": "startrack",
+    "labelFormat": "standard",
+    "fileInfo": {
+      "name": "st-sample.pdf",
+      "widthMm": 100,
+      "heightMm": 150,
+      "pageCount": 1
+    },
+    "detectedBarcodes": [
+      {
+        "rawValue": "CHULLORA                      2190ABCD12345678ABCD12345678EXP00001EXP        123456781   5    15   20260610CAROL RECEIVER                                                                  CTNSYD 8 TEST CLOSE                                                                                  NN                                            ",
+        "format": "qrcode"
+      },
+      {
+        "rawValue": "ABCD12345678EXP00001",
+        "format": "code_128",
+        "barCount": 61
+      },
+      {
+        "rawValue": "EXP2190SYD",
+        "format": "code_128"
+      },
+      {
+        "rawValue": "C239196552",
+        "format": "code_128"
+      }
+    ],
+    "extractedText": "STARTRACK\nEXP\nCONNOTE: ABCD12345678\nCHULLORA NSW 2190\nITEM 1 OF 1\n5 kg\n0.015 m3"
+  }
+}

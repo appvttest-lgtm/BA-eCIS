@@ -1,0 +1,40 @@
+{
+  "name": "eParcel Parcel Post worked example (linear + DataMatrix agree)",
+  "noFail": true,
+  "mustFire": [
+    "EP-LIN-01",
+    "EP-DM-01",
+    "EP-ART-06",
+    "EP-DM-05",
+    "EP-LIN-09",
+    "EP-SVC-03"
+  ],
+  "mustPass": [
+    "EP-LIN-01",
+    "EP-DM-01",
+    "EP-ART-06",
+    "EP-LIN-09"
+  ],
+  "input": {
+    "carrier": "eparcel",
+    "labelFamily": "eparcel",
+    "labelFormat": "standard",
+    "fileInfo": {
+      "name": "sample.pdf",
+      "widthMm": 150,
+      "heightMm": 100,
+      "pageCount": 1
+    },
+    "detectedBarcodes": [
+      {
+        "rawValue": "019931265099999891JDQ019457101000930308",
+        "format": "code_128"
+      },
+      {
+        "rawValue": "019931265099999891JDQ019457101000930308|4202190|8008250609142233",
+        "format": "data_matrix"
+      }
+    ],
+    "extractedText": "Parcel Post\nTO:\nMR C RECEIVER\nUnit 14\n1 Test Street\nCHULLORA NSW 2190\nFROM: MR C SENDER\n1 Jedda Road\nPRESTONS NSW 2170\nCons No: JDQ0194571\nAP Article ID: JDQ0 1945 7101 0009 3030 8\nAviation Security and Dangerous Goods Declaration\nThe sender acknowledges that this article may be carried by air\n0.5kg\n0609"
+  }
+}
