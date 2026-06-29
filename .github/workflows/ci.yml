@@ -30,6 +30,11 @@ jobs:
       - name: Smoke tests
         run: npm test
 
+      # Fails when the engine ships a rule the intended checklist doesn't declare
+      # (or claims a rule that no longer exists), keeping intended vs actual in sync.
+      - name: Validation checklist coverage
+        run: npm run checklist
+
       - name: Build
         run: npm run build
 

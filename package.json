@@ -12,6 +12,7 @@
     "build": "vite build",
     "build:portable": "node scripts/build-portable.mjs",
     "sync:ocr": "node scripts/sync-ocr-assets.mjs",
+    "checklist": "node scripts/checklist-coverage.mjs",
     "test": "node --test",
     "lint": "eslint .",
     "sbom": "npm sbom --sbom-format cyclonedx > docs/security/sbom.cyclonedx.json",

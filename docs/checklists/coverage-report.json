@@ -1,0 +1,1242 @@
+{
+  "generatedAt": "2026-06-29T00:31:12.450Z",
+  "labelTypes": {
+    "EPS": {
+      "total": 67,
+      "implemented": 35,
+      "partial": 3,
+      "gap": 29,
+      "missing": 0,
+      "gaps": [
+        {
+          "id": "EP-LAY-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Standard template (Traditional/Contemporary)"
+        },
+        {
+          "id": "EP-LAY-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "White label, black font, no colour background"
+        },
+        {
+          "id": "EP-LAY-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Label on one flat surface"
+        },
+        {
+          "id": "EP-LAY-05",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Product header branding (Express yellow / Parcel Post)"
+        },
+        {
+          "id": "EP-LAY-06",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Label generation date (MMDD) printed"
+        },
+        {
+          "id": "EP-TO-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "TO block in top-left section"
+        },
+        {
+          "id": "EP-TO-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "TO single left-justified block, no blank lines"
+        },
+        {
+          "id": "EP-TO-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "TO font ~Arial 12, keyword normal weight"
+        },
+        {
+          "id": "EP-TO-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "TO no truncation of address"
+        },
+        {
+          "id": "EP-TO-07",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "TO is a valid Australian address"
+        },
+        {
+          "id": "EP-FR-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "FROM block in bottom-left section"
+        },
+        {
+          "id": "EP-FR-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "FROM font ~Arial 10, smaller than TO"
+        },
+        {
+          "id": "EP-FR-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "FROM single left-justified block, no truncation"
+        },
+        {
+          "id": "EP-FR-06",
+          "status": "gap",
+          "obligation": "HD",
+          "audit": "PARTIAL",
+          "title": "FROM is a valid return address"
+        },
+        {
+          "id": "EP-LIN-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Linear width 83.8/89.4 mm"
+        },
+        {
+          "id": "EP-LIN-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Linear height >= 18 mm"
+        },
+        {
+          "id": "EP-LIN-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Linear quiet zone >= 2.54 mm"
+        },
+        {
+          "id": "EP-LIN-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "HRI 'AP Article ID:' prefix + Arial 12"
+        },
+        {
+          "id": "EP-LIN-06",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "FNC1 + Code A/B/C subset encoding"
+        },
+        {
+          "id": "EP-ART-09",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Consignment numbers not reused within 2 years"
+        },
+        {
+          "id": "EP-SVC-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Signature service not contradicted by leave-safe instruction"
+        },
+        {
+          "id": "EP-SVC-06",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "Wine services identity-on-delivery context"
+        },
+        {
+          "id": "EP-DM-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Square symbol only, ~13.68 mm"
+        },
+        {
+          "id": "EP-DM-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "DataMatrix quiet zone one module all sides"
+        },
+        {
+          "id": "EP-DM-07",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "AI 8008 date/time YYMMDDHHMMSS"
+        },
+        {
+          "id": "EP-DM-08",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Group separators positioned before AI 420 and AI 8008"
+        },
+        {
+          "id": "EP-INT-01",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "International labels sourced from APIs (in-house not permitted)"
+        },
+        {
+          "id": "EP-PHY-01",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Barcode verifier grade >= ISO C (both symbols)"
+        },
+        {
+          "id": "EP-PHY-02",
+          "status": "gap",
+          "obligation": "REC",
+          "audit": "MANUAL",
+          "title": "Contemporary PDF not printed on thermal printers"
+        },
+        {
+          "id": "EP-PHY-03",
+          "status": "gap",
+          "obligation": "REC",
+          "audit": "MANUAL",
+          "title": "Regular print-quality checks"
+        },
+        {
+          "id": "EP-PHY-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Label placement exposes address + barcodes"
+        },
+        {
+          "id": "EP-PHY-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Labels approved by Australia Post (TechSignOff)"
+        }
+      ]
+    },
+    "ESS": {
+      "total": 53,
+      "implemented": 23,
+      "partial": 3,
+      "gap": 27,
+      "missing": 0,
+      "gaps": [
+        {
+          "id": "EP-LAY-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Standard template (Traditional/Contemporary)"
+        },
+        {
+          "id": "EP-LAY-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "White label, black font, no colour background"
+        },
+        {
+          "id": "EP-LAY-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Label on one flat surface"
+        },
+        {
+          "id": "EP-LAY-06",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Label generation date (MMDD) printed"
+        },
+        {
+          "id": "EP-TO-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "TO block in top-left section"
+        },
+        {
+          "id": "EP-TO-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "TO single left-justified block, no blank lines"
+        },
+        {
+          "id": "EP-TO-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "TO font ~Arial 12, keyword normal weight"
+        },
+        {
+          "id": "EP-TO-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "TO no truncation of address"
+        },
+        {
+          "id": "EP-TO-07",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "TO is a valid Australian address"
+        },
+        {
+          "id": "EP-FR-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "FROM block in bottom-left section"
+        },
+        {
+          "id": "EP-FR-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "FROM font ~Arial 10, smaller than TO"
+        },
+        {
+          "id": "EP-FR-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "FROM single left-justified block, no truncation"
+        },
+        {
+          "id": "EP-FR-06",
+          "status": "gap",
+          "obligation": "HD",
+          "audit": "PARTIAL",
+          "title": "FROM is a valid return address"
+        },
+        {
+          "id": "EP-LIN-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Linear width 83.8/89.4 mm"
+        },
+        {
+          "id": "EP-LIN-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Linear height >= 18 mm"
+        },
+        {
+          "id": "EP-LIN-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Linear quiet zone >= 2.54 mm"
+        },
+        {
+          "id": "EP-LIN-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "HRI 'AP Article ID:' prefix + Arial 12"
+        },
+        {
+          "id": "EP-LIN-06",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "FNC1 + Code A/B/C subset encoding"
+        },
+        {
+          "id": "EP-DM-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Square symbol only, ~13.68 mm"
+        },
+        {
+          "id": "EP-DM-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "DataMatrix quiet zone one module all sides"
+        },
+        {
+          "id": "EP-DM-07",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "AI 8008 date/time YYMMDDHHMMSS"
+        },
+        {
+          "id": "EP-DM-08",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Group separators positioned before AI 420 and AI 8008"
+        },
+        {
+          "id": "EP-SS-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "DataMatrix retains GTIN prefix + SSCC + AI 420 + AI 8008"
+        },
+        {
+          "id": "EP-SS-04",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "SSCC company prefix matches merchant GS1 prefix"
+        },
+        {
+          "id": "EP-INT-01",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "International labels sourced from APIs (in-house not permitted)"
+        },
+        {
+          "id": "EP-PHY-01",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Barcode verifier grade >= ISO C (both symbols)"
+        },
+        {
+          "id": "EP-PHY-02",
+          "status": "gap",
+          "obligation": "REC",
+          "audit": "MANUAL",
+          "title": "Contemporary PDF not printed on thermal printers"
+        },
+        {
+          "id": "EP-PHY-03",
+          "status": "gap",
+          "obligation": "REC",
+          "audit": "MANUAL",
+          "title": "Regular print-quality checks"
+        },
+        {
+          "id": "EP-PHY-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Label placement exposes address + barcodes"
+        },
+        {
+          "id": "EP-PHY-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Labels approved by Australia Post (TechSignOff)"
+        }
+      ]
+    },
+    "STS": {
+      "total": 104,
+      "implemented": 47,
+      "partial": 17,
+      "gap": 40,
+      "missing": 0,
+      "gaps": [
+        {
+          "id": "ST-LAY-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "White, matt label stock"
+        },
+        {
+          "id": "ST-LAY-04",
+          "status": "gap",
+          "obligation": "REC",
+          "audit": "MANUAL",
+          "title": "Printers re-calibrated regularly"
+        },
+        {
+          "id": "ST-HDR-02",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "3-char label code above logo"
+        },
+        {
+          "id": "ST-HDR-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Label-code contrast (Premium white-on-black; others black-on-white)"
+        },
+        {
+          "id": "ST-HDR-04",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "CONNOTE number centred in header"
+        },
+        {
+          "id": "ST-HDR-05",
+          "status": "partial",
+          "obligation": "COND",
+          "audit": "AUTO",
+          "title": "ATL section present when ATL applies"
+        },
+        {
+          "id": "ST-RCV-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Large-format suburb/postcode repeated"
+        },
+        {
+          "id": "ST-RCV-03",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "Suburb truncation rules"
+        },
+        {
+          "id": "ST-RCV-04",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "NZ Premium receiver layout (state NZ)"
+        },
+        {
+          "id": "ST-RCV-05",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "International receiver per Locations Master File"
+        },
+        {
+          "id": "ST-LOC-01",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Premium receiver location codes (RC/R1/R2)"
+        },
+        {
+          "id": "ST-LOC-02",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Express receiver location codes (RC/R1/R2)"
+        },
+        {
+          "id": "ST-LOC-03",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "AUTO",
+          "title": "NZ Premium location codes (RC=NZ, R1=SYD, R2=ZNA)"
+        },
+        {
+          "id": "ST-LOC-04",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "International location codes"
+        },
+        {
+          "id": "ST-LOC-05",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "Home Delivery window displayed"
+        },
+        {
+          "id": "ST-LOC-06",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Route field left blank (reserved)"
+        },
+        {
+          "id": "ST-SND-02",
+          "status": "gap",
+          "obligation": "O",
+          "audit": "PARTIAL",
+          "title": "Up to three custom sender references"
+        },
+        {
+          "id": "ST-INS-01",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "Special delivery instructions displayed"
+        },
+        {
+          "id": "ST-INS-02",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "Book-in dates printed (visible text format)"
+        },
+        {
+          "id": "ST-INS-03",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "Deliver-on-date printed"
+        },
+        {
+          "id": "ST-ITM-01",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Label print date under DATE heading"
+        },
+        {
+          "id": "ST-ITM-02",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Unit type under UNIT heading"
+        },
+        {
+          "id": "ST-ITM-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Article count ITEM n OF m"
+        },
+        {
+          "id": "ST-ITM-04",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Weight under WEIGHT heading"
+        },
+        {
+          "id": "ST-ITM-05",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Cube under CUBE heading"
+        },
+        {
+          "id": "ST-FRT-04",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Code 128 B/C subset pattern"
+        },
+        {
+          "id": "ST-FRT-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Freight symbol geometry (bar width/height/length/quiet zone)"
+        },
+        {
+          "id": "ST-FRT-06",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "ANSI print grade A-C"
+        },
+        {
+          "id": "ST-FRT-07",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Visible Article ID under barcode = decoded value"
+        },
+        {
+          "id": "ST-RTE-04",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Routing postcode = QR (and visible) receiver postcode"
+        },
+        {
+          "id": "ST-RTE-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Depot/port valid for postcode+suburb per LMF"
+        },
+        {
+          "id": "ST-RTE-07",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Routing symbol geometry"
+        },
+        {
+          "id": "ST-RTE-08",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "ANSI print grade A-C"
+        },
+        {
+          "id": "ST-RTE-09",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Code 128 B/C subset pattern (GS1 421 exempt)"
+        },
+        {
+          "id": "ST-QR-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "QR symbol 26x26 mm, EC level L"
+        },
+        {
+          "id": "ST-QR-F13",
+          "status": "gap",
+          "obligation": "O",
+          "audit": "AUTO",
+          "title": "QR field 13 receiver name 2 (optional, no format rule)"
+        },
+        {
+          "id": "ST-QR-F17",
+          "status": "gap",
+          "obligation": "O",
+          "audit": "AUTO",
+          "title": "QR field 17 receiver address 2 (optional, no format rule)"
+        },
+        {
+          "id": "ST-ATL-02",
+          "status": "partial",
+          "obligation": "COND",
+          "audit": "AUTO",
+          "title": "ATL printed when product supports ATL"
+        },
+        {
+          "id": "ST-ATL-03",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "AUTO",
+          "title": "One ATL code per consignment, on every label"
+        },
+        {
+          "id": "ST-ATL-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "ATL symbol geometry"
+        },
+        {
+          "id": "ST-ATL-06",
+          "status": "partial",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "ATL Code 128 B/C subset pattern"
+        },
+        {
+          "id": "ST-CON-01",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Connote = 4-char despatch ID + 8-digit sequence"
+        },
+        {
+          "id": "ST-CON-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Consignment numbers never duplicated"
+        },
+        {
+          "id": "ST-CON-03",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Satchel/fixed-weight services single item per consignment"
+        },
+        {
+          "id": "ST-CON-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Max 12 unit types per connote"
+        },
+        {
+          "id": "ST-CON-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Consolidation only when receiver/service/payer/etc match"
+        },
+        {
+          "id": "ST-CON-06",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Delivery postcode+suburb serviceable per LMF"
+        },
+        {
+          "id": "ST-X-03",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "QR product = freight product = routing label-code mapping"
+        },
+        {
+          "id": "ST-X-04",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "QR postcode = routing postcode = visible postcode"
+        },
+        {
+          "id": "ST-X-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "QR quantity consistent with ITEM n OF m and item sequence"
+        },
+        {
+          "id": "ST-X-06",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "QR weight/cube = visible WEIGHT/CUBE"
+        },
+        {
+          "id": "ST-X-07",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "QR movement type consistent with label format / RA presence"
+        },
+        {
+          "id": "ST-PHY-01",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Sample barcodes approved by StarTrack before production"
+        },
+        {
+          "id": "ST-PHY-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Barcodes readable across field depths (print grade A-C)"
+        },
+        {
+          "id": "ST-PHY-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Label stock matt texture"
+        },
+        {
+          "id": "ST-PHY-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Despatch/Returns summary documents per DS.001-DS.015"
+        },
+        {
+          "id": "ST-PHY-05",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "MANUAL",
+          "title": "DG consignments accompanied by compliant DG transport document"
+        }
+      ]
+    },
+    "SSS": {
+      "total": 94,
+      "implemented": 42,
+      "partial": 14,
+      "gap": 38,
+      "missing": 0,
+      "gaps": [
+        {
+          "id": "ST-LAY-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "White, matt label stock"
+        },
+        {
+          "id": "ST-LAY-04",
+          "status": "gap",
+          "obligation": "REC",
+          "audit": "MANUAL",
+          "title": "Printers re-calibrated regularly"
+        },
+        {
+          "id": "ST-HDR-02",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "3-char label code above logo"
+        },
+        {
+          "id": "ST-HDR-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Label-code contrast (Premium white-on-black; others black-on-white)"
+        },
+        {
+          "id": "ST-HDR-04",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "CONNOTE number centred in header"
+        },
+        {
+          "id": "ST-HDR-05",
+          "status": "partial",
+          "obligation": "COND",
+          "audit": "AUTO",
+          "title": "ATL section present when ATL applies"
+        },
+        {
+          "id": "ST-RCV-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Large-format suburb/postcode repeated"
+        },
+        {
+          "id": "ST-RCV-03",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "Suburb truncation rules"
+        },
+        {
+          "id": "ST-RCV-04",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "NZ Premium receiver layout (state NZ)"
+        },
+        {
+          "id": "ST-RCV-05",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "International receiver per Locations Master File"
+        },
+        {
+          "id": "ST-LOC-03",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "AUTO",
+          "title": "NZ Premium location codes (RC=NZ, R1=SYD, R2=ZNA)"
+        },
+        {
+          "id": "ST-LOC-04",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "International location codes"
+        },
+        {
+          "id": "ST-LOC-05",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "Home Delivery window displayed"
+        },
+        {
+          "id": "ST-LOC-06",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Route field left blank (reserved)"
+        },
+        {
+          "id": "ST-SND-02",
+          "status": "gap",
+          "obligation": "O",
+          "audit": "PARTIAL",
+          "title": "Up to three custom sender references"
+        },
+        {
+          "id": "ST-INS-01",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "Special delivery instructions displayed"
+        },
+        {
+          "id": "ST-INS-02",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "Book-in dates printed (visible text format)"
+        },
+        {
+          "id": "ST-INS-03",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "Deliver-on-date printed"
+        },
+        {
+          "id": "ST-ITM-01",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Label print date under DATE heading"
+        },
+        {
+          "id": "ST-ITM-02",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Unit type under UNIT heading"
+        },
+        {
+          "id": "ST-ITM-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Article count ITEM n OF m"
+        },
+        {
+          "id": "ST-ITM-04",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Weight under WEIGHT heading"
+        },
+        {
+          "id": "ST-ITM-05",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Cube under CUBE heading"
+        },
+        {
+          "id": "ST-SSC-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Code set C with FNC1 prefix"
+        },
+        {
+          "id": "ST-SSC-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "SSCC symbol geometry"
+        },
+        {
+          "id": "ST-RTE-04",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Routing postcode = QR (and visible) receiver postcode"
+        },
+        {
+          "id": "ST-RTE-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Depot/port valid for postcode+suburb per LMF"
+        },
+        {
+          "id": "ST-RTE-06",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "GS1 421 routing format (AI 421 + country + postcode + AI 403 + label code)"
+        },
+        {
+          "id": "ST-RTE-07",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Routing symbol geometry"
+        },
+        {
+          "id": "ST-RTE-08",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "ANSI print grade A-C"
+        },
+        {
+          "id": "ST-RTE-09",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Code 128 B/C subset pattern (GS1 421 exempt)"
+        },
+        {
+          "id": "ST-QR-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "QR symbol 26x26 mm, EC level L"
+        },
+        {
+          "id": "ST-QR-F13",
+          "status": "gap",
+          "obligation": "O",
+          "audit": "AUTO",
+          "title": "QR field 13 receiver name 2 (optional, no format rule)"
+        },
+        {
+          "id": "ST-QR-F17",
+          "status": "gap",
+          "obligation": "O",
+          "audit": "AUTO",
+          "title": "QR field 17 receiver address 2 (optional, no format rule)"
+        },
+        {
+          "id": "ST-ATL-02",
+          "status": "partial",
+          "obligation": "COND",
+          "audit": "AUTO",
+          "title": "ATL printed when product supports ATL"
+        },
+        {
+          "id": "ST-ATL-03",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "AUTO",
+          "title": "One ATL code per consignment, on every label"
+        },
+        {
+          "id": "ST-ATL-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "ATL symbol geometry"
+        },
+        {
+          "id": "ST-ATL-06",
+          "status": "partial",
+          "obligation": "COND",
+          "audit": "PARTIAL",
+          "title": "ATL Code 128 B/C subset pattern"
+        },
+        {
+          "id": "ST-CON-01",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Connote = 4-char despatch ID + 8-digit sequence"
+        },
+        {
+          "id": "ST-CON-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Consignment numbers never duplicated"
+        },
+        {
+          "id": "ST-CON-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Max 12 unit types per connote"
+        },
+        {
+          "id": "ST-CON-05",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "PARTIAL",
+          "title": "Consolidation only when receiver/service/payer/etc match"
+        },
+        {
+          "id": "ST-CON-06",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Delivery postcode+suburb serviceable per LMF"
+        },
+        {
+          "id": "ST-X-03",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "QR product = freight product = routing label-code mapping"
+        },
+        {
+          "id": "ST-X-04",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "QR postcode = routing postcode = visible postcode"
+        },
+        {
+          "id": "ST-X-06",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "QR weight/cube = visible WEIGHT/CUBE"
+        },
+        {
+          "id": "ST-X-07",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "QR movement type consistent with label format / RA presence"
+        },
+        {
+          "id": "ST-PHY-01",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Sample barcodes approved by StarTrack before production"
+        },
+        {
+          "id": "ST-PHY-02",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Barcodes readable across field depths (print grade A-C)"
+        },
+        {
+          "id": "ST-PHY-03",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Label stock matt texture"
+        },
+        {
+          "id": "ST-PHY-04",
+          "status": "gap",
+          "obligation": "M",
+          "audit": "MANUAL",
+          "title": "Despatch/Returns summary documents per DS.001-DS.015"
+        },
+        {
+          "id": "ST-PHY-05",
+          "status": "gap",
+          "obligation": "COND",
+          "audit": "MANUAL",
+          "title": "DG consignments accompanied by compliant DG transport document"
+        }
+      ]
+    }
+  },
+  "drift": {
+    "unmapped": [],
+    "missing": []
+  }
+}
