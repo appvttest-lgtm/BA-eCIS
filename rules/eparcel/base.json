@@ -97,9 +97,10 @@
         ]
       },
       "onMissing": "manual_review",
+      "failStatus": "manual_review",
       "messages": {
         "pass": "Suburb, state and postcode line is correctly formatted: {actual}.",
-        "fail": "Suburb/state/postcode line must be on one line, fully capitalised, with no commas. Found: {actual}."
+        "fail": "Suburb/state/postcode line should be on one line, fully capitalised, with no commas. Text extraction is heuristic, so check the label manually. Found: {actual}."
       }
     },
     {
@@ -137,9 +138,10 @@
         ]
       },
       "onMissing": "manual_review",
+      "failStatus": "manual_review",
       "messages": {
         "pass": "Sender suburb, state and postcode line is correctly formatted: {actual}.",
-        "fail": "Sender suburb/state/postcode line must be on one line, fully capitalised, with no commas. Found: {actual}."
+        "fail": "Sender suburb/state/postcode line should be on one line, fully capitalised, with no commas. Text extraction is heuristic, so check the label manually. Found: {actual}."
       }
     },
     {

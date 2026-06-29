@@ -372,6 +372,16 @@ figcaption { color: #666; font-size: 12px; margin-top: 6px; }
   margin: 12px 0;
 }
 .decoded-panel h3 { margin: 0 0 8px; font-size: 15px; }
+.qr-field-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.qr-field-table th, .qr-field-table td {
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid #eef1f5;
+  vertical-align: top;
+}
+.qr-field-table th { color: #606b76; font-weight: 600; font-size: 12px; }
+.qr-field-table td code { overflow-wrap: anywhere; }
+.qr-field-table tbody tr:last-child td { border-bottom: 0; }
 .decoded-list { margin: 0; padding-left: 18px; }
 .decoded-list li { margin-bottom: 10px; }
 .barcode-meta { margin-bottom: 4px; }

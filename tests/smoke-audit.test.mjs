@@ -217,6 +217,24 @@ const urlQrAudit = auditLabel({
 });
 expect('non-StarTrack QR produces no field rows', !find(urlQrAudit, 'ST-QR-F03'));
 
+// --- Heading-aware weight/cube extraction survives label-text variation ---
+// "cube" vs "cubic", with or without a colon or m3 unit, and value on the next line.
+function stFacts(extractedText) {
+  return auditLabel({
+    carrier: 'startrack',
+    labelFamily: 'startrack',
+    labelFormat: 'standard',
+    fileInfo: { name: 'st-text.pdf', widthMm: 100, heightMm: 150, pageCount: 1 },
+    detectedBarcodes: [],
+    extractedText
+  }).labelFacts;
+}
+expect('cube parsed from "CUBE: 0.015 m3"', stFacts('STARTRACK\nCUBE: 0.015 m3').cube === '0.015');
+expect('cube parsed from "CUBE 0.02" (no unit)', stFacts('STARTRACK\nCUBE 0.02').cube === '0.02');
+expect('cube parsed from "CUBIC VOLUME 0.03 m3"', stFacts('STARTRACK\nCUBIC VOLUME 0.03 m3').cube === '0.03');
+expect('cube parsed from heading then next line', stFacts('STARTRACK\nCUBE\n0.04 m3').cube === '0.04');
+expect('weight parsed from "Dead Weight 6kg"', stFacts('STARTRACK\nDead Weight 6kg').weightKg === '6');
+
 // --- SSCC is proven by the linear scan, never borrowed from the Data Matrix ---
 // A GS1 Data Matrix legitimately repeats AI (00) SSCC, but the SSCC barcode check
 // must reflect the linear scan being to spec - the DM value must not stand in for it.

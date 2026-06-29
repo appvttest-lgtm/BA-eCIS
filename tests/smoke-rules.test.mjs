@@ -119,7 +119,9 @@ badContext.barcodes.datamatrix[0].dateTime = '250609 14223';
 badContext.barcodes.datamatrix[0].postcode = '219';
 badContext.articles[0].serviceCode = '99';
 const badResults = evaluateRuleSet(epExpress, badContext);
-expect('EP-TO-06 fails on mixed-case suburb', byId(badResults, 'EP-TO-06')[0]?.status === 'fail');
+// Text-layer format checks degrade to manual review (not a hard fail) - OCR/text extraction
+// is heuristic, so a malformed visible line is flagged for a manual content check.
+expect('EP-TO-06 flags mixed-case suburb for manual review', byId(badResults, 'EP-TO-06')[0]?.status === 'manual_review');
 expect('EP-DM-07 fails on space in datetime', byId(badResults, 'EP-DM-07')[0]?.status === 'fail');
 expect('EP-DM-05 fails on 3-digit postcode', byId(badResults, 'EP-DM-05')[0]?.status === 'fail');
 expect('EP-SVC-01 fails on unknown service', byId(badResults, 'EP-SVC-01')[0]?.status === 'fail');

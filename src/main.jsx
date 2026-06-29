@@ -1,6 +1,12 @@
 import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { auditLabel, groupValidations, SERVICE_CODE_MAP, STARTRACK_PRODUCT_CODE_MAP } from './auditEngine.js';
+import {
+  auditLabel,
+  groupValidations,
+  SERVICE_CODE_MAP,
+  STARTRACK_PRODUCT_CODE_MAP,
+  STARTRACK_QR_FIELDS
+} from './auditEngine.js';
 import { RuleReport } from './reportView.jsx';
 import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from './scanner/barcodeTypes.js';
 import { createDetector } from './scanner/decoders.js';
@@ -939,6 +945,29 @@ function FullLabelImageSection({ audit, items, onZoomLabel }) {
   );
 }
 
+const QR_FIELD_STATUS_LABEL = {
+  pass: 'PASS',
+  fail: 'FAIL',
+  warning: 'WARN',
+  manual_review: 'REVIEW',
+  not_applicable: 'N/A',
+  info: 'INFO'
+};
+
+function statusKey(status) {
+  return QR_FIELD_STATUS_LABEL[status] ? status : 'not_applicable';
+}
+
+/** Status of the per-field rule (ST-QR-Fnn) for a QR field, matching exact or forEach-suffixed ids. */
+function qrFieldStatus(items, ruleId) {
+  if (!ruleId) return null;
+  const rows = items || [];
+  const exact = rows.find(it => String(it.id || '') === ruleId);
+  if (exact) return exact.status;
+  const prefixed = rows.find(it => String(it.id || '').startsWith(`${ruleId}_`));
+  return prefixed ? prefixed.status : null;
+}
+
 function StarTrackQrSection({ audit, items }) {
   const images = audit?.labelImages || {};
   const qrBarcodes = decodedBarcodeList(audit, 'qr');
@@ -990,33 +1019,49 @@ function StarTrackQrSection({ audit, items }) {
           </div>
           {qrs.length > 0 &&
             qrs.map(qr => (
-              <div key={qr.raw} className="fact-cards fact-cards-wide">
-                <div>
-                  <span>product_code</span>
-                  <strong>
-                    {qr.productCode} — {qr.productName}
-                  </strong>
-                </div>
-                <div>
-                  <span>consignment_id</span>
-                  <strong>{qr.fields.connoteNumber}</strong>
-                </div>
-                <div>
-                  <span>article_id</span>
-                  <strong>{qr.fields.freightItemNumber}</strong>
-                </div>
-                <div>
-                  <span>weight / cubic_volume</span>
-                  <strong>
-                    {qr.fields.consignmentWeight || '-'}kg / {qr.fields.consignmentCube || '-'}
-                  </strong>
-                </div>
-                <div>
-                  <span>dangerous_goods / movement_type</span>
-                  <strong>
-                    {qr.fields.dangerousGoodsIndicator || '-'} / {qr.fields.movementTypeIndicator || '-'}
-                  </strong>
-                </div>
+              <div key={qr.raw} className="decoded-panel qr-fields-panel">
+                <h3>Parsed QR payload fields</h3>
+                <p className="muted small">
+                  Product {qr.productCode || '—'}
+                  {qr.productName ? ` — ${qr.productName}` : ''} · payload {qr.length} chars
+                </p>
+                <table className="qr-field-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Field</th>
+                      <th>Pos·Len</th>
+                      <th>Parsed value</th>
+                      <th>Check</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {STARTRACK_QR_FIELDS.map(f => {
+                      const value = qr.fields?.[f.key] ?? '';
+                      const status = qrFieldStatus(items, f.rule);
+                      return (
+                        <tr key={f.key}>
+                          <td>{f.num}</td>
+                          <td>
+                            {f.label}
+                            {f.obligation !== 'M' ? <span className="muted small"> ({f.obligation})</span> : null}
+                          </td>
+                          <td className="muted small">
+                            {f.pos}·{f.len}
+                          </td>
+                          <td>{value ? <code>{value}</code> : <span className="muted small">blank</span>}</td>
+                          <td>
+                            {status ? (
+                              <span className={`badge badge-${statusKey(status)}`}>{QR_FIELD_STATUS_LABEL[status] || status}</span>
+                            ) : (
+                              <span className="muted small">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             ))}
           <ValidationTable items={items} />

@@ -122,7 +122,7 @@
       "onMissing": "manual_review",
       "messages": {
         "pass": "Weight value found: {actual} kg.",
-        "missing": "Weight value was not extracted from the text layer or decoded barcode payload."
+        "missing": "Weight value was not extracted from the text layer or decoded barcode payload. Check the WEIGHT value printed on the label manually."
       }
     },
     {
@@ -138,7 +138,7 @@
       "onMissing": "manual_review",
       "messages": {
         "pass": "Cubic volume found: {actual} m3.",
-        "missing": "Cubic volume was not extracted from the text layer or decoded barcode payload."
+        "missing": "Cubic volume was not extracted from the text layer or decoded barcode payload. Check the CUBE value printed on the label manually."
       }
     },
     {

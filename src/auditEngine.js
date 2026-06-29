@@ -1655,35 +1655,42 @@ function fixed(raw, start, length) {
   return String(raw || '').slice(start - 1, start - 1 + length);
 }
 
+// The StarTrack fixed-width QR payload, field by field. Single source of truth for both
+// the parser (below) and the report's field-by-field breakdown (src/main.jsx), so the two
+// can never drift. pos/len are 1-based character offsets per MOS v9 p16; rule is the
+// per-field validation rule id (ST-QR-Fnn) when one exists. Obligation: M/COND/O.
+export const STARTRACK_QR_FIELDS = [
+  { num: 1, key: 'receiverSuburb', label: 'Receiver suburb', pos: 1, len: 30, obligation: 'M', rule: 'ST-QR-F01' },
+  { num: 2, key: 'receiverPostcode', label: 'Receiver postcode', pos: 31, len: 4, obligation: 'M', rule: 'ST-QR-F02' },
+  { num: 3, key: 'connoteNumber', label: 'Consignment number', pos: 35, len: 12, obligation: 'M', rule: 'ST-QR-F03' },
+  { num: 4, key: 'freightItemNumber', label: 'Freight item number', pos: 47, len: 20, obligation: 'M', rule: 'ST-QR-F04' },
+  { num: 5, key: 'productCode', label: 'Product code', pos: 67, len: 3, obligation: 'M', rule: 'ST-QR-F05' },
+  { num: 6, key: 'payerAccount', label: 'Payer account', pos: 70, len: 8, obligation: 'COND', rule: 'ST-QR-F06' },
+  { num: 7, key: 'senderAccount', label: 'Sender account', pos: 78, len: 8, obligation: 'COND', rule: 'ST-QR-F07' },
+  { num: 8, key: 'consignmentQuantity', label: 'Consignment quantity', pos: 86, len: 4, obligation: 'M', rule: 'ST-QR-F08' },
+  { num: 9, key: 'consignmentWeight', label: 'Consignment weight', pos: 90, len: 5, obligation: 'M', rule: 'ST-QR-F09' },
+  { num: 10, key: 'consignmentCube', label: 'Consignment cube', pos: 95, len: 5, obligation: 'COND', rule: 'ST-QR-F10' },
+  { num: 11, key: 'despatchDate', label: 'Despatch date', pos: 100, len: 8, obligation: 'M', rule: 'ST-QR-F11' },
+  { num: 12, key: 'receiverName1', label: 'Receiver name', pos: 108, len: 40, obligation: 'M', rule: 'ST-QR-F12' },
+  { num: 13, key: 'receiverName2', label: 'Receiver name 2', pos: 148, len: 40, obligation: 'O', rule: null },
+  { num: 14, key: 'unitType', label: 'Unit type', pos: 188, len: 3, obligation: 'M', rule: 'ST-QR-F14' },
+  { num: 15, key: 'destinationDepot', label: 'Destination depot', pos: 191, len: 4, obligation: 'M', rule: 'ST-QR-F15' },
+  { num: 16, key: 'receiverAddress1', label: 'Receiver address', pos: 195, len: 40, obligation: 'M', rule: 'ST-QR-F16' },
+  { num: 17, key: 'receiverAddress2', label: 'Receiver address 2', pos: 235, len: 40, obligation: 'O', rule: null },
+  { num: 18, key: 'receiverPhone', label: 'Receiver phone', pos: 275, len: 14, obligation: 'O', rule: 'ST-QR-F18' },
+  { num: 19, key: 'dangerousGoodsIndicator', label: 'Dangerous goods indicator', pos: 289, len: 1, obligation: 'M', rule: 'ST-QR-F19' },
+  { num: 20, key: 'movementTypeIndicator', label: 'Movement type indicator', pos: 290, len: 1, obligation: 'M', rule: 'ST-QR-F20' },
+  { num: 21, key: 'notBeforeDate', label: 'Book-in not-before date', pos: 291, len: 12, obligation: 'COND', rule: 'ST-QR-F21' },
+  { num: 22, key: 'notAfterDate', label: 'Book-in not-after date', pos: 303, len: 12, obligation: 'COND', rule: 'ST-QR-F22' },
+  { num: 23, key: 'atlNumber', label: 'ATL number', pos: 315, len: 10, obligation: 'COND', rule: 'ST-QR-F23' },
+  { num: 24, key: 'raNumber', label: 'RA/TA number', pos: 325, len: 10, obligation: 'COND', rule: 'ST-QR-F24' }
+];
+
 /** Parses the StarTrack fixed-width QR payload into named fields used by validation and reports. */
 export function parseStarTrackQrBarcode(raw) {
   const text = String(raw || '').replace(/^\]Q[0-9]/, '');
-  const fields = {
-    receiverSuburb: fixed(text, 1, 30).trim(),
-    receiverPostcode: fixed(text, 31, 4).trim(),
-    connoteNumber: fixed(text, 35, 12).trim(),
-    freightItemNumber: fixed(text, 47, 20).trim(),
-    productCode: fixed(text, 67, 3).trim(),
-    payerAccount: fixed(text, 70, 8).trim(),
-    senderAccount: fixed(text, 78, 8).trim(),
-    consignmentQuantity: fixed(text, 86, 4).trim(),
-    consignmentWeight: fixed(text, 90, 5).trim(),
-    consignmentCube: fixed(text, 95, 5).trim(),
-    despatchDate: fixed(text, 100, 8).trim(),
-    receiverName1: fixed(text, 108, 40).trim(),
-    receiverName2: fixed(text, 148, 40).trim(),
-    unitType: fixed(text, 188, 3).trim(),
-    destinationDepot: fixed(text, 191, 4).trim(),
-    receiverAddress1: fixed(text, 195, 40).trim(),
-    receiverAddress2: fixed(text, 235, 40).trim(),
-    receiverPhone: fixed(text, 275, 14).trim(),
-    dangerousGoodsIndicator: fixed(text, 289, 1).trim(),
-    movementTypeIndicator: fixed(text, 290, 1).trim(),
-    notBeforeDate: fixed(text, 291, 12).trim(),
-    notAfterDate: fixed(text, 303, 12).trim(),
-    atlNumber: fixed(text, 315, 10).trim(),
-    raNumber: fixed(text, 325, 10).trim()
-  };
+  const fields = {};
+  for (const f of STARTRACK_QR_FIELDS) fields[f.key] = fixed(text, f.pos, f.len).trim();
   const product = STARTRACK_PRODUCT_CODE_MAP[fields.productCode] || null;
   // A conforming StarTrack QR is fixed-width (290 mandatory chars, up to 334 with the
   // optional book-in/ATL/RA tail). A truncated or non-conforming payload is still
@@ -1709,6 +1716,34 @@ export function parseStarTrackQrBarcode(raw) {
     productGroup: product?.group || 'Unknown',
     expectedLabelCode: product?.labelCode || null
   };
+}
+
+// Pulls a heading-labelled numeric measure (weight, cube) from visible text. Tolerant of
+// label variation: "CUBE: 0.015 m3", "CUBE 0.015", "CUBIC VOLUME 0.02 m3", the value on the
+// next line under a heading, or a bare "0.015 m3" with no heading at all. Position is not
+// assumed - the heading anchors the value - so the parse survives layout changes. Returns the
+// numeric string or null.
+function findLabelledMeasure(lines, headingRe, unitPattern) {
+  const num = '(\\d+(?:\\.\\d+)?)';
+  const standaloneRe = new RegExp(`^\\s*${num}\\s*(?:${unitPattern})?\\s*$`, 'i');
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = String(lines[i] || '');
+    const heading = line.match(headingRe);
+    if (!heading) continue;
+    const sameLine = line.slice((heading.index || 0) + heading[0].length).match(new RegExp(num));
+    if (sameLine) return sameLine[1];
+    // No value beside the heading: check the next non-empty line, but only accept it when it
+    // is essentially just the measure, so an unrelated next field is never mis-captured.
+    for (let j = i + 1; j < lines.length && j <= i + 2; j += 1) {
+      const next = String(lines[j] || '').trim();
+      if (!next) continue;
+      const standalone = next.match(standaloneRe);
+      if (standalone) return standalone[1];
+      break;
+    }
+  }
+  const bare = lines.join('\n').match(new RegExp(`${num}\\s*(?:${unitPattern})`, 'i'));
+  return bare ? bare[1] : null;
 }
 
 /** Extracts visible StarTrack facts from selectable PDF text before decoded data backfills gaps. */
@@ -1751,8 +1786,8 @@ function extractStarTrackFacts(extractedText) {
   const connoteFromArticle =
     articleId && /^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(articleId) ? articleId.slice(0, 12) : null;
   const connote = sameLineConnote || nextLineConnote || nearbyConnote || connoteFromArticle || null;
-  const weight = (joined.match(/\b([0-9]+(?:\.[0-9]+)?)\s*kg\b/i) || [])[1] || null;
-  const cube = (joined.match(/\b([0-9]+(?:\.[0-9]+)?)\s*m3\b/i) || [])[1] || null;
+  const weight = findLabelledMeasure(lines, /\b(?:DEAD\s*WEIGHT|WEIGHT|WT)\b\s*:?\s*/i, 'kg');
+  const cube = findLabelledMeasure(lines, /\b(?:CUBE|CUBIC(?:\s*(?:VOLUME|METRES?))?)\b\s*:?\s*/i, 'm\\s*(?:3|³)');
   const unit = (joined.match(/\b(BAG|CTN|ITM|JIF|PAL|SAT|SKI)\b/i) || [])[1]?.toUpperCase() || null;
   const destinationLooksNz = /\bNZ\b/.test(upper);
   const dgPresent = /DANGEROUS\s+GOODS|DG\s*[:-]|AVIATION\s+SECURITY|IATA|UN\s?\d{4}/i.test(joined);
