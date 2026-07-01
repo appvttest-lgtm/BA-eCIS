@@ -205,6 +205,23 @@ th {
   white-space: nowrap;
   background: #eee;
 }
+/* Copy-to-clipboard button on barcode data strings (issue #15). */
+.segmented-code-row { display: flex; align-items: flex-start; gap: 8px; }
+.segmented-code-row .segmented-code, .segmented-code-row .raw-code { flex: 1 1 auto; min-width: 0; }
+.copy-btn {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0d4f9b;
+  background: #eef4ff;
+  border: 1px solid #c3dbff;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.copy-btn:hover { background: #dbe8ff; }
+
 /* Provenance pills: mark each rule field as barcode-decoded vs visible-text/OCR. */
 .prov-badge {
   display: inline-block;

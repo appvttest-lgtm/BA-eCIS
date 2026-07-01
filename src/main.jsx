@@ -696,7 +696,10 @@ function AdditionalBarcodesSection({ audit }) {
             <div className="barcode-meta">
               <strong>{barcodeDisplayName(b)}</strong> page {b.pageNumber || ''}
             </div>
-            <code className="raw-code raw-code-block">{b.rawValue}</code>
+            <div className="segmented-code-row">
+              <code className="raw-code raw-code-block">{b.rawValue}</code>
+              <CopyButton value={b.rawValue} />
+            </div>
             <div className="muted small">
               {b.pageBoundingBox
                 ? 'Barcode location was decoded on this label.'
@@ -1006,19 +1009,55 @@ const SEG_PALETTE = 8;
  *  plus a legend mapping colour -> field, so reviewers can see which character ranges map to
  *  which validated field. `segments` is an ordered [{ text, label }]; concatenated text equals
  *  the decoded value (padding preserved for fixed-width payloads). */
+/** Small copy-to-clipboard button for barcode data strings (issue #15). */
+function CopyButton({ value, label = 'Copy' }) {
+  const [copied, setCopied] = useState(false);
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+  const doCopy = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable (blocked context); leave the value selectable manually */
+    }
+  };
+  return (
+    <button type="button" className="copy-btn" onClick={doCopy} aria-label="Copy barcode value to clipboard">
+      {copied ? '✓ Copied' : label}
+    </button>
+  );
+}
+
 function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)' }) {
   const segs = (segments || []).filter(s => s && s.text != null && String(s.text).length > 0);
   if (!segs.length) return null;
+  const fullValue = segs.map(s => String(s.text)).join('');
   return (
     <div className={title ? 'decoded-panel segmented-panel' : 'segmented-inline'}>
       {title ? <h3>{title}</h3> : null}
-      <code className="segmented-code">
-        {segs.map((s, i) => (
-          <span key={i} className={`seg seg-c${i % SEG_PALETTE}`} title={s.label}>
-            {String(s.text)}
-          </span>
-        ))}
-      </code>
+      <div className="segmented-code-row">
+        <code className="segmented-code">
+          {segs.map((s, i) => (
+            <span key={i} className={`seg seg-c${i % SEG_PALETTE}`} title={s.label}>
+              {String(s.text)}
+            </span>
+          ))}
+        </code>
+        <CopyButton value={fullValue} />
+      </div>
       <ul className="segmented-legend">
         {segs.map((s, i) => (
           <li key={i}>
@@ -1034,6 +1073,27 @@ function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)' })
 
 /** Best-effort GS1 DataMatrix segmentation: split on group separators, else match the
  *  Australia Post AI pattern (01 GTIN, 91 article, 420 postcode, 92 DPID, 8008 date/time). */
+/** Splits an eParcel article number into its individual spec elements (MLID + 7-digit
+ *  consignment serial + article count + product + service + postage-paid + check digit).
+ *  Handles the 18/21/23-char forms; returns null for an unrecognised length. */
+function articleSegments(article) {
+  const c = String(article || '');
+  if (!/^[A-Za-z0-9]+$/.test(c)) return null;
+  const mlid = c.length === 23 ? 5 : c.length === 21 ? 3 : c.length === 18 ? 0 : null;
+  if (mlid === null) return null;
+  const seg = (text, label) => ({ text, label });
+  const parts = mlid ? [seg(c.slice(0, mlid), 'MLID')] : [];
+  parts.push(
+    seg(c.slice(mlid, mlid + 7), 'Consignment serial'),
+    seg(c.slice(mlid + 7, mlid + 9), 'Article count'),
+    seg(c.slice(mlid + 9, mlid + 14), 'Product code'),
+    seg(c.slice(mlid + 14, mlid + 16), 'Service code'),
+    seg(c.slice(mlid + 16, mlid + 17), 'Postage paid'),
+    seg(c.slice(mlid + 17, mlid + 18), 'Check digit')
+  );
+  return parts;
+}
+
 function dataMatrixSegments(value) {
   const seg = (text, label) => ({ text, label });
   const AI_LABEL = {
@@ -1061,7 +1121,11 @@ function dataMatrixSegments(value) {
         continue;
       }
       if (s.startsWith('91', i)) {
-        out.push(seg('91', AI_LABEL['91']), seg(s.slice(i + 2), `${AI_LABEL['91']} value`));
+        const articleVal = s.slice(i + 2);
+        const artSegs = articleSegments(articleVal);
+        out.push(seg('91', AI_LABEL['91']));
+        if (artSegs) out.push(...artSegs);
+        else out.push(seg(articleVal, `${AI_LABEL['91']} value`));
         return out;
       }
       out.push(seg(s.slice(i), 'GS1 element'));
@@ -1153,18 +1217,7 @@ function rawSegments(rawValue, kind) {
     }
     case 'article': {
       const c = v.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-      const mlid = c.length === 23 ? 5 : c.length === 21 ? 3 : 0;
-      out = mlid
-        ? [
-            seg(c.slice(0, mlid), 'MLID'),
-            seg(c.slice(mlid, mlid + 7), 'Consignment serial'),
-            seg(c.slice(mlid + 7, mlid + 9), 'Article count'),
-            seg(c.slice(mlid + 9, mlid + 14), 'Product code'),
-            seg(c.slice(mlid + 14, mlid + 16), 'Service code'),
-            seg(c.slice(mlid + 16, mlid + 17), 'Postage paid'),
-            seg(c.slice(mlid + 17, mlid + 18), 'Check digit')
-          ]
-        : whole;
+      out = articleSegments(c) || whole;
       break;
     }
     case 'datamatrix':
