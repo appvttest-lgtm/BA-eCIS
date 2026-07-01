@@ -1009,8 +1009,9 @@ const SEG_PALETTE = 8;
  *  plus a legend mapping colour -> field, so reviewers can see which character ranges map to
  *  which validated field. `segments` is an ordered [{ text, label }]; concatenated text equals
  *  the decoded value (padding preserved for fixed-width payloads). */
-/** Small copy-to-clipboard button for barcode data strings (issue #15). */
-function CopyButton({ value, label = 'Copy' }) {
+/** Small copy-to-clipboard icon button for barcode data strings (issue #15). Shows a clipboard
+ *  glyph, swapping to a check mark for a moment after a successful copy. */
+function CopyButton({ value, label = 'Copy barcode value' }) {
   const [copied, setCopied] = useState(false);
   const text = String(value ?? '').trim();
   if (!text) return null;
@@ -1034,9 +1035,32 @@ function CopyButton({ value, label = 'Copy' }) {
       /* clipboard unavailable (blocked context); leave the value selectable manually */
     }
   };
+  const tip = copied ? 'Copied' : label;
   return (
-    <button type="button" className="copy-btn" onClick={doCopy} aria-label="Copy barcode value to clipboard">
-      {copied ? '✓ Copied' : label}
+    <button
+      type="button"
+      className={`copy-btn${copied ? ' copied' : ''}`}
+      onClick={doCopy}
+      aria-label={tip}
+      title={tip}
+    >
+      {copied ? (
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
+          <path
+            d="M20 6 9 17l-5-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">
+          <rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
+          <path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      )}
     </button>
   );
 }
@@ -1094,6 +1118,22 @@ function articleSegments(article) {
   return parts;
 }
 
+/** Length of the eParcel article ID at the front of an AI 91 payload. AusPost sometimes appends
+ *  further AIs (420 postcode, 92 DPID, 8008 date) after the article with no separator, so prefer
+ *  the shortest valid article length whose remainder is empty or begins with a known trailing AI;
+ *  otherwise consume the whole payload (rendered as a single block). */
+function eparcelArticleLength(payload) {
+  const c = String(payload || '');
+  const remainderOk = len => {
+    const rest = c.slice(len);
+    return rest === '' || /^(420|92|8008|00|01)/.test(rest);
+  };
+  for (const len of [21, 23, 18]) {
+    if (len <= c.length && articleSegments(c.slice(0, len)) && remainderOk(len)) return len;
+  }
+  return c.length;
+}
+
 function dataMatrixSegments(value) {
   const seg = (text, label) => ({ text, label });
   const AI_LABEL = {
@@ -1121,12 +1161,18 @@ function dataMatrixSegments(value) {
         continue;
       }
       if (s.startsWith('91', i)) {
-        const articleVal = s.slice(i + 2);
-        const artSegs = articleSegments(articleVal);
+        const rest = s.slice(i + 2);
         out.push(seg('91', AI_LABEL['91']));
+        // AI 91 (variable length) carries the eParcel article ID, sometimes followed by more
+        // AusPost AIs (420 postcode, 92 DPID, 8008 date) with no separators. Peel the
+        // fixed-length article off the front into its components, then let the loop parse the
+        // trailing AIs instead of dumping the whole payload as one block.
+        const artLen = eparcelArticleLength(rest);
+        const artSegs = articleSegments(rest.slice(0, artLen));
         if (artSegs) out.push(...artSegs);
-        else out.push(seg(articleVal, `${AI_LABEL['91']} value`));
-        return out;
+        else out.push(seg(rest.slice(0, artLen), `${AI_LABEL['91']} value`));
+        i += 2 + artLen;
+        continue;
       }
       out.push(seg(s.slice(i), 'GS1 element'));
       return out;
