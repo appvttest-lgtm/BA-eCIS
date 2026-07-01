@@ -205,6 +205,25 @@ th {
   white-space: nowrap;
   background: #eee;
 }
+/* Collapsible "additional provided data" panel hiding the payload + SSCC inputs (issue #23). */
+.additional-data-panel { margin-top: 14px; border: 1px solid #e4e9ef; border-radius: 12px; background: #fbfcfe; }
+.additional-data-summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  font-weight: 800;
+  color: #111;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.additional-data-summary::-webkit-details-marker { display: none; }
+.additional-data-summary::before { content: '▸'; color: #0d4f9b; transition: transform 0.15s ease; }
+.additional-data-panel[open] > .additional-data-summary::before { transform: rotate(90deg); }
+.additional-data-panel > .optional-input-grid { padding: 0 14px 14px; }
+/* The grid's own display:grid overrides the UA "hide when closed" rule, so hide it explicitly. */
+.additional-data-panel:not([open]) > .optional-input-grid { display: none; }
+
 /* Copy-to-clipboard button on barcode data strings (issue #15). */
 .segmented-code-row { display: flex; align-items: flex-start; gap: 8px; }
 .segmented-code-row .segmented-code, .segmented-code-row .raw-code { flex: 1 1 auto; min-width: 0; }

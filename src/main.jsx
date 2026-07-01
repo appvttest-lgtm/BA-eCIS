@@ -2354,7 +2354,11 @@ function App() {
             </p>
           )}
         </section>
-        <div className="optional-input-grid">
+        <details className="additional-data-panel">
+          <summary className="additional-data-summary">
+            Additional provided data (optional) — Get Shipments payload &amp; SSCC extension/prefix
+          </summary>
+          <div className="optional-input-grid">
           <section className="payload-input-panel" aria-labelledby="payload-input-title">
             <h2 id="payload-input-title">Get Shipments API payload comparison</h2>
             <p className="muted small">
@@ -2416,7 +2420,8 @@ function App() {
               Apply optional checks to current results
             </button>
           )}
-        </div>
+          </div>
+        </details>
       </section>
 
       {processing && (
