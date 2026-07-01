@@ -6,6 +6,17 @@ Tag items with #security #feature #marketing #logging #infra for colored chips.
 ## Planned - future build requirements
 - [ ] Capture the next batch of build requirements here #feature
 
+## In progress — report redesign (branch: report-redesign, v1.9.0–v1.9.2)
+Not yet merged to main. Warm-theme report rebuild plus GitHub issue burn-down.
+- [x] Per-field 2D QR lines, status icon vocabulary, collapsible detail (v1.9.0) #feature
+- [x] Colour-coded raw string per barcode + faithfulness guard + warm theme (v1.9.1) #feature
+- [x] #15 one-click copy controls (clipboard icon) on every barcode value #feature
+- [x] #22 full eParcel article breakdown; AI 91 split to article elements + trailing AIs (420/92/8008) #feature
+- [x] #23 collapse optional payload + SSCC inputs under an "Additional provided data" dropdown #feature
+- [x] #25 freeze the PASS/REVIEW/FAIL verdict banner at the top (partial) #feature
+- [ ] #16 SSCC-QR validation detail, #17 sync report, #18 wrapping, #24 redundant section, #25 layout consolidation — blocked on issue screenshots #feature
+- [ ] #11 #12 #13 #14 — deferred by owner #feature
+
 ## Done — senior review readiness (shipped as v1.7.6)
 One commit per item. Source: review-prep assessment 2026-06-12.
 - [x] R01 README corrections: drop stale TypeScript + HTML-report-export claims, refresh project file map #infra

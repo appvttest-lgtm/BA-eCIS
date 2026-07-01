@@ -6,6 +6,22 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.9.2 - report detail: copy icons, full eParcel/AI-91 element breakdown, frozen verdict
+----------------------------------------------------------------------------------------
+Incremental refinements to the redesigned report (issues #15, #22, #23, #25).
+- The eParcel AI 91 payload is now broken into its individual spec elements instead of one opaque
+  block: the article ID splits into MLID, consignment serial, article count, product code, service
+  code, postage-paid indicator and check digit, and any trailing AusPost AIs packed after the
+  article with no separator (420 postcode, 92 DPID, 8008 date/time) are parsed out as their own
+  colour-coded segments. The faithfulness guard still guarantees the segments reproduce the decoded
+  value exactly.
+- Barcode copy controls are now a clipboard icon (green tick on success) rather than a text button,
+  on both the per-barcode list and the segmented-code panel (issue #15).
+- The optional Get Shipments payload and SSCC extension/prefix inputs are collapsed behind an
+  "Additional provided data" dropdown so the upload form stays focused (issue #23).
+- The overall PASS / REVIEW / FAIL verdict banner is frozen (sticky) at the top of the report while
+  scrolling long reports (issue #25).
+
 v1.9.1 - colour-coded raw strings for every barcode + warm theme
 ----------------------------------------------------------------
 Every decoded barcode now shows its raw string colour-segmented by field, and the app adopts the

@@ -24,6 +24,8 @@ Keeping the upload paths separate ensures the correct audit rule set is applied 
 5. The audit engine applies format, identity, routing, product/service, visible-text and optional payload comparison checks.
 6. Results are shown on-screen with full-label previews, barcode crop evidence, pass/fail tables and a rule-by-rule report pane.
 
+The report renders each decoded barcode as its raw string colour-segmented by field (with a legend), and breaks structured payloads down to the element level — for example an eParcel GS1-128 splits into AI 01 GTIN and the AI 91 article, and the article itself into MLID, consignment serial, article count, product code, service code, postage-paid indicator and check digit, plus any trailing AusPost AIs (420 postcode, 92 DPID, 8008 date/time). Every field carries a provenance badge marking whether its value came from a decoded barcode/QR, visible text/OCR, or was derived; each barcode value has a one-click copy control; and the overall PASS/REVIEW/FAIL verdict stays pinned to the top while scrolling.
+
 ## Audit Logic
 
 ### eParcel
