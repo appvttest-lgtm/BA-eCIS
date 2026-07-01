@@ -2359,15 +2359,15 @@ function App() {
             Additional provided data (optional) — Get Shipments payload &amp; SSCC extension/prefix
           </summary>
           <div className="optional-input-grid">
-          <section className="payload-input-panel" aria-labelledby="payload-input-title">
-            <h2 id="payload-input-title">Get Shipments API payload comparison</h2>
-            <p className="muted small">
-              Optional: paste a Get Shipments response before upload, or apply it to the current report.
-            </p>
-            <textarea
-              className="api-payload-textarea"
-              rows="8"
-              placeholder={`Paste Get Shipments payload here, for example:
+            <section className="payload-input-panel" aria-labelledby="payload-input-title">
+              <h2 id="payload-input-title">Get Shipments API payload comparison</h2>
+              <p className="muted small">
+                Optional: paste a Get Shipments response before upload, or apply it to the current report.
+              </p>
+              <textarea
+                className="api-payload-textarea"
+                rows="8"
+                placeholder={`Paste Get Shipments payload here, for example:
 {
   "shipments": [{
     "shipment_id": "...",
@@ -2377,49 +2377,49 @@ function App() {
     "safe_drop_enabled": false
   }]
 }`}
-              value={manifestJson}
-              onChange={e => setManifestJson(e.target.value)}
-            />
-          </section>
-          <section className="sscc-prefix-panel" aria-labelledby="sscc-prefix-title">
-            <h2 id="sscc-prefix-title">SSCC extension and prefix</h2>
-            <p className="muted small">
-              Used when SSCC article identifier is selected. The decoded AI 00 barcode is checked against the supplied
-              extension digit and GS1 Company Prefix when provided.
-            </p>
-            <label className="field-label" htmlFor="sscc-extension-digit">
-              Extension digit
-            </label>
-            <input
-              id="sscc-extension-digit"
-              className="sscc-prefix-input"
-              type="text"
-              inputMode="numeric"
-              placeholder="003"
-              value={ssccExtensionDigit}
-              onChange={e => setSsccExtensionDigit(e.target.value)}
-            />
-            <label className="field-label" htmlFor="sscc-company-prefix">
-              Company prefix
-            </label>
-            <input
-              id="sscc-company-prefix"
-              className="sscc-prefix-input"
-              type="text"
-              inputMode="numeric"
-              placeholder="9315345"
-              value={ssccCompanyPrefix}
-              onChange={e => setSsccCompanyPrefix(e.target.value)}
-            />
-            <p className="muted small">
-              Example: SSCC (00) 3 9315345 000000070 0 uses extension digit 3 and company prefix 9315345.
-            </p>
-          </section>
-          {scanDatas.length > 0 && (
-            <button className="secondary optional-input-apply" onClick={rerunAuditWithOptionalInputs}>
-              Apply optional checks to current results
-            </button>
-          )}
+                value={manifestJson}
+                onChange={e => setManifestJson(e.target.value)}
+              />
+            </section>
+            <section className="sscc-prefix-panel" aria-labelledby="sscc-prefix-title">
+              <h2 id="sscc-prefix-title">SSCC extension and prefix</h2>
+              <p className="muted small">
+                Used when SSCC article identifier is selected. The decoded AI 00 barcode is checked against the supplied
+                extension digit and GS1 Company Prefix when provided.
+              </p>
+              <label className="field-label" htmlFor="sscc-extension-digit">
+                Extension digit
+              </label>
+              <input
+                id="sscc-extension-digit"
+                className="sscc-prefix-input"
+                type="text"
+                inputMode="numeric"
+                placeholder="003"
+                value={ssccExtensionDigit}
+                onChange={e => setSsccExtensionDigit(e.target.value)}
+              />
+              <label className="field-label" htmlFor="sscc-company-prefix">
+                Company prefix
+              </label>
+              <input
+                id="sscc-company-prefix"
+                className="sscc-prefix-input"
+                type="text"
+                inputMode="numeric"
+                placeholder="9315345"
+                value={ssccCompanyPrefix}
+                onChange={e => setSsccCompanyPrefix(e.target.value)}
+              />
+              <p className="muted small">
+                Example: SSCC (00) 3 9315345 000000070 0 uses extension digit 3 and company prefix 9315345.
+              </p>
+            </section>
+            {scanDatas.length > 0 && (
+              <button className="secondary optional-input-apply" onClick={rerunAuditWithOptionalInputs}>
+                Apply optional checks to current results
+              </button>
+            )}
           </div>
         </details>
       </section>

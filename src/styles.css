@@ -280,7 +280,14 @@ details summary { cursor: pointer; color: var(--color-text); margin-top: 6px; }
 /* Report navigation, section headings, preview images, and repeated fact-card layouts. */
 .hero-compact { padding: 18px 22px; }
 .upload-card textarea + textarea { margin-top: 10px; }
-.nav-card { position: sticky; top: 8px; z-index: 5; }
+/* Overall verdict banner frozen at the top of the report (issue #25 "freeze frame"). */
+.consolidated-summary {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+.nav-card { position: sticky; top: 72px; z-index: 5; }
 .quick-nav { display: flex; flex-wrap: wrap; gap: 8px; }
 .quick-nav a {
   display: inline-flex;
