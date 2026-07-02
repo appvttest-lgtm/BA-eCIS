@@ -74,7 +74,10 @@ export function dedupeBarcodes(items) {
     if (!item?.rawValue) continue;
     const normalized = String(item.rawValue).replace(/\s+/g, '').trim();
     const key = `${item.format || 'unknown'}:${normalized}`;
-    const clean = { ...item, rawValue: item.rawValue.trim?.() ?? item.rawValue };
+    // Keep the decoded value verbatim: fixed-width payloads (StarTrack QR) carry
+    // significant leading/trailing padding, and the barcode decode is the source of
+    // truth. Only the dedupe key above collapses whitespace.
+    const clean = { ...item };
     if (!map.has(key)) {
       map.set(key, clean);
       continue;
