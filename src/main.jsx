@@ -987,7 +987,7 @@ function FieldLine({ name, spec, value, status, detail, swatchClass }) {
 
 /** One expandable QR field line: the StarTrack QR spec fields carry their own rule ids,
  *  obligations and fixed char positions. */
-function QrFieldLine({ field, value, status }) {
+function QrFieldLine({ field, value, status, swatchClass }) {
   const obligation = QR_OBLIGATION_LABEL[field.obligation] || field.obligation;
   return (
     <FieldLine
@@ -995,6 +995,7 @@ function QrFieldLine({ field, value, status }) {
       spec={field.obligation === 'M' ? field.criteria : `${obligation}. ${field.criteria}`}
       value={value}
       status={status}
+      swatchClass={swatchClass}
       detail={`${field.rule ? `${field.rule} · ` : ''}field ${field.num} · position ${field.pos}, length ${field.len} · ${obligation}`}
     />
   );
@@ -1461,8 +1462,9 @@ function SegmentedFields({ segments, kind }) {
 
 /** Renders each decoded barcode value colour-coded by its field format/lengths, with the
  *  QR-style per-field breakdown beneath it when the kind has field specifications (the
- *  breakdown then replaces the plain colour legend). */
-function DecodedBarcodes({ barcodes, kind, label, emptyText }) {
+ *  breakdown then replaces the plain colour legend). `showLegend` forces the legend on/off
+ *  for kinds whose field table renders elsewhere (StarTrack QR). */
+function DecodedBarcodes({ barcodes, kind, label, emptyText, showLegend }) {
   if (!barcodes || !barcodes.length) return <p className="muted">{emptyText}</p>;
   return (
     <ul className="barcode-list decoded-list">
@@ -1474,7 +1476,7 @@ function DecodedBarcodes({ barcodes, kind, label, emptyText }) {
             <div className="barcode-meta">
               <strong>{label}</strong> {b.pageNumber ? `page ${b.pageNumber}` : ''}
             </div>
-            <SegmentedCode segments={segments} title={null} showLegend={!hasFieldRows} />
+            <SegmentedCode segments={segments} title={null} showLegend={showLegend ?? !hasFieldRows} />
             {hasFieldRows ? <SegmentedFields segments={segments} kind={kind} /> : null}
             <div className="muted small">
               {b.pageBoundingBox
@@ -1522,36 +1524,49 @@ function StarTrackQrSection({ audit, items }) {
               kind="qr"
               label="QR"
               emptyText="No StarTrack QR value decoded from the uploaded file."
+              showLegend={qrs.length === 0}
             />
           </div>
           {qrs.length > 0 &&
-            qrs.map(qr => (
-              <div key={qr.raw} className="decoded-panel qr-fields-panel">
-                <h3>Parsed QR payload fields</h3>
-                <p className="muted small">
-                  Product {qr.productCode || '—'}
-                  {qr.productName ? ` — ${qr.productName}` : ''} · payload {qr.length} chars
-                </p>
-                <div className="qr-lines">
-                  <StatusKeyLegend />
-                  <div className="qr-lines-head">
-                    <span />
-                    <span>Field</span>
-                    <span>Specification</span>
-                    <span>Raw value</span>
-                    <span />
+            qrs.map(qr => {
+              // Colour-match each parsed field row to its segment in the raw string above:
+              // both derive from rawSegments(raw, 'qr'), so the filtered segment order fixes
+              // the seg-cN palette index for a given "<num>. <label>" field.
+              const segLabels = rawSegments(qr.raw, 'qr')
+                .filter(s => String(s.text).length > 0)
+                .map(s => s.label);
+              return (
+                <div key={qr.raw} className="decoded-panel qr-fields-panel">
+                  <h3>Parsed QR payload fields</h3>
+                  <p className="muted small">
+                    Product {qr.productCode || '—'}
+                    {qr.productName ? ` — ${qr.productName}` : ''} · payload {qr.length} chars
+                  </p>
+                  <div className="qr-lines">
+                    <StatusKeyLegend />
+                    <div className="qr-lines-head">
+                      <span />
+                      <span>Field</span>
+                      <span>Specification</span>
+                      <span>Raw value</span>
+                      <span />
+                    </div>
+                    {STARTRACK_QR_FIELDS.map(f => {
+                      const segIndex = segLabels.indexOf(`${f.num}. ${f.label}`);
+                      return (
+                        <QrFieldLine
+                          key={f.key}
+                          field={f}
+                          value={qr.fields?.[f.key] ?? ''}
+                          status={qrFieldStatus(items, f.rule)}
+                          swatchClass={segIndex >= 0 ? `seg-c${segIndex % SEG_PALETTE}` : null}
+                        />
+                      );
+                    })}
                   </div>
-                  {STARTRACK_QR_FIELDS.map(f => (
-                    <QrFieldLine
-                      key={f.key}
-                      field={f}
-                      value={qr.fields?.[f.key] ?? ''}
-                      status={qrFieldStatus(items, f.rule)}
-                    />
-                  ))}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           <ValidationTable items={items} />
         </div>
       </div>

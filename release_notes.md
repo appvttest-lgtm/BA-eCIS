@@ -6,6 +6,14 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.10.2 - QR parsed-field rows take over the colour legend
+----------------------------------------------------------
+- The StarTrack QR "Parsed QR payload fields" rows now carry the colour swatch matching
+  their segment in the raw decoded string (same palette order), and the duplicate colour
+  legend under the raw string is dropped - one place per field: colour, spec, value, status.
+- Fields not present in the payload (e.g. optional trailing RA/TA number) render without a
+  swatch, since they have no segment in the raw string.
+
 v1.10.1 - slicker report header and section navigation
 ------------------------------------------------------
 - Report header: small "ARTICLE NUMBER" eyebrow over a large mono article number with a
