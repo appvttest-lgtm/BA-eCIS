@@ -6,6 +6,33 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.12.7 - StarTrack logo tint matched to the brand blue
+--------------------------------------------------------
+- The StarTrack tint on the rail emblem now matches the StarTrack brand blue #009FDA
+  (sampled from the startrack.com.au logo), a lighter blue than the first pass. The
+  CSS hue-shift filter was tuned so the emblem renders at ~rgb(0,161,217).
+
+v1.12.6 - "Copy all label data" action in the report header
+------------------------------------------------------------
+- The copy button next to the article number becomes "Copy all label data": a labelled
+  icon button that copies every decoded barcode raw string on the label, one per line,
+  each prefixed with its name and a colon (for example "Routing barcode: EXP2000SYD").
+  Order follows the report: StarTrack QR / routing / ATL / freight item, or eParcel
+  linear GS1-128 / GS1 DataMatrix; duplicate decodes of the same symbol are copied once
+  and any unclassified barcode falls back to its display name.
+- Barcode decoding, parsing and validation logic are untouched - this only assembles
+  already-decoded raw values for the clipboard.
+
+v1.12.5 - rail spans the full page; roomier "Needs review" scroll area
+-----------------------------------------------------------------------
+- The rail card now extends all the way down the page (the full report column) instead
+  of stopping at one viewport height. The content inside stays pinned while the page
+  scrolls via an inner sticky wrapper.
+- The "Needs review" list keeps flexing into the remaining pinned space but can no
+  longer be crushed to a sliver on short screens: it holds a minimum height, and when
+  the pinned blocks genuinely outgrow the screen the inner rail scrolls as a whole
+  instead of pinching the bookmark list.
+
 v1.12.4 - "Additional provided data" inputs temporarily disabled
 -----------------------------------------------------------------
 - The optional "Additional provided data" panel in the upload screen (Get Shipments

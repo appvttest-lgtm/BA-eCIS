@@ -293,6 +293,15 @@ th {
   background: #e6f6ec;
   border-color: #b7e2c6;
 }
+/* Icon + caption variant used for the header "copy all label data" action. */
+.copy-btn-labeled {
+  width: auto;
+  height: auto;
+  gap: 7px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
 
 /* Provenance pills: mark each rule field as barcode-decoded vs visible-text/OCR. */
 .prov-badge {
@@ -401,21 +410,28 @@ details summary {
   gap: 18px;
   align-items: start;
 }
+/* The rail card spans the entire report column, all the way down the page. The
+ * .rail-inner wrapper is the viewport-pinned part: it sticks while the page scrolls,
+ * the "Needs review" list flexes into whatever space is left (scrolling internally
+ * when it overflows), and if the pinned blocks outgrow a short screen the inner
+ * wrapper scrolls as a whole instead of crushing the review list. */
 .rail {
-  position: sticky;
-  top: 12px;
+  align-self: stretch;
   min-height: calc(100vh - 24px);
-  max-height: calc(100vh - 24px);
-  /* The rail itself never scrolls: brand, verdict, file tabs and section nav stay put.
-   * Only the "Needs review" list (and an overlong file list) scroll inside their own boxes. */
-  overflow: hidden;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;
+}
+.rail-inner {
+  position: sticky;
+  top: 12px;
+  height: calc(100vh - 52px);
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
 }
 .rail-brand {
   display: flex;
@@ -426,10 +442,12 @@ details summary {
   height: auto;
   display: block;
 }
-/* Same AP emblem shifted to StarTrack blue when auditing (or picking) StarTrack.
- * hue-rotate keeps the white/transparent pixels of the PNG untouched. */
+/* Same AP emblem shifted to the StarTrack brand blue (#009FDA, sampled from the
+ * startrack.com.au logo SVG) when auditing (or picking) StarTrack. hue-rotate keeps
+ * the white/transparent pixels of the PNG untouched; these values render the red
+ * fill at ~rgb(0,161,217). */
 .rail-logo-startrack {
-  filter: hue-rotate(215deg) saturate(1.6) brightness(0.82);
+  filter: hue-rotate(195deg) saturate(1.2) brightness(1.5);
 }
 /* Prominent "new audit" action pinned to the top-right of the report header,
  * opposite the rail logo: a tall stacked tile (icon over label) so it can't be missed. */
@@ -650,6 +668,10 @@ details summary {
   width: 100%;
   font-size: 12px;
 }
+/* Never let the bookmark list collapse to a sliver: below this the inner rail scrolls instead. */
+.rail .review-links {
+  min-height: 110px;
+}
 .rail-feedback {
   margin-top: auto;
   font-size: 12px;
@@ -714,9 +736,13 @@ details summary {
     grid-template-columns: 1fr;
   }
   .rail {
-    position: static;
-    max-height: none;
+    align-self: auto;
     min-height: 0;
+  }
+  .rail-inner {
+    position: static;
+    height: auto;
+    overflow: visible;
   }
   .rail-feedback {
     margin-top: 0;

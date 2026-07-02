@@ -59,6 +59,8 @@ The StarTrack logic validates decoded barcode content against known role-specifi
 
 Users can optionally paste a Get Shipments API response or relevant JSON/plain-text excerpt. Payload comparison is identity-gated: the payload must first match the uploaded label using fields such as article ID, freight item ID, SSCC, consignment ID or connote ID. If the identity does not match, secondary comparisons are reported as not applicable rather than creating false matches.
 
+> **Note (v1.12.4):** the "Additional provided data" inputs (Get Shipments payload and SSCC extension/prefix) are temporarily greyed out in the upload screen while the comparison logic is reviewed. The code paths remain in place and re-enable by removing the disabled state.
+
 ## Key Libraries
 
 - `React` and `React DOM` for the single-page application UI

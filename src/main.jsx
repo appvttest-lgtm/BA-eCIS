@@ -324,6 +324,37 @@ function barcodeDisplayName(b) {
   return b?.format || b?.symbology || 'barcode';
 }
 
+/** Assembles one "Label: raw value" line per decoded barcode on the label, in report
+ *  order, for the header "copy all" action. Values are deduped so a symbol decoded on
+ *  multiple passes is copied once; anything not covered by a named group falls back to
+ *  its display name. */
+function allBarcodesCopyText(audit) {
+  const groups =
+    audit?.carrier === 'startrack'
+      ? [
+          ['StarTrack 2D QR barcode', decodedBarcodeList(audit, 'qr')],
+          ['Routing barcode', starTrackRoutingBarcodeList(audit)],
+          ['ATL barcode', starTrackAtlBarcodeList(audit)],
+          ['Freight item barcode', starTrackFreightBarcodeList(audit)]
+        ]
+      : [
+          ['Linear barcode (GS1-128)', decodedBarcodeList(audit, 'linear')],
+          ['GS1 DataMatrix barcode', decodedBarcodeList(audit, 'datamatrix')],
+          ['QR barcode', decodedBarcodeList(audit, 'qr')]
+        ];
+  const seen = new Set();
+  const lines = [];
+  const push = (label, b) => {
+    const raw = String(b?.rawValue || '').trim();
+    if (!raw || seen.has(raw)) return;
+    seen.add(raw);
+    lines.push(`${label}: ${raw}`);
+  };
+  for (const [label, list] of groups) for (const b of list || []) push(label, b);
+  for (const b of audit?.detectedBarcodes || []) push(barcodeDisplayName(b), b);
+  return lines.join('\n');
+}
+
 function formatDurationMs(ms) {
   if (!Number.isFinite(ms)) return '';
   if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -1042,17 +1073,17 @@ const SEG_PALETTE = 8;
  *  the decoded value (padding preserved for fixed-width payloads). */
 /** Small copy-to-clipboard icon button for barcode data strings (issue #15). Shows a clipboard
  *  glyph, swapping to a check mark for a moment after a successful copy. */
-function CopyButton({ value, label = 'Copy barcode value' }) {
+function CopyButton({ value, label = 'Copy barcode value', text }) {
   const [copied, setCopied] = useState(false);
-  const text = String(value ?? '').trim();
-  if (!text) return null;
+  const payload = String(value ?? '').trim();
+  if (!payload) return null;
   const doCopy = async () => {
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(payload);
       } else {
         const ta = document.createElement('textarea');
-        ta.value = text;
+        ta.value = payload;
         ta.style.position = 'fixed';
         ta.style.opacity = '0';
         document.body.appendChild(ta);
@@ -1070,7 +1101,7 @@ function CopyButton({ value, label = 'Copy barcode value' }) {
   return (
     <button
       type="button"
-      className={`copy-btn${copied ? ' copied' : ''}`}
+      className={`copy-btn${text ? ' copy-btn-labeled' : ''}${copied ? ' copied' : ''}`}
       onClick={doCopy}
       aria-label={tip}
       title={tip}
@@ -1092,6 +1123,7 @@ function CopyButton({ value, label = 'Copy barcode value' }) {
           <path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       )}
+      {text && <span className="copy-btn-text">{copied ? 'Copied' : text}</span>}
     </button>
   );
 }
@@ -2685,87 +2717,91 @@ function App() {
           empty skeleton with the upload panel hovering over it. */}
       <section className="results report-shell">
         <aside className="rail" aria-label="Audit overview and navigation">
-          <div className="rail-brand">
-            {/* Same AP emblem, tinted StarTrack blue when the audit (or the picker) is StarTrack. */}
-            <img
-              className={`rail-logo ${
-                (activeAudit ? activeAudit.selectedAuditMode?.carrier || activeAudit.carrier : selectedCarrier) ===
-                'startrack'
-                  ? 'rail-logo-startrack'
-                  : ''
-              }`}
-              src={australiaPostLogoUrl}
-              alt="Australia Post"
-            />
+          {/* The rail card spans the full page length; this inner wrapper is the part that
+              stays pinned to the viewport and scrolls itself if it outgrows the screen. */}
+          <div className="rail-inner">
+            <div className="rail-brand">
+              {/* Same AP emblem, tinted StarTrack blue when the audit (or the picker) is StarTrack. */}
+              <img
+                className={`rail-logo ${
+                  (activeAudit ? activeAudit.selectedAuditMode?.carrier || activeAudit.carrier : selectedCarrier) ===
+                  'startrack'
+                    ? 'rail-logo-startrack'
+                    : ''
+                }`}
+                src={australiaPostLogoUrl}
+                alt="Australia Post"
+              />
+            </div>
+            {hasReport ? (
+              <div
+                className={`rail-verdict summary-${batchSummary.overallStatus.toLowerCase()}`}
+                id="audit-result"
+                role="status"
+              >
+                <span className="rail-verdict-label">Audit result</span>
+                <strong className={`rail-verdict-status overall-${batchSummary.overallStatus.toLowerCase()}`}>
+                  {batchSummary.overallStatus}
+                </strong>
+                <span className="rail-verdict-counts">
+                  {batchSummary.passed} passed · {batchSummary.manualReview} review · {batchSummary.failed} fail
+                  {batchSummary.failed === 1 ? '' : 's'}
+                </span>
+              </div>
+            ) : (
+              <div className="rail-verdict rail-verdict-empty" id="audit-result" role="status">
+                <span className="rail-verdict-label">Audit result</span>
+                <strong className="rail-verdict-status">—</strong>
+                <span className="rail-verdict-counts">Upload a label to begin</span>
+              </div>
+            )}
+            {audits.length > 1 && (
+              <div className="rail-files" role="tablist" aria-label="Uploaded labels">
+                <span className="rail-block-title">Labels ({audits.length})</span>
+                {audits.map((item, idx) => {
+                  const h = auditDisplayHeader(item, idx);
+                  const consignment = auditConsignmentId(item);
+                  const tone = String(item.summary?.overallStatus || 'review').toLowerCase();
+                  return (
+                    <button
+                      key={`${h.articleNumber}-${idx}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={idx === activeIndex}
+                      className={`rail-file rail-${tone === 'pass' ? 'pass' : tone === 'fail' ? 'fail' : 'review'} ${idx === activeIndex ? 'active' : ''}`}
+                      onClick={() => dispatch({ type: 'set-active', index: idx })}
+                    >
+                      <span className="rail-file-head">
+                        <span className="nav-dot" aria-hidden="true" />
+                        <code className="rail-file-article">{h.articleNumber}</code>
+                      </span>
+                      <span className="rail-file-sub">
+                        {consignment ? `Consignment ${consignment}` : 'Consignment not detected'}
+                      </span>
+                      <span className="rail-file-sub">
+                        {h.productCode ? `${h.productCode} — ${h.productName || h.product}` : h.product}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {activeAudit && sections && <RailNav audit={activeAudit} sections={sections} />}
+            {!hasReport && (
+              <div className="rail-skeleton" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+              </div>
+            )}
+            <a className="rail-feedback" href={FEEDBACK_URL} target="_blank" rel="noreferrer">
+              Feedback
+            </a>
           </div>
-          {hasReport ? (
-            <div
-              className={`rail-verdict summary-${batchSummary.overallStatus.toLowerCase()}`}
-              id="audit-result"
-              role="status"
-            >
-              <span className="rail-verdict-label">Audit result</span>
-              <strong className={`rail-verdict-status overall-${batchSummary.overallStatus.toLowerCase()}`}>
-                {batchSummary.overallStatus}
-              </strong>
-              <span className="rail-verdict-counts">
-                {batchSummary.passed} passed · {batchSummary.manualReview} review · {batchSummary.failed} fail
-                {batchSummary.failed === 1 ? '' : 's'}
-              </span>
-            </div>
-          ) : (
-            <div className="rail-verdict rail-verdict-empty" id="audit-result" role="status">
-              <span className="rail-verdict-label">Audit result</span>
-              <strong className="rail-verdict-status">—</strong>
-              <span className="rail-verdict-counts">Upload a label to begin</span>
-            </div>
-          )}
-          {audits.length > 1 && (
-            <div className="rail-files" role="tablist" aria-label="Uploaded labels">
-              <span className="rail-block-title">Labels ({audits.length})</span>
-              {audits.map((item, idx) => {
-                const h = auditDisplayHeader(item, idx);
-                const consignment = auditConsignmentId(item);
-                const tone = String(item.summary?.overallStatus || 'review').toLowerCase();
-                return (
-                  <button
-                    key={`${h.articleNumber}-${idx}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={idx === activeIndex}
-                    className={`rail-file rail-${tone === 'pass' ? 'pass' : tone === 'fail' ? 'fail' : 'review'} ${idx === activeIndex ? 'active' : ''}`}
-                    onClick={() => dispatch({ type: 'set-active', index: idx })}
-                  >
-                    <span className="rail-file-head">
-                      <span className="nav-dot" aria-hidden="true" />
-                      <code className="rail-file-article">{h.articleNumber}</code>
-                    </span>
-                    <span className="rail-file-sub">
-                      {consignment ? `Consignment ${consignment}` : 'Consignment not detected'}
-                    </span>
-                    <span className="rail-file-sub">
-                      {h.productCode ? `${h.productCode} — ${h.productName || h.product}` : h.product}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {activeAudit && sections && <RailNav audit={activeAudit} sections={sections} />}
-          {!hasReport && (
-            <div className="rail-skeleton" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
-          )}
-          <a className="rail-feedback" href={FEEDBACK_URL} target="_blank" rel="noreferrer">
-            Feedback
-          </a>
         </aside>
         <div className="report-main">
           {processing && (
@@ -2839,7 +2875,11 @@ function App() {
                     <span className="selected-label-eyebrow">Article number</span>
                     <div className="selected-label-number">
                       <code>{h.articleNumber}</code>
-                      <CopyButton value={h.articleNumber} />
+                      <CopyButton
+                        value={allBarcodesCopyText(activeAudit)}
+                        label="Copy every decoded barcode value, one per line"
+                        text="Copy all label data"
+                      />
                     </div>
                     <div className="selected-label-meta">
                       <span>
