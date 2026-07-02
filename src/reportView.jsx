@@ -100,7 +100,9 @@ function ProvenanceBadge({ path }) {
 }
 
 function RuleRow({ v, standardFor, showPayload, renderPayload }) {
-  const [open, setOpen] = useState(v.status === 'fail');
+  // All rows start collapsed (including fails): the head line already carries the
+  // status icon, badge and observed value; the panes are opt-in detail.
+  const [open, setOpen] = useState(false);
   const [showLogic, setShowLogic] = useState(false);
   const rule = v.rule || null;
   const source = rule?.source || null;

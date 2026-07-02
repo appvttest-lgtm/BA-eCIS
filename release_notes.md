@@ -6,6 +6,47 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.12.4 - "Additional provided data" inputs temporarily disabled
+-----------------------------------------------------------------
+- The optional "Additional provided data" panel in the upload screen (Get Shipments
+  payload comparison and SSCC extension/prefix inputs) is greyed out and cannot be
+  opened while the comparison logic behind it is reviewed. The panel stays visible with
+  a "temporarily unavailable" tag so users know the capability exists; all underlying
+  code paths are unchanged and it re-enables by removing the disabled class.
+
+v1.12.3 - fixed rail with scrolling review list; collapsed rules; carrier-tinted logo
+--------------------------------------------------------------------------------------
+- The rail no longer scrolls as a whole: the logo, audit result, file tabs and section
+  navigation stay fixed while the "Needs review" bookmark list scrolls inside its own box
+  when it grows too long (the multi-label file list also caps at 30% of the viewport with
+  its own scrollbar). The review list is now a plain always-visible block, no longer a
+  collapsible details element.
+- The "New audit" button doubles in height: a stacked tile (icon above the label) pinned
+  top-right, much harder to miss.
+- Every rule row now starts collapsed, including failures - the head line already shows
+  the status icon, FAIL/REVIEW badge and observed value; clicking a row expands the input
+  data / rule / outcome panes.
+- The full label image section always renders first in the report, ahead of the audit-mode
+  check, so the reviewer immediately sees the label that was imported.
+- The AP emblem in the rail tints StarTrack blue (CSS hue shift on the same asset) when the
+  active audit - or the carrier picked in the upload panel - is StarTrack; it stays AP red
+  for eParcel.
+- The service-code/product matrix (eParcel) and the StarTrack product and label-code
+  reference are no longer folded behind a collapsible reveal: both render permanently
+  expanded in their sections.
+
+v1.12.2 - report shell becomes the landing page; full-height rail; larger logo
+-------------------------------------------------------------------------------
+- The old hero + inline upload landing page is retired. The command-rail report shell is
+  now the permanent backdrop: before any audit it renders as an empty skeleton (placeholder
+  verdict, greyed nav lines, ghost report cards) with the upload panel hovering over it as
+  an overlay. On the landing overlay there is no close button (nothing to go back to); once
+  a report exists the overlay closes/ESCs back to the report as before.
+- The rail now extends the full height of the viewport instead of enclosing its content.
+- The Australia Post logo in the rail enlarges to the full rail width, matching the audit
+  result box below it.
+- Scan progress and status messages move into the report content column.
+
 v1.12.1 - prominent "New audit" button top-right
 ------------------------------------------------
 - The "New audit" button moves out of the rail to the top-right corner of the report

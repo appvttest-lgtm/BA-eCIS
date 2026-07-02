@@ -811,7 +811,9 @@ function ValidationTable({ items }) {
 
 /** Vertical section navigation + review bookmarks for the left rail. The rail is a sidebar
  *  (nothing sticky covers the content), so plain anchor jumps with a small scroll margin
- *  land correctly. */
+ *  land correctly. The "Needs review" list is the only rail block that scrolls: brand,
+ *  verdict, file tabs and section nav stay fixed while a long bookmark list scrolls inside
+ *  its own box. */
 function RailNav({ audit, sections }) {
   const REVIEW_SEVERITY = { fail: 0, warning: 1, manual_review: 2 };
   const reviewItems = (audit?.validations || [])
@@ -849,10 +851,10 @@ function RailNav({ audit, sections }) {
         })}
       </nav>
       {reviewItems.length > 0 && (
-        <details className="review-list" open>
-          <summary id="review-bookmarks">
+        <div className="review-list">
+          <span className="review-list-title" id="review-bookmarks">
             Needs review <span className="review-count">({reviewItems.length})</span>
-          </summary>
+          </span>
           <ul className="review-links">
             {reviewItems.map(v => (
               <li key={v.id}>
@@ -866,7 +868,7 @@ function RailNav({ audit, sections }) {
               </li>
             ))}
           </ul>
-        </details>
+        </div>
       )}
     </>
   );
@@ -1995,10 +1997,10 @@ function StarTrackProductArticleSection({ audit, items }) {
         relationships include EXP→EXP, PRM/FPP→PRM and ARL/FPA→ARL.
       </StandardLine>
       <ValidationTable items={items} />
-      <details className="reference-details">
-        <summary>StarTrack product and label-code reference</summary>
+      <div className="matrix-block">
+        <h3 className="matrix-block-title">StarTrack product and label-code reference</h3>
         <StarTrackProductMatrix audit={audit} />
-      </details>
+      </div>
     </section>
   );
 }
@@ -2166,12 +2168,8 @@ function ServiceArticleBreakdownSection({ audit, items }) {
         </StandardLine>
       )}
       <ValidationTable items={items} />
-      {!ssccOnly && (
-        <details className="reference-details">
-          <summary>Service code and product matrix</summary>
-          <ServiceCodeMatrix audit={audit} />
-        </details>
-      )}
+      {/* The service/product matrix stays permanently expanded: it is the key visual reference. */}
+      {!ssccOnly && <ServiceCodeMatrix audit={audit} />}
     </section>
   );
 }
@@ -2605,9 +2603,17 @@ function App() {
           </p>
         )}
       </section>
-      <details className="additional-data-panel">
-        <summary className="additional-data-summary">
+      {/* Temporarily disabled pending a review of the payload/SSCC comparison logic:
+          the panel stays visible but greyed out and cannot be opened. Remove the
+          additional-data-disabled class and the preventDefault to re-enable. */}
+      <details className="additional-data-panel additional-data-disabled">
+        <summary
+          className="additional-data-summary"
+          aria-disabled="true"
+          onClick={e => e.preventDefault()}
+        >
           Additional provided data (optional) — Get Shipments payload &amp; SSCC extension/prefix
+          <span className="disabled-tag">temporarily unavailable</span>
         </summary>
         <div className="optional-input-grid">
           <section className="payload-input-panel" aria-labelledby="payload-input-title">
@@ -2679,46 +2685,25 @@ function App() {
   return (
     <main className="app">
       {/* The app is intentionally local-only: static assets and all label data stay in the browser session. */}
-      {!hasReport && (
-        <header className="hero hero-compact">
-          <img className="ap-mark" src={australiaPostLogoUrl} alt="Australia Post" />
-          <div>
-            <h1>{APP_TITLE}</h1>
-            <p>
-              Select the carrier and label format being tested, then upload the label. A wrong selection fails the
-              audit-mode check while the full report still runs.
-            </p>
+      {/* The report shell is the permanent backdrop: before any audit it renders as an
+          empty skeleton with the upload panel hovering over it. */}
+      <section className="results report-shell">
+        <aside className="rail" aria-label="Audit overview and navigation">
+          <div className="rail-brand">
+            {/* Same AP emblem, tinted StarTrack blue when the audit (or the picker) is StarTrack. */}
+            <img
+              className={`rail-logo ${
+                (activeAudit
+                  ? activeAudit.selectedAuditMode?.carrier || activeAudit.carrier
+                  : selectedCarrier) === 'startrack'
+                  ? 'rail-logo-startrack'
+                  : ''
+              }`}
+              src={australiaPostLogoUrl}
+              alt="Australia Post"
+            />
           </div>
-          <a className="feedback-button" href={FEEDBACK_URL} target="_blank" rel="noreferrer">
-            Feedback
-          </a>
-        </header>
-      )}
-      {!hasReport && uploadPanel}
-
-      {processing && (
-        <section className="scan-progress card" aria-live="polite">
-          <div className="scan-progress-head">
-            <div>
-              <strong>Scanning labels</strong>
-              <span>{message || 'Processing labels'}</span>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {!processing && message && (
-        <section className="message" aria-live="polite">
-          {message}
-        </section>
-      )}
-
-      {hasReport && (
-        <section className="results report-shell">
-          <aside className="rail" aria-label="Audit overview and navigation">
-            <div className="rail-brand">
-              <img className="rail-logo" src={australiaPostLogoUrl} alt="Australia Post" />
-            </div>
+          {hasReport ? (
             <div
               className={`rail-verdict summary-${batchSummary.overallStatus.toLowerCase()}`}
               id="audit-result"
@@ -2733,212 +2718,263 @@ function App() {
                 {batchSummary.failed === 1 ? '' : 's'}
               </span>
             </div>
-            {audits.length > 1 && (
-              <div className="rail-files" role="tablist" aria-label="Uploaded labels">
-                <span className="rail-block-title">Labels ({audits.length})</span>
-                {audits.map((item, idx) => {
-                  const h = auditDisplayHeader(item, idx);
-                  const consignment = auditConsignmentId(item);
-                  const tone = String(item.summary?.overallStatus || 'review').toLowerCase();
-                  return (
-                    <button
-                      key={`${h.articleNumber}-${idx}`}
-                      type="button"
-                      role="tab"
-                      aria-selected={idx === activeIndex}
-                      className={`rail-file rail-${tone === 'pass' ? 'pass' : tone === 'fail' ? 'fail' : 'review'} ${idx === activeIndex ? 'active' : ''}`}
-                      onClick={() => dispatch({ type: 'set-active', index: idx })}
-                    >
-                      <span className="rail-file-head">
-                        <span className="nav-dot" aria-hidden="true" />
-                        <code className="rail-file-article">{h.articleNumber}</code>
-                      </span>
-                      <span className="rail-file-sub">
-                        {consignment ? `Consignment ${consignment}` : 'Consignment not detected'}
-                      </span>
-                      <span className="rail-file-sub">
-                        {h.productCode ? `${h.productCode} — ${h.productName || h.product}` : h.product}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            {activeAudit && sections && <RailNav audit={activeAudit} sections={sections} />}
-            <a className="rail-feedback" href={FEEDBACK_URL} target="_blank" rel="noreferrer">
-              Feedback
-            </a>
-          </aside>
-          <div className="report-main">
-            {activeAudit &&
-              sections &&
-              (() => {
-                const h = auditDisplayHeader(activeAudit, activeIndex);
+          ) : (
+            <div className="rail-verdict rail-verdict-empty" id="audit-result" role="status">
+              <span className="rail-verdict-label">Audit result</span>
+              <strong className="rail-verdict-status">—</strong>
+              <span className="rail-verdict-counts">Upload a label to begin</span>
+            </div>
+          )}
+          {audits.length > 1 && (
+            <div className="rail-files" role="tablist" aria-label="Uploaded labels">
+              <span className="rail-block-title">Labels ({audits.length})</span>
+              {audits.map((item, idx) => {
+                const h = auditDisplayHeader(item, idx);
+                const consignment = auditConsignmentId(item);
+                const tone = String(item.summary?.overallStatus || 'review').toLowerCase();
                 return (
-                  <section className="single-audit-view" key={`${h.articleNumber}-${activeIndex}`}>
-                    <section className="card compact-card selected-label-header">
-                      <button
-                        type="button"
-                        className="new-audit-btn"
-                        onClick={() => setShowUploader(true)}
-                        disabled={processing}
-                        title="Start a new audit (keeps this report until a new label is uploaded)"
-                      >
-                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-                          <path
-                            d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9z"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M14 3v6h5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M12 11v6M9 14h6"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                        New audit
-                      </button>
-                      <span className="selected-label-eyebrow">Article number</span>
-                      <div className="selected-label-number">
-                        <code>{h.articleNumber}</code>
-                        <CopyButton value={h.articleNumber} />
-                      </div>
-                      <div className="selected-label-meta">
-                        <span>
-                          <span className="meta-k">Mode</span>
-                          <span className="meta-v">
-                            {LABEL_FAMILY_NAMES[activeAudit.selectedAuditMode?.carrier || activeAudit.carrier] ||
-                              activeAudit.carrier}{' '}
-                            /{' '}
-                            {LABEL_FORMAT_NAMES[
-                              activeAudit.selectedAuditMode?.labelFormat || activeAudit.labelFormat
-                            ] ||
-                              activeAudit.labelFormat ||
-                              'standard'}
-                          </span>
-                        </span>
-                        <span>
-                          <span className="meta-k">Product</span>
-                          <span className="meta-v">
-                            {h.productCode ? `${h.productCode} — ${h.productName}` : h.product}
-                          </span>
-                        </span>
-                        <span>
-                          <span className="meta-k">
-                            {activeAudit.carrier === 'startrack' ? 'Routing / service' : 'Service code'}
-                          </span>
-                          <span className="meta-v">
-                            {h.serviceCode || 'not parsed'}
-                            {h.serviceName ? ` — ${h.serviceName}` : ''}
-                          </span>
-                        </span>
-                        <span>
-                          <span className="meta-k">File</span>
-                          <span className="meta-v">{h.displayFile || h.filename}</span>
-                        </span>
-                      </div>
-                    </section>
-
-                    <AuditModeSection items={sections.mode} />
-                    <FullLabelImageSection audit={activeAudit} items={sections.label} onZoomLabel={setZoomImage} />
-                    {activeAudit.carrier === 'startrack' ? (
-                      <>
-                        <StarTrackQrSection
-                          audit={activeAudit}
-                          items={sections.datamatrix}
-                          scanData={activeScanData || activeAudit}
-                        />
-                        <StarTrackRoutingSection
-                          audit={activeAudit}
-                          items={sections.routing}
-                          scanData={activeScanData || activeAudit}
-                        />
-                        <StarTrackAtlSection
-                          audit={activeAudit}
-                          items={sections.atl}
-                          scanData={activeScanData || activeAudit}
-                        />
-                        <StarTrackFreightItemSection
-                          audit={activeAudit}
-                          items={sections.freight}
-                          scanData={activeScanData || activeAudit}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <DataMatrixSection
-                          audit={activeAudit}
-                          items={sections.datamatrix}
-                          scanData={activeScanData || activeAudit}
-                        />
-                        <LinearBarcodeSection
-                          audit={activeAudit}
-                          items={sections.linear}
-                          scanData={activeScanData || activeAudit}
-                        />
-                      </>
-                    )}
-                    <AdditionalBarcodesSection audit={activeAudit} />
-                    <ServiceArticleBreakdownSection audit={activeAudit} items={sections.service} />
-                    {activeAudit.invalidArticleCandidates?.length > 0 && (
-                      <section className="card audit-section" id="invalid-article-candidates">
-                        <SectionTitle id="invalid-article-candidates-title">Invalid article candidate(s)</SectionTitle>
-                        {activeAudit.invalidArticleCandidates.map(item => (
-                          <p key={item.candidate}>
-                            <code>{item.candidate}</code> — {item.reason}
-                          </p>
-                        ))}
-                      </section>
-                    )}
-                    <TextContentSection audit={activeAudit} items={sections.text} otherItems={sections.other} />
-                  </section>
+                  <button
+                    key={`${h.articleNumber}-${idx}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={idx === activeIndex}
+                    className={`rail-file rail-${tone === 'pass' ? 'pass' : tone === 'fail' ? 'fail' : 'review'} ${idx === activeIndex ? 'active' : ''}`}
+                    onClick={() => dispatch({ type: 'set-active', index: idx })}
+                  >
+                    <span className="rail-file-head">
+                      <span className="nav-dot" aria-hidden="true" />
+                      <code className="rail-file-article">{h.articleNumber}</code>
+                    </span>
+                    <span className="rail-file-sub">
+                      {consignment ? `Consignment ${consignment}` : 'Consignment not detected'}
+                    </span>
+                    <span className="rail-file-sub">
+                      {h.productCode ? `${h.productCode} — ${h.productName || h.product}` : h.product}
+                    </span>
+                  </button>
                 );
-              })()}
-          </div>
-        </section>
-      )}
+              })}
+            </div>
+          )}
+          {activeAudit && sections && <RailNav audit={activeAudit} sections={sections} />}
+          {!hasReport && (
+            <div className="rail-skeleton" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+          )}
+          <a className="rail-feedback" href={FEEDBACK_URL} target="_blank" rel="noreferrer">
+            Feedback
+          </a>
+        </aside>
+        <div className="report-main">
+          {processing && (
+            <section className="scan-progress card" aria-live="polite">
+              <div className="scan-progress-head">
+                <div>
+                  <strong>Scanning labels</strong>
+                  <span>{message || 'Processing labels'}</span>
+                </div>
+              </div>
+            </section>
+          )}
+          {!processing && message && (
+            <section className="message" aria-live="polite">
+              {message}
+            </section>
+          )}
+          {!hasReport && !processing && (
+            <div className="skeleton-report" aria-hidden="true">
+              <section className="card">
+                <span className="skl skl-w30" />
+                <span className="skl skl-lg skl-w60" />
+                <span className="skl skl-w80" />
+              </section>
+              <section className="card">
+                <span className="skl skl-w40" />
+                <span className="skl skl-w90" />
+                <span className="skl skl-w80" />
+                <span className="skl skl-w60" />
+              </section>
+              <section className="card">
+                <span className="skl skl-w30" />
+                <span className="skl skl-w80" />
+                <span className="skl skl-w70" />
+              </section>
+            </div>
+          )}
+          {activeAudit &&
+            sections &&
+            (() => {
+              const h = auditDisplayHeader(activeAudit, activeIndex);
+              return (
+                <section className="single-audit-view" key={`${h.articleNumber}-${activeIndex}`}>
+                  <section className="card compact-card selected-label-header">
+                    <button
+                      type="button"
+                      className="new-audit-btn"
+                      onClick={() => setShowUploader(true)}
+                      disabled={processing}
+                      title="Start a new audit (keeps this report until a new label is uploaded)"
+                    >
+                      <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false">
+                        <path
+                          d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9z"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinejoin="round"
+                        />
+                        <path d="M14 3v6h5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                        <path
+                          d="M12 11v6M9 14h6"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <span>New audit</span>
+                    </button>
+                    <span className="selected-label-eyebrow">Article number</span>
+                    <div className="selected-label-number">
+                      <code>{h.articleNumber}</code>
+                      <CopyButton value={h.articleNumber} />
+                    </div>
+                    <div className="selected-label-meta">
+                      <span>
+                        <span className="meta-k">Mode</span>
+                        <span className="meta-v">
+                          {LABEL_FAMILY_NAMES[activeAudit.selectedAuditMode?.carrier || activeAudit.carrier] ||
+                            activeAudit.carrier}{' '}
+                          /{' '}
+                          {LABEL_FORMAT_NAMES[activeAudit.selectedAuditMode?.labelFormat || activeAudit.labelFormat] ||
+                            activeAudit.labelFormat ||
+                            'standard'}
+                        </span>
+                      </span>
+                      <span>
+                        <span className="meta-k">Product</span>
+                        <span className="meta-v">
+                          {h.productCode ? `${h.productCode} — ${h.productName}` : h.product}
+                        </span>
+                      </span>
+                      <span>
+                        <span className="meta-k">
+                          {activeAudit.carrier === 'startrack' ? 'Routing / service' : 'Service code'}
+                        </span>
+                        <span className="meta-v">
+                          {h.serviceCode || 'not parsed'}
+                          {h.serviceName ? ` — ${h.serviceName}` : ''}
+                        </span>
+                      </span>
+                      <span>
+                        <span className="meta-k">File</span>
+                        <span className="meta-v">{h.displayFile || h.filename}</span>
+                      </span>
+                    </div>
+                  </section>
 
-      {hasReport && showUploader && (
+                  {/* Full label image always leads the report so the reviewer sees the label first. */}
+                  <FullLabelImageSection audit={activeAudit} items={sections.label} onZoomLabel={setZoomImage} />
+                  <AuditModeSection items={sections.mode} />
+                  {activeAudit.carrier === 'startrack' ? (
+                    <>
+                      <StarTrackQrSection
+                        audit={activeAudit}
+                        items={sections.datamatrix}
+                        scanData={activeScanData || activeAudit}
+                      />
+                      <StarTrackRoutingSection
+                        audit={activeAudit}
+                        items={sections.routing}
+                        scanData={activeScanData || activeAudit}
+                      />
+                      <StarTrackAtlSection
+                        audit={activeAudit}
+                        items={sections.atl}
+                        scanData={activeScanData || activeAudit}
+                      />
+                      <StarTrackFreightItemSection
+                        audit={activeAudit}
+                        items={sections.freight}
+                        scanData={activeScanData || activeAudit}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <DataMatrixSection
+                        audit={activeAudit}
+                        items={sections.datamatrix}
+                        scanData={activeScanData || activeAudit}
+                      />
+                      <LinearBarcodeSection
+                        audit={activeAudit}
+                        items={sections.linear}
+                        scanData={activeScanData || activeAudit}
+                      />
+                    </>
+                  )}
+                  <AdditionalBarcodesSection audit={activeAudit} />
+                  <ServiceArticleBreakdownSection audit={activeAudit} items={sections.service} />
+                  {activeAudit.invalidArticleCandidates?.length > 0 && (
+                    <section className="card audit-section" id="invalid-article-candidates">
+                      <SectionTitle id="invalid-article-candidates-title">Invalid article candidate(s)</SectionTitle>
+                      {activeAudit.invalidArticleCandidates.map(item => (
+                        <p key={item.candidate}>
+                          <code>{item.candidate}</code> — {item.reason}
+                        </p>
+                      ))}
+                    </section>
+                  )}
+                  <TextContentSection audit={activeAudit} items={sections.text} otherItems={sections.other} />
+                </section>
+              );
+            })()}
+        </div>
+      </section>
+
+      {!processing && (showUploader || !hasReport) && (
         <div
           className="uploader-overlay"
           role="dialog"
           aria-modal="true"
-          aria-label="Start a new audit"
-          onClick={() => setShowUploader(false)}
+          aria-label={hasReport ? 'Start a new audit' : APP_TITLE}
+          onClick={() => {
+            if (hasReport) setShowUploader(false);
+          }}
         >
           <div className="uploader-modal" onClick={e => e.stopPropagation()}>
             <div className="uploader-modal-head">
-              <h2>New audit</h2>
-              <button
-                type="button"
-                className="uploader-close"
-                onClick={() => setShowUploader(false)}
-                aria-label="Close and keep the current report"
-              >
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
-                  <path
-                    d="M6 6l12 12M18 6L6 18"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
+              <h2>{hasReport ? 'New audit' : APP_TITLE}</h2>
+              {hasReport && (
+                <button
+                  type="button"
+                  className="uploader-close"
+                  onClick={() => setShowUploader(false)}
+                  aria-label="Close and keep the current report"
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+                    <path
+                      d="M6 6l12 12M18 6L6 18"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              )}
             </div>
             <p className="muted small uploader-modal-note">
-              Uploading a new label replaces the current report. Close this window to keep it.
+              {hasReport
+                ? 'Uploading a new label replaces the current report. Close this window to keep it.'
+                : 'Select the carrier and label format being tested, then upload the label. A wrong selection fails the audit-mode check while the full report still runs.'}
             </p>
             {uploadPanel}
           </div>

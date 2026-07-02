@@ -39,35 +39,6 @@ body {
   margin: 0 auto;
   padding: 24px;
 }
-.hero {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  background: var(--ap-red);
-  color: white;
-  padding: 22px 24px;
-  border-radius: 14px;
-  box-shadow: none;
-}
-.hero h1 {
-  margin: 0 0 4px;
-  font-size: var(--text-title);
-  line-height: 1.15;
-  font-weight: 800;
-}
-.hero p {
-  margin: 0;
-  opacity: 0.94;
-}
-.ap-mark {
-  width: 180px;
-  max-width: 32vw;
-  height: auto;
-  display: block;
-  background: white;
-  border-radius: 6px;
-  padding: 8px 10px;
-}
 .message {
   margin: 18px 0;
   background: #eef4f2;
@@ -259,6 +230,28 @@ th {
 .additional-data-panel > .optional-input-grid {
   padding: 0 14px 14px;
 }
+/* Greyed-out, inert state while the payload/SSCC comparison logic is under review. */
+.additional-data-disabled {
+  background: var(--surface-1);
+  border-style: dashed;
+}
+.additional-data-disabled > .additional-data-summary {
+  cursor: not-allowed;
+  color: var(--color-subtle);
+}
+.additional-data-disabled > .additional-data-summary::before {
+  color: var(--color-subtle);
+}
+.disabled-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-subtle);
+  background: var(--color-code-bg);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
 /* The grid's own display:grid overrides the UA "hide when closed" rule, so hide it explicitly. */
 .additional-data-panel:not([open]) > .optional-input-grid {
   display: none;
@@ -393,15 +386,9 @@ details summary {
   .facts {
     grid-template-columns: 1fr;
   }
-  .hero h1 {
-    font-size: 26px;
-  }
 }
 
 /* Report navigation, section headings, preview images, and repeated fact-card layouts. */
-.hero-compact {
-  padding: 18px 22px;
-}
 .upload-card textarea + textarea {
   margin-top: 10px;
 }
@@ -417,8 +404,11 @@ details summary {
 .rail {
   position: sticky;
   top: 12px;
+  min-height: calc(100vh - 24px);
   max-height: calc(100vh - 24px);
-  overflow-y: auto;
+  /* The rail itself never scrolls: brand, verdict, file tabs and section nav stay put.
+   * Only the "Needs review" list (and an overlong file list) scroll inside their own boxes. */
+  overflow: hidden;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -430,30 +420,35 @@ details summary {
 .rail-brand {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
 }
 .rail-logo {
-  width: 108px;
+  width: 100%;
   height: auto;
   display: block;
 }
+/* Same AP emblem shifted to StarTrack blue when auditing (or picking) StarTrack.
+ * hue-rotate keeps the white/transparent pixels of the PNG untouched. */
+.rail-logo-startrack {
+  filter: hue-rotate(215deg) saturate(1.6) brightness(0.82);
+}
 /* Prominent "new audit" action pinned to the top-right of the report header,
- * opposite the rail logo. */
+ * opposite the rail logo: a tall stacked tile (icon over label) so it can't be missed. */
 .new-audit-btn {
   position: absolute;
   top: 14px;
   right: 14px;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 9px;
+  justify-content: center;
+  gap: 6px;
   margin: 0;
-  padding: 11px 18px;
+  padding: 15px 24px;
   font-size: 14px;
   font-weight: 700;
   color: #fff;
   background: var(--ap-red);
-  border-radius: 999px;
+  border-radius: 14px;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(220, 25, 40, 0.28);
 }
@@ -487,6 +482,62 @@ details summary {
   font-size: 12px;
   color: var(--color-muted);
 }
+.rail-verdict-empty {
+  border-color: var(--border);
+  background: var(--surface-1);
+}
+.rail-verdict-empty .rail-verdict-status {
+  color: var(--color-subtle);
+}
+/* Placeholder shapes shown behind the hovering upload panel before any audit exists. */
+.rail-skeleton {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.rail-skeleton span {
+  display: block;
+  height: 11px;
+  border-radius: 6px;
+  background: var(--color-code-bg);
+  margin: 0 0 12px;
+}
+.rail-skeleton span:nth-child(2n) {
+  width: 72%;
+}
+.rail-skeleton span:nth-child(3n) {
+  width: 85%;
+}
+.skeleton-report .card {
+  min-height: 120px;
+}
+.skl {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--color-code-bg);
+  margin: 0 0 14px;
+}
+.skl-lg {
+  height: 22px;
+}
+.skl-w30 {
+  width: 30%;
+}
+.skl-w40 {
+  width: 40%;
+}
+.skl-w60 {
+  width: 60%;
+}
+.skl-w70 {
+  width: 70%;
+}
+.skl-w80 {
+  width: 80%;
+}
+.skl-w90 {
+  width: 90%;
+}
 .rail-block-title {
   display: block;
   font-size: 10px;
@@ -499,6 +550,9 @@ details summary {
 .rail-files {
   border-top: 1px solid var(--border);
   padding-top: 10px;
+  flex: 0 0 auto;
+  max-height: 30vh;
+  overflow-y: auto;
 }
 .rail-file {
   display: block;
@@ -583,8 +637,13 @@ details summary {
   margin-top: 0;
   border-top: 1px solid var(--border);
   padding-top: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-.rail .review-list > summary {
+.rail .review-list-title {
   font-size: 13px;
 }
 .rail .review-links .review-link {
@@ -657,6 +716,7 @@ details summary {
   .rail {
     position: static;
     max-height: none;
+    min-height: 0;
   }
   .rail-feedback {
     margin-top: 0;
@@ -680,10 +740,14 @@ html {
 .review-links {
   list-style: none;
   margin: 10px 0 2px;
-  padding: 0;
+  padding: 0 4px 2px 0;
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
+  align-content: flex-start;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 .review-links li {
   display: contents;
@@ -727,35 +791,20 @@ html {
   background: #fde2e6;
   border-color: #e8949f;
 }
-.review-list > summary {
+.review-list-title {
   margin: 0;
   font-size: var(--text-heading);
   font-weight: 800;
   color: var(--color-text);
-  list-style: none;
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
 }
-.review-list > summary::-webkit-details-marker {
-  display: none;
-}
-.review-list > summary::before {
-  content: '▾';
-  font-size: 0.8em;
-  color: #0d4f9b;
-  transition: transform 0.15s ease;
-}
-.review-list:not([open]) > summary::before {
-  transform: rotate(-90deg);
-}
-.review-list > summary .review-count {
+.review-list-title .review-count {
   font-weight: 600;
   color: var(--color-muted);
   font-size: 0.8em;
-}
-.review-list > ul {
-  margin-top: 8px;
 }
 .section-heading {
   display: flex;
@@ -884,6 +933,22 @@ figcaption {
   box-shadow: none;
   margin: 10px 0;
   border-color: var(--border);
+}
+/* Always-visible reference matrices (service codes / StarTrack products): rendered
+ * inline in their parent section rather than behind a collapsible details. */
+.matrix-block {
+  margin-top: 14px;
+}
+.matrix-block-title {
+  margin: 0 0 8px;
+  font-size: var(--text-heading);
+  font-weight: 800;
+  color: var(--color-text);
+}
+.audit-section .service-matrix-card {
+  box-shadow: none;
+  border: 1px solid var(--border);
+  margin: 14px 0 0;
 }
 .text-block-grid pre {
   min-height: 90px;
@@ -1381,6 +1446,7 @@ figcaption {
 .selected-label-header {
   position: relative;
   padding-right: 180px;
+  min-height: 112px;
 }
 @media (max-width: 700px) {
   .new-audit-btn {
@@ -1913,32 +1979,7 @@ figcaption {
   }
 }
 
-/* Header feedback button, payload JSON evidence drawers, validation tables, and image zoom. */
-.hero-compact {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 14px;
-}
-.feedback-button {
-  align-self: start;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: #fff;
-  color: #b00020;
-  border: 1px solid rgba(176, 0, 32, 0.35);
-  padding: 8px 13px;
-  font-weight: 800;
-  text-decoration: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-.feedback-button:hover {
-  background: #fff3f5;
-  text-decoration: none;
-}
-
+/* Payload JSON evidence drawers, validation tables, and image zoom. */
 .payload-evidence {
   width: 100%;
   text-align: left;
@@ -2068,13 +2109,6 @@ figcaption {
   opacity: 0.72;
 }
 @media (max-width: 760px) {
-  .hero-compact {
-    grid-template-columns: auto 1fr;
-  }
-  .feedback-button {
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
   .image-zoom-overlay {
     padding: 10px;
   }
