@@ -6,6 +6,13 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.10.4 - rule tables default to warnings & fails only
+------------------------------------------------------
+- Every per-section rule table now opens on the "Warnings & fails" filter instead of "All",
+  so an all-pass section collapses to a one-line summary ("No warnings or failures in this
+  section - N rules passed"). The All / Passed chips still expand the full rule list on
+  demand, and failing rows stay visible by default so review-bookmark jumps keep working.
+
 v1.10.3 - review bookmarks: accurate jumps + tinted chip styling
 ----------------------------------------------------------------
 - Clicking a review bookmark or section pill now lands the target just below the sticky

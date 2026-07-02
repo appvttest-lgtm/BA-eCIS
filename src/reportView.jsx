@@ -218,9 +218,11 @@ function isIssue(v) {
   return v.status === 'fail' || v.status === 'warning' || v.status === 'manual_review';
 }
 
-/** Rule-by-rule report: filter chips plus one expandable row per validation result. */
+/** Rule-by-rule report: filter chips plus one expandable row per validation result.
+ *  Defaults to warnings & fails only, so all-pass sections collapse to a one-line summary;
+ *  the All / Passed chips expand the full rule list on demand. */
 export function RuleReport({ items, standardFor, showPayload, renderPayload }) {
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('issues');
   const counts = useMemo(
     () => ({
       issues: items.filter(isIssue).length,
