@@ -6,6 +6,25 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.12.11 - DataMatrix breakdown matches the Parcel Post spec's AI 91 forms
+---------------------------------------------------------------------------
+- The eParcel GS1 DataMatrix per-field breakdown no longer reports "payload did not
+  parse as a standard eParcel article" for two spec-conforming labels the rule engine
+  already parsed correctly (display-only gaps, verified against Parcel Post & Express
+  Post spec v1.4):
+  - SSCC-as-article (spec p26): an AI 91 value of AI 00 + 18-digit SSCC "in exactly
+    the same position where a standard article Id would go" now renders as AI 00 SSCC
+    components with the check-digit field check, instead of an unparsed block.
+  - Separator forms: the breakdown now splits elements on every separator a decoder
+    can emit - GS/RS/FS control characters, pipe, CR/LF (some scanners report FNC1 as
+    a newline), and the literal "<GS>"/"<RS>"/"<FS>" strings produced by human-readable
+    decode modes (the reported field case: a valid 23-char article followed by
+    "<GS>4203125<GS>8008..." rendered as one unparsed 54-char block) - and trims stray
+    spaces at element edges.
+- No validation logic changed: the rule engine parsed all these forms before and
+  after. New engine regression tests pin the spec's own example payloads (pp18/24/26
+  scanner reading, ZPL string, SSCC-as-article and newline-separated forms).
+
 v1.12.10 - decoded barcode values kept verbatim at ingestion
 -------------------------------------------------------------
 - The scan pipeline no longer trims decoded barcode values when deduplicating scan

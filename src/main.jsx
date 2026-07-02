@@ -1197,8 +1197,9 @@ function articleSegments(article) {
 
 /** Length of the eParcel article ID at the front of an AI 91 payload. AusPost sometimes appends
  *  further AIs (420 postcode, 92 DPID, 8008 date) after the article with no separator, so prefer
- *  the shortest valid article length whose remainder is empty or begins with a known trailing AI;
- *  otherwise consume the whole payload (rendered as a single block). */
+ *  the shortest valid article length whose remainder is empty or begins with a known trailing AI.
+ *  Also accepts the 20-char SSCC-as-article form (AI 00 + 18-digit SSCC in the AI 91 position,
+ *  Parcel Post spec v1.4 p26); otherwise consume the whole payload (rendered as a single block). */
 function eparcelArticleLength(payload) {
   const c = String(payload || '');
   const remainderOk = len => {
@@ -1208,6 +1209,7 @@ function eparcelArticleLength(payload) {
   for (const len of [21, 23]) {
     if (len <= c.length && articleSegments(c.slice(0, len)) && remainderOk(len)) return len;
   }
+  if (/^00\d{18}$/.test(c.slice(0, 20)) && remainderOk(20)) return 20;
   return c.length;
 }
 
@@ -1245,9 +1247,13 @@ function dataMatrixSegments(value) {
         // fixed-length article off the front into its components, then let the loop parse the
         // trailing AIs instead of dumping the whole payload as one block.
         const artLen = eparcelArticleLength(rest);
-        const artSegs = articleSegments(rest.slice(0, artLen));
+        const artText = rest.slice(0, artLen);
+        const artSegs = articleSegments(artText);
         if (artSegs) out.push(...artSegs);
-        else out.push(seg(rest.slice(0, artLen), `${AI_LABEL['91']} value`));
+        else if (/^00\d{18}$/.test(artText))
+          // SSCC used as the article ID in the AI 91 position (Parcel Post spec v1.4 p26).
+          out.push(seg('00', 'AI 00 SSCC'), seg(artText.slice(2), 'AI 00 SSCC value'));
+        else out.push(seg(artText, `${AI_LABEL['91']} value`));
         i += 2 + artLen;
         continue;
       }
@@ -1256,9 +1262,15 @@ function dataMatrixSegments(value) {
     }
     return out;
   };
+  // Split on every separator representation a decoder can emit: GS/RS/FS control
+  // characters, the pipe stand-in, CR/LF (some scanners report FNC1 as a newline),
+  // and the literal "<GS>"/"<RS>"/"<FS>" strings produced by human-readable decode
+  // modes. Stray spaces/tabs at element edges are trimmed the same way the engine's
+  // normalizeBarcode strips them before parsing.
   const parts = String(value)
     .replace(/[()]/g, '')
-    .split(/[\x1d\x1e\x1c|]+/)
+    .split(/(?:[\x1d\x1e\x1c|\r\n]|<GS>|<RS>|<FS>)+/)
+    .map(s => s.replace(/^[\t ]+|[\t ]+$/g, ''))
     .filter(Boolean);
   const out = parts.flatMap(splitElement).filter(s => String(s.text).length > 0);
   return out.length ? out : [seg(String(value), 'Decoded value')];

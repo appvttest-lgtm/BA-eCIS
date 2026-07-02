@@ -4,6 +4,7 @@ import {
   analyzeArticleCandidate,
   calculateEparcelCheckDigit,
   normalizeBarcode,
+  parseGs1DataMatrix,
   parseSsccBarcode,
   parseStarTrackAtlBarcode,
   parseStarTrackFreightItemBarcode,
@@ -78,6 +79,54 @@ describe('eParcel check digit support', () => {
 
     assert.equal(analysis.valid, false);
     assert.ok(analysis.reason.length > 0);
+  });
+});
+
+// The example payloads printed in the Parcel Post & Express Post spec v1.4 (pp18, 24, 26).
+// These pin the engine's DataMatrix article extraction to the published breakdown.
+describe('eParcel DataMatrix parsing (spec v1.4 examples)', () => {
+  it('parses the figure-6 scanner reading (]d2 prefix + GS separators, spec p18)', () => {
+    const parsed = parseGs1DataMatrix(']d2019931265099999891JDQ019457101000930308\x1d4202190\x1d8008170417155407');
+
+    assert.equal(parsed.articleAnalysis?.valid, true);
+    assert.equal(parsed.article?.type, 'eparcel-standard');
+    assert.equal(parsed.article?.articleId, 'JDQ019457101000930308');
+    assert.equal(parsed.article?.mlid, 'JDQ');
+    assert.equal(parsed.article?.consignmentSuffix, '0194571');
+  });
+
+  it('parses the ZPL-generated string with pipe separators (spec p24)', () => {
+    const parsed = parseGs1DataMatrix('019931265099999891JDQ777777902000931506|4202000|8008170314000000');
+
+    assert.equal(parsed.articleAnalysis?.valid, true);
+    assert.equal(parsed.article?.articleId, 'JDQ777777902000931506');
+  });
+
+  it('parses an SSCC used as the article ID in the AI 91 position (spec p26)', () => {
+    const parsed = parseGs1DataMatrix(
+      ']d201993126509999989100123456789123456789\x1d4203195\x1d8008200625101021'
+    );
+
+    assert.equal(parsed.articleAnalysis?.valid, true);
+    assert.equal(parsed.article?.type, 'sscc');
+    assert.equal(parsed.article?.articleId, '00123456789123456789');
+  });
+
+  it('parses newline-separated scanner output the same as GS separators', () => {
+    const parsed = parseGs1DataMatrix(']d2019931265099999891JDQ019457101000930308\n4202190\n8008170417155407');
+
+    assert.equal(parsed.articleAnalysis?.valid, true);
+    assert.equal(parsed.article?.articleId, 'JDQ019457101000930308');
+  });
+
+  it('parses a 23-char article when the decoder reports FNC1 as literal "<GS>" text', () => {
+    const parsed = parseGs1DataMatrix('01993126509999989139BB3500163501000931500<GS>4203125<GS>8008260629150444');
+
+    assert.equal(parsed.articleAnalysis?.valid, true);
+    assert.equal(parsed.article?.type, 'eparcel-standard');
+    assert.equal(parsed.article?.articleId, '39BB3500163501000931500');
+    assert.equal(parsed.article?.mlid, '39BB3');
+    assert.equal(parsed.postcode, '3125');
   });
 });
 
