@@ -6,6 +6,16 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.12.1 - prominent "New audit" button top-right
+------------------------------------------------
+- The "New audit" button moves out of the rail to the top-right corner of the report
+  header, opposite the logo: larger (14px text, pill), AP red with a new-document icon,
+  soft red shadow for prominence. Same behaviour: opens the upload overlay; closing keeps
+  the current report. On narrow screens it sits above the article number instead.
+- Validation logic re-verified unchanged: the layout commits touch only main.jsx and
+  styles.css; rules/, auditEngine, ruleEngine, checklists and tests are untouched since
+  v1.11.0, and the golden corpus (which pins every rule outcome) passes unchanged.
+
 v1.12.0 - command-rail report layout
 ------------------------------------
 The report adopts the "command rail" layout (chosen from the three mockups): a sticky left

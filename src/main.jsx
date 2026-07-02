@@ -2718,24 +2718,6 @@ function App() {
           <aside className="rail" aria-label="Audit overview and navigation">
             <div className="rail-brand">
               <img className="rail-logo" src={australiaPostLogoUrl} alt="Australia Post" />
-              <button
-                type="button"
-                className="rail-new"
-                onClick={() => setShowUploader(true)}
-                disabled={processing}
-                title="Start a new audit (keeps this report until a new label is uploaded)"
-              >
-                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" focusable="false">
-                  <path
-                    d="M12 5v14M5 12h14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                New audit
-              </button>
             </div>
             <div
               className={`rail-verdict summary-${batchSummary.overallStatus.toLowerCase()}`}
@@ -2795,6 +2777,38 @@ function App() {
                 return (
                   <section className="single-audit-view" key={`${h.articleNumber}-${activeIndex}`}>
                     <section className="card compact-card selected-label-header">
+                      <button
+                        type="button"
+                        className="new-audit-btn"
+                        onClick={() => setShowUploader(true)}
+                        disabled={processing}
+                        title="Start a new audit (keeps this report until a new label is uploaded)"
+                      >
+                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+                          <path
+                            d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9z"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M14 3v6h5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M12 11v6M9 14h6"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        New audit
+                      </button>
                       <span className="selected-label-eyebrow">Article number</span>
                       <div className="selected-label-number">
                         <code>{h.articleNumber}</code>
