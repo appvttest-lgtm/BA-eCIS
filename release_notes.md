@@ -6,6 +6,23 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.12.0 - command-rail report layout
+------------------------------------
+The report adopts the "command rail" layout (chosen from the three mockups): a sticky left
+sidebar with the content column beside it, so nothing sticky ever overlaps the report.
+- The rail carries: the AP brand mark + a "New audit" button, the audit verdict with
+  passed/review/fail counters, a file navigator for multi-label uploads (article number,
+  detected consignment ID and shipping service per label), the vertical section navigation
+  with status dots, and the "Needs review" bookmarks.
+- The landing view is unchanged (carrier + label format selection, then the dropzone).
+  Once a report exists the upload panel leaves the page: "New audit" opens it in a
+  dismissable overlay - closing it (button, backdrop or ESC) keeps the current report
+  untouched; uploading a new label replaces the report.
+- The sticky verdict banner, the "Uploaded label results" tab card and the horizontal
+  pill nav are retired (the rail replaces all three). Anchor jumps simplify accordingly
+  (no sticky stack to clear).
+- On screens under 950px the rail stacks above the report as a normal card.
+
 v1.11.1 - lean pass: drop orphan CSS and dead exports
 -----------------------------------------------------
 Over-engineering audit applied; no behaviour change intended.

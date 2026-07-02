@@ -183,17 +183,6 @@ pre {
   font-size: 12px;
   line-height: 1.35;
 }
-.summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
-.overall {
-  font-size: 42px;
-  font-weight: 900;
-  margin: 0;
-}
 .overall-pass {
   color: #087a2e;
 }
@@ -202,12 +191,6 @@ pre {
 }
 .overall-fail {
   color: #b00020;
-}
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(120px, 1fr));
-  gap: 8px;
-  color: #333;
 }
 .article {
   border-top: 1px solid #eee;
@@ -410,9 +393,6 @@ details summary {
   .facts {
     grid-template-columns: 1fr;
   }
-  .summary {
-    display: block;
-  }
   .hero h1 {
     font-size: 26px;
   }
@@ -425,53 +405,154 @@ details summary {
 .upload-card textarea + textarea {
   margin-top: 10px;
 }
-/* Overall verdict banner frozen at the top of the report (issue #25 "freeze frame").
- * Kept to a thin single row so it never overlaps the sticky quick-nav below it. */
-.consolidated-summary {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  padding: 9px 22px;
+/* Command-rail report shell (layout 1): a sticky sidebar carries brand, verdict, the file
+ * navigator, section nav and bookmarks; the content column scrolls beside it, so nothing
+ * sticky ever overlaps the report. */
+.report-shell {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
 }
-.consolidated-summary > div {
+.rail {
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
   gap: 14px;
 }
-.nav-card {
-  position: sticky;
-  top: 56px;
-  z-index: 5;
-}
-.quick-nav {
+.rail-brand {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
-/* Section pills: passing sections stay quiet (dot only); review/fail sections tint the
- *  whole pill so problems stand out at a glance. */
-.quick-nav a {
+.rail-logo {
+  width: 108px;
+  height: auto;
+  display: block;
+}
+.rail-new {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  gap: 6px;
+  margin: 0;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--ap-red);
   border-radius: 999px;
-  padding: 7px 13px;
+  white-space: nowrap;
+}
+.rail-new:hover {
+  background: #b81322;
+}
+.rail-verdict {
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rail-verdict-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.rail-verdict-status {
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.rail-verdict-counts {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.rail-block-title {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-subtle);
+  margin-bottom: 6px;
+}
+.rail-files {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.rail-file {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 6px;
+  padding: 8px 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 11.5px;
+  color: var(--color-text);
+}
+.rail-file.active {
+  border-color: var(--ap-red);
+  background: var(--surface-2);
+}
+.rail-file-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 2px;
+}
+.rail-file-article {
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  background: none;
+  padding: 0;
+}
+.rail-file-sub {
+  display: block;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.rail-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
   text-decoration: none;
-  transition:
-    border-color 0.12s ease,
-    background 0.12s ease,
-    box-shadow 0.12s ease;
 }
-.quick-nav a:hover {
-  border-color: var(--border-strong);
+.rail-nav-item:hover {
   background: var(--surface-1);
-  box-shadow: 0 1px 3px rgba(38, 37, 31, 0.08);
+}
+.rail-review.rail-nav-item {
+  background: #fff8ea;
+}
+.rail-fail.rail-nav-item {
+  background: #fff0f2;
 }
 .nav-dot {
   width: 8px;
@@ -480,32 +561,104 @@ details summary {
   flex: 0 0 auto;
   background: #9aa4af;
 }
-.nav-pass .nav-dot {
+.rail-pass .nav-dot {
   background: #0a9b3d;
 }
-.nav-review .nav-dot {
+.rail-review .nav-dot {
   background: #d98a00;
 }
-.nav-fail .nav-dot {
+.rail-fail .nav-dot {
   background: #d0112b;
 }
-.nav-review {
-  background: #fff8ea;
-  border-color: #f2d99b;
+.rail .review-list {
+  margin-top: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
 }
-.nav-fail {
-  background: #fff0f2;
-  border-color: #f2b4bd;
+.rail .review-list > summary {
+  font-size: 13px;
 }
-/* Anchor targets sit below the sticky verdict banner + quick-nav stack instead of
- * underneath it; the bookmark click also collapses the review list so the stack is
- * at its collapsed height when the jump lands. */
+.rail .review-links .review-link {
+  width: 100%;
+  font-size: 12px;
+}
+.rail-feedback {
+  margin-top: auto;
+  font-size: 12px;
+  color: var(--color-muted);
+  text-align: center;
+}
+.report-main {
+  min-width: 0;
+}
+.report-main > .single-audit-view > .card:first-child,
+.report-main > .single-audit-view > section:first-child {
+  margin-top: 0;
+}
+/* New-audit overlay: dismissable without touching the report underneath. */
+.uploader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(38, 37, 31, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+}
+.uploader-modal {
+  width: min(880px, 100%);
+  background: #f4f3ee;
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+.uploader-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.uploader-modal-head h2 {
+  margin: 0;
+}
+.uploader-modal-note {
+  margin: 4px 0 0;
+}
+.uploader-modal > .upload-card {
+  margin: 12px 0 0;
+}
+.uploader-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  color: var(--color-text);
+}
+@media (max-width: 950px) {
+  .report-shell {
+    grid-template-columns: 1fr;
+  }
+  .rail {
+    position: static;
+    max-height: none;
+  }
+  .rail-feedback {
+    margin-top: 0;
+  }
+}
 html {
   scroll-behavior: smooth;
 }
 .rule-row[id],
 .audit-section[id] {
-  scroll-margin-top: 220px;
+  scroll-margin-top: 16px;
 }
 
 .review-list {
@@ -779,9 +932,6 @@ figcaption {
   .fact-cards,
   .fact-cards-wide {
     grid-template-columns: 1fr;
-  }
-  .nav-card {
-    position: static;
   }
 }
 
@@ -1193,20 +1343,7 @@ figcaption {
   }
 }
 
-/* Multi-label results: consolidated summary, per-label tabs, and selected-label header. */
-
-.consolidated-summary {
-  border-width: 2px;
-}
-.consolidated-summary h2 {
-  margin: 0;
-  font-size: var(--text-body);
-}
-.consolidated-summary .overall {
-  margin: 0;
-  font-size: 24px;
-  line-height: 1;
-}
+/* Verdict tones shared by the rail verdict block. */
 .summary-pass {
   border-color: #9fd7b2;
   background: #edf8f1;
@@ -1232,72 +1369,6 @@ figcaption {
   color: #b00020;
 }
 
-.label-tabs-card h2 {
-  margin-bottom: 10px;
-}
-.label-tabs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 10px;
-}
-.label-tab {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-areas:
-    'index main status'
-    'index sub status';
-  gap: 2px 9px;
-  align-items: center;
-  text-align: left;
-  border: 1px solid #d9e1ec;
-  border-radius: 14px;
-  background: #fff;
-  padding: 10px 12px;
-  cursor: pointer;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.035);
-}
-.label-tab:hover {
-  border-color: #b9c8da;
-  background: #f8fbff;
-}
-.label-tab.active {
-  border-color: #c40018;
-  background: #fff7f8;
-  box-shadow: 0 0 0 2px rgba(196, 0, 24, 0.12);
-}
-.tab-index {
-  grid-area: index;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #eef2f7;
-  color: #17202a;
-  font-weight: 900;
-}
-.label-tab.active .tab-index {
-  background: #c40018;
-  color: #fff;
-}
-.tab-main {
-  grid-area: main;
-  font-weight: 800;
-  min-width: 0;
-}
-.tab-main code {
-  font-size: 12px;
-}
-.tab-sub {
-  grid-area: sub;
-  color: #5f6b7a;
-  font-size: 12px;
-}
-.label-tab .badge {
-  grid-area: status;
-  align-self: start;
-}
 .selected-label-eyebrow {
   display: block;
   font-size: 11px;
@@ -1361,18 +1432,6 @@ figcaption {
     transform: none;
   }
 }
-@media (max-width: 900px) {
-}
-@media (max-width: 620px) {
-  .label-tabs {
-    grid-template-columns: 1fr;
-  }
-  .label-tab {
-    grid-template-columns: auto 1fr;
-    grid-template-areas: 'index main' 'index sub' 'status status';
-  }
-}
-
 .dropzone {
   display: flex;
   flex-direction: column;
@@ -1826,9 +1885,6 @@ figcaption {
   }
 }
 @media (min-width: 1281px) {
-  .nav-card {
-    max-width: 100%;
-  }
   .card {
     margin-left: 0;
     margin-right: 0;

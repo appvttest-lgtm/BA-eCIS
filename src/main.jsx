@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useReducer, useState } from 'react';
-import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import {
   analyzeArticleCandidate,
@@ -427,8 +426,17 @@ function combinedAuditSummary(audits = []) {
   return totals;
 }
 
-function StatusBadge({ status }) {
-  return <span className={`badge badge-${String(status).toLowerCase()}`}>{status}</span>;
+/** Consignment ID detected for a label, for the rail file navigator. */
+function auditConsignmentId(audit) {
+  if (audit?.carrier === 'startrack') {
+    return (
+      audit?.startrack?.freightParses?.[0]?.connoteNumber ||
+      String(audit?.startrack?.qrParses?.[0]?.fields?.connoteNumber || '').trim() ||
+      (audit?.labelFacts?.consignmentIds || [])[0] ||
+      ''
+    );
+  }
+  return getPrimaryArticle(audit)?.consignmentId || (audit?.labelFacts?.consignmentIds || [])[0] || '';
 }
 
 function SectionTitle({ id, children }) {
@@ -801,21 +809,10 @@ function ValidationTable({ items }) {
   );
 }
 
-function AuditBookmarks({ audit, sections }) {
-  const [bookmarksOpen, setBookmarksOpen] = useState(true);
-  // Jump AFTER the bookmark list collapses: the sticky verdict + nav stack is then at its
-  // collapsed height, so scrollIntoView (which honours scroll-margin-top) lands the target
-  // just below the stack instead of underneath it. A plain href jump computes the position
-  // before the collapse re-layout and overshoots, so flush the collapse first.
-  const jumpTo = id => event => {
-    event.preventDefault();
-    flushSync(() => setBookmarksOpen(false));
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      window.history.replaceState(null, '', `#${id}`);
-    }
-  };
+/** Vertical section navigation + review bookmarks for the left rail. The rail is a sidebar
+ *  (nothing sticky covers the content), so plain anchor jumps with a small scroll margin
+ *  land correctly. */
+function RailNav({ audit, sections }) {
   const REVIEW_SEVERITY = { fail: 0, warning: 1, manual_review: 2 };
   const reviewItems = (audit?.validations || [])
     .filter(v => v.status in REVIEW_SEVERITY)
@@ -839,28 +836,22 @@ function AuditBookmarks({ audit, sections }) {
           ['text-content-section', 'Visible label text', [...sections.text, ...sections.other]]
         ];
   return (
-    <section className="card nav-card">
-      <div className="quick-nav">
+    <>
+      <nav className="rail-nav" aria-label="Report sections">
         {nav.map(([id, label, items]) => {
           const tone = sectionTone(items);
           return (
-            <a
-              key={id}
-              href={`#${id}`}
-              className={`nav-pill nav-${tone}`}
-              title={tone === 'neutral' ? 'no checks' : tone}
-              onClick={jumpTo(id)}
-            >
+            <a key={id} href={`#${id}`} className={`rail-nav-item rail-${tone}`}>
               <span className="nav-dot" aria-hidden="true" />
-              {label}
+              <span className="rail-nav-label">{label}</span>
             </a>
           );
         })}
-      </div>
+      </nav>
       {reviewItems.length > 0 && (
-        <details className="review-list" open={bookmarksOpen} onToggle={e => setBookmarksOpen(e.target.open)}>
+        <details className="review-list" open>
           <summary id="review-bookmarks">
-            Review bookmarks <span className="review-count">({reviewItems.length})</span>
+            Needs review <span className="review-count">({reviewItems.length})</span>
           </summary>
           <ul className="review-links">
             {reviewItems.map(v => (
@@ -868,7 +859,6 @@ function AuditBookmarks({ audit, sections }) {
                 <a
                   href={`#rule-${v.id}`}
                   className={`review-link review-link-${v.status === 'fail' ? 'fail' : 'review'}`}
-                  onClick={jumpTo(`rule-${v.id}`)}
                 >
                   <StatusIcon status={v.status} />
                   <span className="review-link-title">{v.title}</span>
@@ -878,7 +868,7 @@ function AuditBookmarks({ audit, sections }) {
           </ul>
         </details>
       )}
-    </section>
+    </>
   );
 }
 
@@ -2325,6 +2315,9 @@ function App() {
   const [ssccCompanyPrefix, setSsccCompanyPrefix] = useState('');
   const [workflow, dispatch] = useReducer(workflowReducer, INITIAL_WORKFLOW);
   const [zoomImage, setZoomImage] = useState(null);
+  // Report view: the upload panel moves into a dismissable overlay opened from the rail.
+  // Closing it preserves the current report; a new upload replaces the report.
+  const [showUploader, setShowUploader] = useState(false);
 
   const { processing, scanDebugLines, message, scanDatas, audits, activeIndex } = workflow;
   const setMessage = text => dispatch({ type: 'message', message: text });
@@ -2334,6 +2327,17 @@ function App() {
   const activeAudit = audits[activeIndex] || null;
   const activeScanData = scanDatas[activeIndex] || null;
   const batchSummary = useMemo(() => combinedAuditSummary(audits), [audits]);
+  const sections = useMemo(() => (activeAudit ? getAuditSections(activeAudit) : null), [activeAudit]);
+  const hasReport = audits.length > 0;
+
+  useEffect(() => {
+    if (!showUploader) return undefined;
+    const onKey = e => {
+      if (e.key === 'Escape') setShowUploader(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showUploader]);
 
   /** Filters browser-selected files to the PDF/image formats the scanner can render locally. */
   function normaliseSelectedFiles(selectedFiles) {
@@ -2412,6 +2416,9 @@ function App() {
       );
       return;
     }
+    // A new batch replaces the report, so the "new audit" overlay's job is done here;
+    // closing it without uploading keeps the existing report untouched.
+    setShowUploader(false);
     dispatch({ type: 'batch-start' });
     try {
       const auditStart = performance.now();
@@ -2520,112 +2527,98 @@ function App() {
     });
   }
 
-  return (
-    <main className="app">
-      {/* The app is intentionally local-only: static assets and all label data stay in the browser session. */}
-      <header className="hero hero-compact">
-        <img className="ap-mark" src={australiaPostLogoUrl} alt="Australia Post" />
-        <div>
-          <h1>{APP_TITLE}</h1>
-          <p>
-            Select the carrier and label format being tested, then upload the label. A wrong selection fails the
-            audit-mode check while the full report still runs.
-          </p>
-        </div>
-        <a className="feedback-button" href={FEEDBACK_URL} target="_blank" rel="noreferrer">
-          Feedback
-        </a>
-      </header>
-
-      <section className="card upload-card upload-split">
-        <section className="audit-mode-panel" aria-labelledby="audit-mode-title">
-          <h2 id="audit-mode-title">Audit mode</h2>
-          <div className="mode-control-grid">
-            <div>
-              <span className="field-label">Carrier branch</span>
-              <div className="segmented-control" role="group" aria-label="Carrier branch">
-                {Object.entries(LABEL_FAMILY_NAMES).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={selectedCarrier === value ? 'active' : ''}
-                    disabled={processing}
-                    onClick={() => setSelectedCarrier(value)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <span className="field-label">Label format</span>
-              <div className="segmented-control" role="group" aria-label="Label format">
-                {Object.entries(LABEL_FORMAT_NAMES).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={selectedLabelFormat === value ? 'active' : ''}
-                    disabled={processing}
-                    onClick={() => setSelectedLabelFormat(value)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+  // Rendered inline on the landing view and inside the "new audit" overlay on the report
+  // view, so both share one upload flow and one set of audit-mode selections.
+  const uploadPanel = (
+    <section className="card upload-card upload-split">
+      <section className="audit-mode-panel" aria-labelledby="audit-mode-title">
+        <h2 id="audit-mode-title">Audit mode</h2>
+        <div className="mode-control-grid">
+          <div>
+            <span className="field-label">Carrier branch</span>
+            <div className="segmented-control" role="group" aria-label="Carrier branch">
+              {Object.entries(LABEL_FAMILY_NAMES).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={selectedCarrier === value ? 'active' : ''}
+                  disabled={processing}
+                  onClick={() => setSelectedCarrier(value)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
-          {auditModeReady ? (
-            <label
-              className={`dropzone dropzone-${selectedCarrier} ${processing ? 'dropzone-disabled' : ''}`}
-              onDragOver={e => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
+          <div>
+            <span className="field-label">Label format</span>
+            <div className="segmented-control" role="group" aria-label="Label format">
+              {Object.entries(LABEL_FORMAT_NAMES).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={selectedLabelFormat === value ? 'active' : ''}
+                  disabled={processing}
+                  onClick={() => setSelectedLabelFormat(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {auditModeReady ? (
+          <label
+            className={`dropzone dropzone-${selectedCarrier} ${processing ? 'dropzone-disabled' : ''}`}
+            onDragOver={e => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'copy';
+            }}
+            onDrop={e => {
+              e.preventDefault();
+              if (!processing) acceptSelectedFiles(e.dataTransfer.files);
+            }}
+          >
+            <input
+              className="file-input-hidden"
+              type="file"
+              multiple
+              accept={ACCEPTED_LABEL_FILE_TYPES}
+              disabled={processing}
+              onChange={e => {
+                acceptSelectedFiles(e.target.files);
+                e.target.value = '';
               }}
-              onDrop={e => {
-                e.preventDefault();
-                if (!processing) acceptSelectedFiles(e.dataTransfer.files);
-              }}
-            >
-              <input
-                className="file-input-hidden"
-                type="file"
-                multiple
-                accept={ACCEPTED_LABEL_FILE_TYPES}
-                disabled={processing}
-                onChange={e => {
-                  acceptSelectedFiles(e.target.files);
-                  e.target.value = '';
-                }}
-              />
-              <span className="dropzone-title">
-                Drop {LABEL_FAMILY_NAMES[selectedCarrier]} {LABEL_FORMAT_NAMES[selectedLabelFormat]} labels here
-              </span>
-              <span className="dropzone-subtitle">PDF, PNG, JPG, WebP or BMP</span>
-            </label>
-          ) : (
-            <p className="dropzone-pending muted" role="status">
-              {!selectedCarrier && !selectedLabelFormat
-                ? 'Choose a carrier branch and a label format above to enable label upload.'
-                : !selectedCarrier
-                  ? 'Choose a carrier branch above to enable label upload.'
-                  : 'Choose a label format above to enable label upload.'}
+            />
+            <span className="dropzone-title">
+              Drop {LABEL_FAMILY_NAMES[selectedCarrier]} {LABEL_FORMAT_NAMES[selectedLabelFormat]} labels here
+            </span>
+            <span className="dropzone-subtitle">PDF, PNG, JPG, WebP or BMP</span>
+          </label>
+        ) : (
+          <p className="dropzone-pending muted" role="status">
+            {!selectedCarrier && !selectedLabelFormat
+              ? 'Choose a carrier branch and a label format above to enable label upload.'
+              : !selectedCarrier
+                ? 'Choose a carrier branch above to enable label upload.'
+                : 'Choose a label format above to enable label upload.'}
+          </p>
+        )}
+      </section>
+      <details className="additional-data-panel">
+        <summary className="additional-data-summary">
+          Additional provided data (optional) — Get Shipments payload &amp; SSCC extension/prefix
+        </summary>
+        <div className="optional-input-grid">
+          <section className="payload-input-panel" aria-labelledby="payload-input-title">
+            <h2 id="payload-input-title">Get Shipments API payload comparison</h2>
+            <p className="muted small">
+              Optional: paste a Get Shipments response before upload, or apply it to the current report.
             </p>
-          )}
-        </section>
-        <details className="additional-data-panel">
-          <summary className="additional-data-summary">
-            Additional provided data (optional) — Get Shipments payload &amp; SSCC extension/prefix
-          </summary>
-          <div className="optional-input-grid">
-            <section className="payload-input-panel" aria-labelledby="payload-input-title">
-              <h2 id="payload-input-title">Get Shipments API payload comparison</h2>
-              <p className="muted small">
-                Optional: paste a Get Shipments response before upload, or apply it to the current report.
-              </p>
-              <textarea
-                className="api-payload-textarea"
-                rows="8"
-                placeholder={`Paste Get Shipments payload here, for example:
+            <textarea
+              className="api-payload-textarea"
+              rows="8"
+              placeholder={`Paste Get Shipments payload here, for example:
 {
   "shipments": [{
     "shipment_id": "...",
@@ -2635,52 +2628,73 @@ function App() {
     "safe_drop_enabled": false
   }]
 }`}
-                value={manifestJson}
-                onChange={e => setManifestJson(e.target.value)}
-              />
-            </section>
-            <section className="sscc-prefix-panel" aria-labelledby="sscc-prefix-title">
-              <h2 id="sscc-prefix-title">SSCC extension and prefix</h2>
-              <p className="muted small">
-                Used when SSCC article identifier is selected. The decoded AI 00 barcode is checked against the supplied
-                extension digit and GS1 Company Prefix when provided.
-              </p>
-              <label className="field-label" htmlFor="sscc-extension-digit">
-                Extension digit
-              </label>
-              <input
-                id="sscc-extension-digit"
-                className="sscc-prefix-input"
-                type="text"
-                inputMode="numeric"
-                placeholder="003"
-                value={ssccExtensionDigit}
-                onChange={e => setSsccExtensionDigit(e.target.value)}
-              />
-              <label className="field-label" htmlFor="sscc-company-prefix">
-                Company prefix
-              </label>
-              <input
-                id="sscc-company-prefix"
-                className="sscc-prefix-input"
-                type="text"
-                inputMode="numeric"
-                placeholder="9315345"
-                value={ssccCompanyPrefix}
-                onChange={e => setSsccCompanyPrefix(e.target.value)}
-              />
-              <p className="muted small">
-                Example: SSCC (00) 3 9315345 000000070 0 uses extension digit 3 and company prefix 9315345.
-              </p>
-            </section>
-            {scanDatas.length > 0 && (
-              <button className="secondary optional-input-apply" onClick={rerunAuditWithOptionalInputs}>
-                Apply optional checks to current results
-              </button>
-            )}
+              value={manifestJson}
+              onChange={e => setManifestJson(e.target.value)}
+            />
+          </section>
+          <section className="sscc-prefix-panel" aria-labelledby="sscc-prefix-title">
+            <h2 id="sscc-prefix-title">SSCC extension and prefix</h2>
+            <p className="muted small">
+              Used when SSCC article identifier is selected. The decoded AI 00 barcode is checked against the supplied
+              extension digit and GS1 Company Prefix when provided.
+            </p>
+            <label className="field-label" htmlFor="sscc-extension-digit">
+              Extension digit
+            </label>
+            <input
+              id="sscc-extension-digit"
+              className="sscc-prefix-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="003"
+              value={ssccExtensionDigit}
+              onChange={e => setSsccExtensionDigit(e.target.value)}
+            />
+            <label className="field-label" htmlFor="sscc-company-prefix">
+              Company prefix
+            </label>
+            <input
+              id="sscc-company-prefix"
+              className="sscc-prefix-input"
+              type="text"
+              inputMode="numeric"
+              placeholder="9315345"
+              value={ssccCompanyPrefix}
+              onChange={e => setSsccCompanyPrefix(e.target.value)}
+            />
+            <p className="muted small">
+              Example: SSCC (00) 3 9315345 000000070 0 uses extension digit 3 and company prefix 9315345.
+            </p>
+          </section>
+          {scanDatas.length > 0 && (
+            <button className="secondary optional-input-apply" onClick={rerunAuditWithOptionalInputs}>
+              Apply optional checks to current results
+            </button>
+          )}
+        </div>
+      </details>
+    </section>
+  );
+
+  return (
+    <main className="app">
+      {/* The app is intentionally local-only: static assets and all label data stay in the browser session. */}
+      {!hasReport && (
+        <header className="hero hero-compact">
+          <img className="ap-mark" src={australiaPostLogoUrl} alt="Australia Post" />
+          <div>
+            <h1>{APP_TITLE}</h1>
+            <p>
+              Select the carrier and label format being tested, then upload the label. A wrong selection fails the
+              audit-mode check while the full report still runs.
+            </p>
           </div>
-        </details>
-      </section>
+          <a className="feedback-button" href={FEEDBACK_URL} target="_blank" rel="noreferrer">
+            Feedback
+          </a>
+        </header>
+      )}
+      {!hasReport && uploadPanel}
 
       {processing && (
         <section className="scan-progress card" aria-live="polite">
@@ -2699,150 +2713,222 @@ function App() {
         </section>
       )}
 
-      {audits.length > 0 && (
-        <section className="results">
-          <div
-            className={`summary card compact-card consolidated-summary summary-${batchSummary.overallStatus.toLowerCase()}`}
-          >
-            <div>
-              <SectionTitle id="audit-result">Audit result</SectionTitle>
-              <p className={`overall overall-${batchSummary.overallStatus.toLowerCase()}`}>
+      {hasReport && (
+        <section className="results report-shell">
+          <aside className="rail" aria-label="Audit overview and navigation">
+            <div className="rail-brand">
+              <img className="rail-logo" src={australiaPostLogoUrl} alt="Australia Post" />
+              <button
+                type="button"
+                className="rail-new"
+                onClick={() => setShowUploader(true)}
+                disabled={processing}
+                title="Start a new audit (keeps this report until a new label is uploaded)"
+              >
+                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" focusable="false">
+                  <path
+                    d="M12 5v14M5 12h14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                New audit
+              </button>
+            </div>
+            <div
+              className={`rail-verdict summary-${batchSummary.overallStatus.toLowerCase()}`}
+              id="audit-result"
+              role="status"
+            >
+              <span className="rail-verdict-label">Audit result</span>
+              <strong className={`rail-verdict-status overall-${batchSummary.overallStatus.toLowerCase()}`}>
                 {batchSummary.overallStatus}
-              </p>
+              </strong>
+              <span className="rail-verdict-counts">
+                {batchSummary.passed} passed · {batchSummary.manualReview} review · {batchSummary.failed} fail
+                {batchSummary.failed === 1 ? '' : 's'}
+              </span>
             </div>
-          </div>
-
-          <section className="card compact-card label-tabs-card">
-            <h2>Uploaded label results</h2>
-            <div className="label-tabs" role="tablist" aria-label="Uploaded label audit results">
-              {audits.map((item, idx) => {
-                const h = auditDisplayHeader(item, idx);
+            {audits.length > 1 && (
+              <div className="rail-files" role="tablist" aria-label="Uploaded labels">
+                <span className="rail-block-title">Labels ({audits.length})</span>
+                {audits.map((item, idx) => {
+                  const h = auditDisplayHeader(item, idx);
+                  const consignment = auditConsignmentId(item);
+                  const tone = String(item.summary?.overallStatus || 'review').toLowerCase();
+                  return (
+                    <button
+                      key={`${h.articleNumber}-${idx}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={idx === activeIndex}
+                      className={`rail-file rail-${tone === 'pass' ? 'pass' : tone === 'fail' ? 'fail' : 'review'} ${idx === activeIndex ? 'active' : ''}`}
+                      onClick={() => dispatch({ type: 'set-active', index: idx })}
+                    >
+                      <span className="rail-file-head">
+                        <span className="nav-dot" aria-hidden="true" />
+                        <code className="rail-file-article">{h.articleNumber}</code>
+                      </span>
+                      <span className="rail-file-sub">
+                        {consignment ? `Consignment ${consignment}` : 'Consignment not detected'}
+                      </span>
+                      <span className="rail-file-sub">
+                        {h.productCode ? `${h.productCode} — ${h.productName || h.product}` : h.product}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {activeAudit && sections && <RailNav audit={activeAudit} sections={sections} />}
+            <a className="rail-feedback" href={FEEDBACK_URL} target="_blank" rel="noreferrer">
+              Feedback
+            </a>
+          </aside>
+          <div className="report-main">
+            {activeAudit &&
+              sections &&
+              (() => {
+                const h = auditDisplayHeader(activeAudit, activeIndex);
                 return (
-                  <button
-                    key={`${h.articleNumber}-${idx}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={idx === activeIndex}
-                    className={`label-tab ${idx === activeIndex ? 'active' : ''}`}
-                    onClick={() => dispatch({ type: 'set-active', index: idx })}
-                  >
-                    <span className="tab-index">{idx + 1}</span>
-                    <span className="tab-main">
-                      <code>{h.articleNumber}</code>
-                    </span>
-                    <span className="tab-sub">
-                      {h.product} · Service {h.serviceCode || 'not parsed'}
-                    </span>
-                    <StatusBadge status={item.summary?.overallStatus || 'UNKNOWN'} />
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {activeAudit &&
-            (() => {
-              const sections = getAuditSections(activeAudit);
-              const h = auditDisplayHeader(activeAudit, activeIndex);
-              return (
-                <section className="single-audit-view" key={`${h.articleNumber}-${activeIndex}`}>
-                  <section className="card compact-card selected-label-header">
-                    <span className="selected-label-eyebrow">Article number</span>
-                    <div className="selected-label-number">
-                      <code>{h.articleNumber}</code>
-                      <CopyButton value={h.articleNumber} />
-                    </div>
-                    <div className="selected-label-meta">
-                      <span>
-                        <span className="meta-k">Mode</span>
-                        <span className="meta-v">
-                          {LABEL_FAMILY_NAMES[activeAudit.selectedAuditMode?.carrier || activeAudit.carrier] ||
-                            activeAudit.carrier}{' '}
-                          /{' '}
-                          {LABEL_FORMAT_NAMES[activeAudit.selectedAuditMode?.labelFormat || activeAudit.labelFormat] ||
-                            activeAudit.labelFormat ||
-                            'standard'}
+                  <section className="single-audit-view" key={`${h.articleNumber}-${activeIndex}`}>
+                    <section className="card compact-card selected-label-header">
+                      <span className="selected-label-eyebrow">Article number</span>
+                      <div className="selected-label-number">
+                        <code>{h.articleNumber}</code>
+                        <CopyButton value={h.articleNumber} />
+                      </div>
+                      <div className="selected-label-meta">
+                        <span>
+                          <span className="meta-k">Mode</span>
+                          <span className="meta-v">
+                            {LABEL_FAMILY_NAMES[activeAudit.selectedAuditMode?.carrier || activeAudit.carrier] ||
+                              activeAudit.carrier}{' '}
+                            /{' '}
+                            {LABEL_FORMAT_NAMES[
+                              activeAudit.selectedAuditMode?.labelFormat || activeAudit.labelFormat
+                            ] ||
+                              activeAudit.labelFormat ||
+                              'standard'}
+                          </span>
                         </span>
-                      </span>
-                      <span>
-                        <span className="meta-k">Product</span>
-                        <span className="meta-v">
-                          {h.productCode ? `${h.productCode} — ${h.productName}` : h.product}
+                        <span>
+                          <span className="meta-k">Product</span>
+                          <span className="meta-v">
+                            {h.productCode ? `${h.productCode} — ${h.productName}` : h.product}
+                          </span>
                         </span>
-                      </span>
-                      <span>
-                        <span className="meta-k">
-                          {activeAudit.carrier === 'startrack' ? 'Routing / service' : 'Service code'}
+                        <span>
+                          <span className="meta-k">
+                            {activeAudit.carrier === 'startrack' ? 'Routing / service' : 'Service code'}
+                          </span>
+                          <span className="meta-v">
+                            {h.serviceCode || 'not parsed'}
+                            {h.serviceName ? ` — ${h.serviceName}` : ''}
+                          </span>
                         </span>
-                        <span className="meta-v">
-                          {h.serviceCode || 'not parsed'}
-                          {h.serviceName ? ` — ${h.serviceName}` : ''}
+                        <span>
+                          <span className="meta-k">File</span>
+                          <span className="meta-v">{h.displayFile || h.filename}</span>
                         </span>
-                      </span>
-                      <span>
-                        <span className="meta-k">File</span>
-                        <span className="meta-v">{h.displayFile || h.filename}</span>
-                      </span>
-                    </div>
-                  </section>
-
-                  <AuditBookmarks audit={activeAudit} sections={sections} />
-                  <AuditModeSection items={sections.mode} />
-                  <FullLabelImageSection audit={activeAudit} items={sections.label} onZoomLabel={setZoomImage} />
-                  {activeAudit.carrier === 'startrack' ? (
-                    <>
-                      <StarTrackQrSection
-                        audit={activeAudit}
-                        items={sections.datamatrix}
-                        scanData={activeScanData || activeAudit}
-                      />
-                      <StarTrackRoutingSection
-                        audit={activeAudit}
-                        items={sections.routing}
-                        scanData={activeScanData || activeAudit}
-                      />
-                      <StarTrackAtlSection
-                        audit={activeAudit}
-                        items={sections.atl}
-                        scanData={activeScanData || activeAudit}
-                      />
-                      <StarTrackFreightItemSection
-                        audit={activeAudit}
-                        items={sections.freight}
-                        scanData={activeScanData || activeAudit}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <DataMatrixSection
-                        audit={activeAudit}
-                        items={sections.datamatrix}
-                        scanData={activeScanData || activeAudit}
-                      />
-                      <LinearBarcodeSection
-                        audit={activeAudit}
-                        items={sections.linear}
-                        scanData={activeScanData || activeAudit}
-                      />
-                    </>
-                  )}
-                  <AdditionalBarcodesSection audit={activeAudit} />
-                  <ServiceArticleBreakdownSection audit={activeAudit} items={sections.service} />
-                  {activeAudit.invalidArticleCandidates?.length > 0 && (
-                    <section className="card audit-section" id="invalid-article-candidates">
-                      <SectionTitle id="invalid-article-candidates-title">Invalid article candidate(s)</SectionTitle>
-                      {activeAudit.invalidArticleCandidates.map(item => (
-                        <p key={item.candidate}>
-                          <code>{item.candidate}</code> — {item.reason}
-                        </p>
-                      ))}
+                      </div>
                     </section>
-                  )}
-                  <TextContentSection audit={activeAudit} items={sections.text} otherItems={sections.other} />
-                </section>
-              );
-            })()}
+
+                    <AuditModeSection items={sections.mode} />
+                    <FullLabelImageSection audit={activeAudit} items={sections.label} onZoomLabel={setZoomImage} />
+                    {activeAudit.carrier === 'startrack' ? (
+                      <>
+                        <StarTrackQrSection
+                          audit={activeAudit}
+                          items={sections.datamatrix}
+                          scanData={activeScanData || activeAudit}
+                        />
+                        <StarTrackRoutingSection
+                          audit={activeAudit}
+                          items={sections.routing}
+                          scanData={activeScanData || activeAudit}
+                        />
+                        <StarTrackAtlSection
+                          audit={activeAudit}
+                          items={sections.atl}
+                          scanData={activeScanData || activeAudit}
+                        />
+                        <StarTrackFreightItemSection
+                          audit={activeAudit}
+                          items={sections.freight}
+                          scanData={activeScanData || activeAudit}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <DataMatrixSection
+                          audit={activeAudit}
+                          items={sections.datamatrix}
+                          scanData={activeScanData || activeAudit}
+                        />
+                        <LinearBarcodeSection
+                          audit={activeAudit}
+                          items={sections.linear}
+                          scanData={activeScanData || activeAudit}
+                        />
+                      </>
+                    )}
+                    <AdditionalBarcodesSection audit={activeAudit} />
+                    <ServiceArticleBreakdownSection audit={activeAudit} items={sections.service} />
+                    {activeAudit.invalidArticleCandidates?.length > 0 && (
+                      <section className="card audit-section" id="invalid-article-candidates">
+                        <SectionTitle id="invalid-article-candidates-title">Invalid article candidate(s)</SectionTitle>
+                        {activeAudit.invalidArticleCandidates.map(item => (
+                          <p key={item.candidate}>
+                            <code>{item.candidate}</code> — {item.reason}
+                          </p>
+                        ))}
+                      </section>
+                    )}
+                    <TextContentSection audit={activeAudit} items={sections.text} otherItems={sections.other} />
+                  </section>
+                );
+              })()}
+          </div>
         </section>
+      )}
+
+      {hasReport && showUploader && (
+        <div
+          className="uploader-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Start a new audit"
+          onClick={() => setShowUploader(false)}
+        >
+          <div className="uploader-modal" onClick={e => e.stopPropagation()}>
+            <div className="uploader-modal-head">
+              <h2>New audit</h2>
+              <button
+                type="button"
+                className="uploader-close"
+                onClick={() => setShowUploader(false)}
+                aria-label="Close and keep the current report"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+                  <path
+                    d="M6 6l12 12M18 6L6 18"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+            <p className="muted small uploader-modal-note">
+              Uploading a new label replaces the current report. Close this window to keep it.
+            </p>
+            {uploadPanel}
+          </div>
+        </div>
       )}
 
       {scanDebugLines.length > 0 && (
