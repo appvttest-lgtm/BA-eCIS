@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useReducer, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import {
   analyzeArticleCandidate,
@@ -794,6 +795,20 @@ function ValidationTable({ items }) {
 }
 
 function AuditBookmarks({ audit, sections }) {
+  const [bookmarksOpen, setBookmarksOpen] = useState(true);
+  // Jump AFTER the bookmark list collapses: the sticky verdict + nav stack is then at its
+  // collapsed height, so scrollIntoView (which honours scroll-margin-top) lands the target
+  // just below the stack instead of underneath it. A plain href jump computes the position
+  // before the collapse re-layout and overshoots, so flush the collapse first.
+  const jumpTo = id => event => {
+    event.preventDefault();
+    flushSync(() => setBookmarksOpen(false));
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.history.replaceState(null, '', `#${id}`);
+    }
+  };
   const reviewItems = (audit?.validations || []).filter(
     v => v.status === 'manual_review' || v.status === 'warning' || v.status === 'fail'
   );
@@ -826,6 +841,7 @@ function AuditBookmarks({ audit, sections }) {
               href={`#${id}`}
               className={`nav-pill nav-${tone}`}
               title={tone === 'neutral' ? 'no checks' : tone}
+              onClick={jumpTo(id)}
             >
               <span className="nav-dot" aria-hidden="true" />
               {label}
@@ -834,14 +850,21 @@ function AuditBookmarks({ audit, sections }) {
         })}
       </div>
       {reviewItems.length > 0 && (
-        <details className="review-list" open>
+        <details className="review-list" open={bookmarksOpen} onToggle={e => setBookmarksOpen(e.target.open)}>
           <summary id="review-bookmarks">
             Review bookmarks <span className="review-count">({reviewItems.length})</span>
           </summary>
-          <ul>
+          <ul className="review-links">
             {reviewItems.map(v => (
               <li key={v.id}>
-                <a href={`#rule-${v.id}`}>{v.title}</a> <StatusBadge status={v.status} />
+                <a
+                  href={`#rule-${v.id}`}
+                  className={`review-link review-link-${v.status === 'fail' ? 'fail' : 'review'}`}
+                  onClick={jumpTo(`rule-${v.id}`)}
+                >
+                  <StatusIcon status={v.status} />
+                  <span className="review-link-title">{v.title}</span>
+                </a>
               </li>
             ))}
           </ul>

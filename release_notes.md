@@ -6,6 +6,15 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.10.3 - review bookmarks: accurate jumps + tinted chip styling
+----------------------------------------------------------------
+- Clicking a review bookmark or section pill now lands the target just below the sticky
+  verdict banner + quick-nav stack instead of underneath it: anchor targets carry a
+  scroll margin, the bookmark list collapses before the jump (so the sticky stack is at
+  its final height when the scroll position is computed), and scrolling is smooth.
+- Review bookmarks restyled: underlined links + grey MANUAL_REVIEW badges become tinted
+  chips (amber for review/warning, red for fail) with the standard status icon.
+
 v1.10.2 - QR parsed-field rows take over the colour legend
 ----------------------------------------------------------
 - The StarTrack QR "Parsed QR payload fields" rows now carry the colour swatch matching

@@ -495,10 +495,63 @@ details summary {
   background: #fff0f2;
   border-color: #f2b4bd;
 }
+/* Anchor targets sit below the sticky verdict banner + quick-nav stack instead of
+ * underneath it; the bookmark click also collapses the review list so the stack is
+ * at its collapsed height when the jump lands. */
+html {
+  scroll-behavior: smooth;
+}
+.rule-row[id],
+.audit-section[id] {
+  scroll-margin-top: 200px;
+}
+
 .review-list {
   margin-top: 14px;
   border-top: 1px solid #ececec;
   padding-top: 10px;
+}
+.review-links {
+  list-style: none;
+  margin: 10px 0 2px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.review-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+.review-link .review-link-title {
+  overflow-wrap: anywhere;
+}
+.review-link-review {
+  background: #fff8ea;
+  border-color: #f2d99b;
+}
+.review-link-review:hover {
+  background: #fdf0d2;
+  border-color: #e8c265;
+}
+.review-link-fail {
+  background: #fff0f2;
+  border-color: #f2b4bd;
+}
+.review-link-fail:hover {
+  background: #fde2e6;
+  border-color: #e8949f;
 }
 .review-list > summary {
   margin: 0;
