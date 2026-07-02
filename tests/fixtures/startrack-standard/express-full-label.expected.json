@@ -7,9 +7,9 @@
   "overallStatus": "REVIEW",
   "counts": {
     "total": 51,
-    "passed": 50,
+    "passed": 49,
     "failed": 0,
-    "manualReview": 1,
+    "manualReview": 2,
     "critical": 5,
     "errors": 37,
     "warnings": 1
@@ -34,7 +34,7 @@
     "ST-ITM-04": "pass",
     "ST-ITM-05": "pass",
     "ST-LAY-01": "pass",
-    "ST-LOC-02": "pass",
+    "ST-LOC-02": "manual_review",
     "ST-PRD-01": "pass",
     "ST-PRD-02": "pass",
     "ST-QR-01": "pass",

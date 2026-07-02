@@ -6,6 +6,22 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.11.0 - StarTrack receiver location codes (RC/R1/R2) cross-checked
+--------------------------------------------------------------------
+The printed location line next to the routing barcode (e.g. "AU TSV TSV") is now verified
+against decoded data per MOS v9 1.009-1.011.1, closing the ST-LOC checklist gap.
+- New derived fact pins the expected codes from decoded barcodes only: Premium-group
+  products expect RC=AU, R1 = routing barcode port, R2 = QR destination depot; Express and
+  Special Services expect RC=AU, R2 = routing barcode depot; NZ Premium (routing postcode
+  9901) expects the fixed NZ/SYD/ZNA trio.
+- Upgraded ST-LOC-01 (premium) and ST-LOC-02 (express) from a decoded-format-only check to
+  a one-way text cross-check: the expected codes must appear in the extracted label text.
+  Text is a soft signal, so a miss is manual review, never a hard fail. Renders in the
+  routing barcode section. FPP/FPA labels (Premium group) now get ST-LOC-01 too.
+- Location Master File validity remains out of scope (no LMF data in the app).
+- Checklists updated (ST-LOC-01/02/03 coverage); 4 new end-to-end tests; golden baseline
+  re-captured for the express fixture (ST-LOC-02 pass -> manual review, reviewed).
+
 v1.10.8 - colour-coded string no longer bleeds past its box
 -----------------------------------------------------------
 - Fixed-width payloads (StarTrack QR) contain long runs of preserved spaces for blank

@@ -37,6 +37,21 @@
       "itemWhen": { "path": "item.fields.unitType", "op": "present" },
       "input": "item.fields.unitType",
       "assert": { "op": "notIn", "value": ["PAL", "SKI"] }
+    },
+    {
+      "id": "ST-LOC-01",
+      "title": "Premium receiver location codes (RC/R1/R2)",
+      "description": "Fixed Price Premium / Fixed Price Airlock are Premium-group products (FPP routes as PRM, FPA as ARL), so the label must print the Premium receiver location codes with the routing barcode (Arial Bold 22pt): RC = 'AU', R1 = Primary Port and R2 = Secondary Port from the Location Master File. The printed codes are cross-checked one way against the decoded routing barcode port and the QR destination depot; Location Master File validity cannot be verified digitally.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-routing",
+      "source": { "doc": "MOS v9", "page": 24, "ref": "1.009" },
+      "when": { "path": "derived.receiverLocationCodes", "op": "present" },
+      "input": "derived.receiverLocationCodes",
+      "evidence": ["derived.primaryProductCode"],
+      "assert": { "op": "fn", "name": "receiverLocationCodesShown" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review"
     }
   ]
 }

@@ -133,6 +133,7 @@ const startrackAudit = auditLabel({
   extractedText: [
     'STARTRACK',
     'EXP',
+    'AU SYD',
     'CONNOTE: ABCD12345678',
     'CHULLORA NSW 2190',
     'ITEM 1 OF 1',
@@ -186,8 +187,66 @@ expect(
 expect('ST-QR-F11 despatch date valid', find(startrackAudit, 'ST-QR-F11')?.status === 'pass');
 expect('ST-QR-F24 skipped for despatch movement', !find(startrackAudit, 'ST-QR-F24'));
 expect('ST-PRD-01 product allowed for express', find(startrackAudit, 'ST-PRD-01')?.status === 'pass');
+expect(
+  'ST-LOC-02 receiver location codes verified against routing depot',
+  find(startrackAudit, 'ST-LOC-02')?.status === 'pass',
+  find(startrackAudit, 'ST-LOC-02')?.message
+);
 const stFails = (startrackAudit.validations || []).filter(r => r.status === 'fail');
 expect('no failures on conforming label', stFails.length === 0, stFails.map(r => `${r.id}: ${r.message}`).join(' | '));
+
+// --- Receiver location codes (RC/R1/R2, MOS v9 1.009-1.011.1) cross-check ---
+// Express without the printed "AU <depot>" line: text is a soft signal, so manual review.
+const noLocationLineAudit = auditLabel({
+  carrier: 'startrack',
+  labelFamily: 'startrack',
+  labelFormat: 'standard',
+  fileInfo: { name: 'st-no-loc.pdf', widthMm: 100, heightMm: 150, pageCount: 1 },
+  detectedBarcodes: [
+    { rawValue: 'ABCD12345678EXP00001', format: 'code_128', barCount: 61 },
+    { rawValue: 'EXP2190SYD', format: 'code_128' }
+  ],
+  extractedText: ['STARTRACK', 'EXP', 'CONNOTE: ABCD12345678', 'CHULLORA NSW 2190'].join('\n')
+});
+expect(
+  'ST-LOC-02 flags a missing location line for manual review',
+  find(noLocationLineAudit, 'ST-LOC-02')?.status === 'manual_review',
+  find(noLocationLineAudit, 'ST-LOC-02')?.message
+);
+// Premium: R1 = primary port from the decoded routing barcode, RC = AU. "AU TSV TSV" covers both.
+const premiumLocationAudit = auditLabel({
+  carrier: 'startrack',
+  labelFamily: 'startrack',
+  labelFormat: 'standard',
+  fileInfo: { name: 'st-prm-loc.pdf', widthMm: 100, heightMm: 150, pageCount: 1 },
+  detectedBarcodes: [
+    { rawValue: 'ABCD12345678PRM00001', format: 'code_128', barCount: 61 },
+    { rawValue: 'PRM4807TSV', format: 'code_128' }
+  ],
+  extractedText: ['STARTRACK', 'PRM', 'AU TSV TSV', 'CONNOTE: ABCD12345678', 'AYR QLD 4807'].join('\n')
+});
+expect(
+  'ST-LOC-01 premium location codes verified (AU + primary port)',
+  find(premiumLocationAudit, 'ST-LOC-01')?.status === 'pass',
+  find(premiumLocationAudit, 'ST-LOC-01')?.message
+);
+// NZ Premium (routing postcode 9901) expects the fixed NZ/SYD/ZNA trio.
+const nzPremiumAudit = auditLabel({
+  carrier: 'startrack',
+  labelFamily: 'startrack',
+  labelFormat: 'standard',
+  fileInfo: { name: 'st-nz-loc.pdf', widthMm: 100, heightMm: 150, pageCount: 1 },
+  detectedBarcodes: [
+    { rawValue: 'ABCD12345678PRM00001', format: 'code_128', barCount: 61 },
+    { rawValue: 'PRM9901SYD', format: 'code_128' }
+  ],
+  extractedText: ['STARTRACK', 'PRM', 'NZ SYD ZNA', 'CONNOTE: ABCD12345678'].join('\n')
+});
+expect(
+  'ST-LOC-01 NZ Premium expects the NZ/SYD/ZNA trio',
+  find(nzPremiumAudit, 'ST-LOC-01')?.status === 'pass',
+  find(nzPremiumAudit, 'ST-LOC-01')?.message
+);
 
 // --- A decoded-but-truncated StarTrack QR still yields the field-by-field breakdown ---
 // The strict fixed-width gate used to suppress every per-field row (and report the QR as

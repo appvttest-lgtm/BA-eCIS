@@ -50,9 +50,9 @@ This checklist enumerates every label conformance rule in the specification. Eac
 
 | ID | Requirement | Obligation | Audit | Coverage | Spec ref |
 | --- | --- | --- | --- | --- | --- |
-| ST-LOC-01 | Premium (AU domestic): `RC=AU`, `R1=Primary Port`, `R2=Secondary Port` (from LMF); Arial Bold 22pt | M | PARTIAL (text) + AUTO (consistency vs routing barcode/QR depot) | ❌ gap | 1.009 |
-| ST-LOC-02 | Express & Special Services (AU domestic): `RC=AU`, `R1=blank`, `R2=Nearest Depot` (from LMF) | M | PARTIAL + AUTO (consistency) | ❌ gap | 1.010 |
-| ST-LOC-03 | NZ Premium: `RC=NZ`, `R1=SYD`, `R2=ZNA` | M (NZ) | AUTO (fixed values) | ❌ gap | 1.011.1 |
+| ST-LOC-01 | Premium (AU domestic): `RC=AU`, `R1=Primary Port`, `R2=Secondary Port` (from LMF); Arial Bold 22pt | M | PARTIAL (text) + AUTO (consistency vs routing barcode/QR depot) | ✅ `ST-LOC-01` (premium + fpp variants): printed codes cross-checked in text against decoded routing port + QR depot; LMF validity unchecked | 1.009 |
+| ST-LOC-02 | Express & Special Services (AU domestic): `RC=AU`, `R1=blank`, `R2=Nearest Depot` (from LMF) | M | PARTIAL + AUTO (consistency) | ✅ `ST-LOC-02`: printed codes cross-checked in text against decoded routing depot; LMF validity unchecked | 1.010 |
+| ST-LOC-03 | NZ Premium: `RC=NZ`, `R1=SYD`, `R2=ZNA` | M (NZ) | AUTO (fixed values) | ✅ via `ST-LOC-01`: fixed NZ/SYD/ZNA trio expected when routing postcode is 9901 | 1.011.1 |
 | ST-LOC-04 | International outbound: `RC=IATA country code`, `R1=blank`, `R2=blank` | M (intl) | PARTIAL | ❌ gap | 1.011.2 |
 | ST-LOC-05 | Home Delivery products: delivery window `12-3` or `N-W` displayed, white on black, Arial Bold 16pt; blank for all other products | COND | PARTIAL | ❌ gap | 1.012 |
 | ST-LOC-06 | Route field left blank (reserved); Arial Bold 10pt | M | PARTIAL | ❌ gap (informational) | 1.013 |

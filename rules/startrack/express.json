@@ -10,23 +10,18 @@
   "rules": [
     {
       "id": "ST-LOC-02",
-      "title": "Express receiver location codes",
-      "description": "Express and Special Services labels print RC=AU, R1 blank and R2 = Nearest Depot from the Location Master File. The depot cannot be validated without the LMF, so confirm it on the preview.",
+      "title": "Express receiver location codes (RC/R1/R2)",
+      "description": "Express and Special Services labels must print the receiver location codes with the routing barcode (Arial Bold 22pt): RC = 'AU', R1 = blank and R2 = Nearest Depot from the Location Master File. The printed codes are cross-checked one way against the decoded routing barcode depot; Location Master File validity cannot be verified digitally.",
       "obligation": "mandatory",
       "severity": "INFO",
       "category": "startrack-routing",
-      "source": { "doc": "MOS v9", "ref": "1.010" },
-      "forEach": "barcodes.routing",
-      "input": "item.depotOrPort",
-      "evidence": ["item.raw"],
-      "assert": { "op": "matches", "value": "^[A-Z0-9]{2,3}$" },
+      "source": { "doc": "MOS v9", "page": 24, "ref": "1.010" },
+      "when": { "path": "derived.receiverLocationCodes", "op": "present" },
+      "input": "derived.receiverLocationCodes",
+      "evidence": ["derived.primaryProductCode"],
+      "assert": { "op": "fn", "name": "receiverLocationCodesShown" },
       "onMissing": "manual_review",
-      "failStatus": "manual_review",
-      "messages": {
-        "pass": "Routing depot segment present: {actual}. Confirm it matches the Nearest Depot for the receiver postcode in the Location Master File.",
-        "fail": "Routing depot segment looks invalid: {actual}.",
-        "missing": "Routing depot segment was not decoded. Confirm RC/R1/R2 values on the preview."
-      }
+      "failStatus": "manual_review"
     }
   ]
 }

@@ -1108,6 +1108,26 @@ const ST_QR_MANDATORY_FIELDS = [
   ['movementTypeIndicator', 'Movement type indicator']
 ];
 
+// One-way cross-check of the printed RC/R1/R2 receiver location codes against the values
+// derived from decoded barcodes (MOS v9 1.009-1.011.1). Text is only compared AGAINST the
+// decoded routing/QR data, never used as a value source; a miss is manual review because
+// text extraction is a soft signal.
+registerRuleFunction('receiverLocationCodesShown', (codes, { context }) => {
+  const upper = (context?.text?.lines || []).join('\n').toUpperCase();
+  const tokens = [...new Set([codes?.rc, codes?.r1, codes?.r2].filter(Boolean))];
+  const missing = tokens.filter(token => !new RegExp(`\\b${token}\\b`).test(upper));
+  const expected = `RC=${codes?.rc || '?'}, R1=${codes?.r1 || 'blank'}, R2=${codes?.r2 || 'blank'}`;
+  const pass = tokens.length > 0 && missing.length === 0;
+  return {
+    pass,
+    expected,
+    actual: pass ? `found in label text: ${tokens.join(' ')}` : `not found in extracted text: ${missing.join(', ')}`,
+    message: pass
+      ? `Receiver location codes found in the label text and consistent with the decoded routing/QR data (${expected}). Location Master File validity cannot be checked digitally.`
+      : `Expected receiver location code(s) ${missing.join(', ')} - derived from the decoded routing barcode depot/port and QR destination depot - were not found in the extracted label text. Confirm the RC/R1/R2 line next to the routing barcode on the preview.`
+  };
+});
+
 registerRuleFunction('qrMandatoryFields', fields => {
   const missing = ST_QR_MANDATORY_FIELDS.filter(([key]) => !String(fields?.[key] || '').trim()).map(
     ([, label]) => label
@@ -1262,6 +1282,31 @@ function buildStarTrackRuleContext({
     routingParses.length > 0 ||
     atlParses.length > 0 ||
     validSsccs.length > 0;
+  const primaryProductCode = freightParses[0]?.productCode || qrParses[0]?.productCode || '';
+  // Receiver location codes RC/R1/R2 printed with the routing barcode (MOS v9 1.009-1.011.1):
+  // expectations derive from decoded data only. Premium-group products print R1 = Primary
+  // Port (the routing barcode depot segment) and R2 = Secondary Port (the QR destination
+  // depot); Express/Special Services print R2 = Nearest Depot (the routing depot segment);
+  // NZ Premium (routing postcode 9901) prints the fixed NZ/SYD/ZNA trio. LMF validity
+  // cannot be checked digitally - this only pins the values the label must repeat.
+  const routeWithDepot = routingParses.find(r => r.depotOrPort) || null;
+  const qrDepot =
+    String(qrParses[0]?.fields?.destinationDepot || '')
+      .trim()
+      .toUpperCase() || null;
+  let receiverLocationCodes = null;
+  if (routeWithDepot) {
+    const premiumGroup =
+      STARTRACK_PRODUCT_CODE_MAP[primaryProductCode]?.group === 'Premium services' ||
+      (!primaryProductCode && ['PRM', 'ARL'].includes(routeWithDepot.labelCode));
+    const routeDepot = String(routeWithDepot.depotOrPort).toUpperCase();
+    receiverLocationCodes =
+      routeWithDepot.postcode === '9901'
+        ? { rc: 'NZ', r1: 'SYD', r2: 'ZNA' }
+        : premiumGroup
+          ? { rc: 'AU', r1: routeDepot, r2: qrDepot }
+          : { rc: 'AU', r1: null, r2: routeDepot };
+  }
   return {
     page: buildPageContext(fileInfo),
     text: {
@@ -1285,7 +1330,8 @@ function buildStarTrackRuleContext({
       qrPostcodes: uniqueNonEmpty(qrParses.map(q => q.fields?.receiverPostcode)),
       freightConnotes: uniqueNonEmpty(freightParses.map(f => f.connoteNumber)),
       freightIds: uniqueNonEmpty(freightParses.map(f => f.freightItemId)),
-      primaryProductCode: freightParses[0]?.productCode || qrParses[0]?.productCode || '',
+      primaryProductCode,
+      receiverLocationCodes,
       expectedAtlNumbers,
       atlExpected: Boolean(atlExpected),
       starTrackConfirmed: starTrackBarcodeDecoded || hasStarTrackHeaderText,
