@@ -37,7 +37,9 @@ Docs-only changes that do not touch `src/`/`rules/` do not need a bump.
 - **React 18 + Vite 5** single-page app (JSX; ESLint + Prettier for lint/format)
 - `pdfjs-dist` — in-browser PDF rendering
 - `@zxing/library` + `zxing-wasm` — barcode decoding (GS1 DataMatrix, GS1-128/Code 128, QR)
-- `tesseract.js` — OCR for visible-text checks
+- `tesseract.js` — OCR for visible-text checks. LSTM_ONLY (OEM 1): only the `*-lstm`
+  WASM cores are shipped in `public/tesseract-core/`; never request the legacy engine
+  (it will throw). Refresh assets with `npm run sync:ocr` (see `scripts/sync-ocr-assets.mjs`)
 - `server.mjs` — minimal Node static server (binds localhost, serves `dist/`)
 - `wrapper/windows/` + `build-portable-release.bat` — native Windows launcher and
   portable release packaging; `start-auditer.bat` is the end-user launcher

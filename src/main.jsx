@@ -3,8 +3,12 @@ import { createRoot } from 'react-dom/client';
 import {
   analyzeArticleCandidate,
   auditLabel,
+  calculateEparcelCheckDigit,
   groupValidations,
+  parseSsccBarcode,
+  PRODUCT_CODE_MAP,
   SERVICE_CODE_MAP,
+  STARTRACK_LABEL_CODE_MAP,
   STARTRACK_PRODUCT_CODE_MAP,
   STARTRACK_QR_FIELDS
 } from './auditEngine.js';
@@ -312,10 +316,6 @@ function starTrackFreightBarcodeList(audit) {
   return decodedBarcodeList(audit, 'linear').filter(b => isStarTrackFreightItemValue(b.rawValue));
 }
 
-function dmParseList(audit) {
-  return (audit?.parsed || []).filter(p => p && Object.prototype.hasOwnProperty.call(p, 'hasAi420'));
-}
-
 function barcodeDisplayName(b) {
   const value = String(b?.format || b?.symbology || '').toLowerCase();
   if (value.includes('data')) return 'GS1 DataMatrix';
@@ -616,34 +616,16 @@ function SectionStatus({ items }) {
   return <span className={`section-status section-status-${tone}`}>{tone === 'neutral' ? 'no checks' : tone}</span>;
 }
 
-function AuditModeSection({ audit, items }) {
-  const mode = audit?.selectedAuditMode || {
-    carrier: audit?.carrier || 'eparcel',
-    labelFormat: auditHasSsccOnly(audit) ? 'sscc' : 'standard'
-  };
+/** The selected mode already renders in the report header, so this section stays hidden
+ *  unless a mode check needs attention (wrong toggle) — then it surfaces with the rule rows
+ *  the review bookmarks link to. */
+function AuditModeSection({ items }) {
+  if (!items?.length || items.every(v => v.status === 'pass')) return null;
   return (
     <section className="card audit-section mode-section" id="audit-mode-section">
       <div className="section-heading">
         <SectionTitle id="audit-mode-section-title">Selected audit mode</SectionTitle>
         <SectionStatus items={items} />
-      </div>
-      <div className="fact-cards fact-cards-wide">
-        <div>
-          <span>carrier branch</span>
-          <strong>{LABEL_FAMILY_NAMES[mode.carrier] || mode.carrier}</strong>
-        </div>
-        <div>
-          <span>label format</span>
-          <strong>{LABEL_FORMAT_NAMES[mode.labelFormat] || mode.labelFormat}</strong>
-        </div>
-        <div>
-          <span>format rule</span>
-          <strong>{mode.labelFormat === 'sscc' ? 'AI 00 SSCC expected' : 'standard article barcode expected'}</strong>
-        </div>
-        <div>
-          <span>wrong toggle handling</span>
-          <strong>fails mode check; full report still runs</strong>
-        </div>
       </div>
       <ValidationTable items={items} />
     </section>
@@ -968,29 +950,44 @@ function StatusKeyLegend() {
   );
 }
 
-/** One expandable QR field line: name + spec + raw value + status; the rule id and char
- *  position live in the drawer so the line itself stays readable. */
-function QrFieldLine({ field, value, status }) {
-  const obligation = QR_OBLIGATION_LABEL[field.obligation] || field.obligation;
-  const spec = field.obligation === 'M' ? field.criteria : `${obligation}. ${field.criteria}`;
+/** One expandable field line shared by every barcode breakdown: optional colour swatch +
+ *  name + spec + raw value + status icon; char positions and reference detail live in the
+ *  drawer so the line itself stays readable. */
+function FieldLine({ name, spec, value, status, detail, swatchClass }) {
+  const text = String(value ?? '').trim();
   return (
     <details className="qr-line">
       <summary>
         <span className="qr-chev" aria-hidden="true">
           ▸
         </span>
-        <span className="qr-name">{field.label}</span>
+        <span className="qr-name">
+          {swatchClass ? <span className={`seg-swatch ${swatchClass}`} aria-hidden="true" /> : null}
+          {name}
+        </span>
         <span className="qr-spec">{spec}</span>
-        <span className="qr-val">{value ? <code>{value}</code> : <span className="muted small">blank</span>}</span>
+        <span className="qr-val">{text ? <code>{text}</code> : <span className="muted small">blank</span>}</span>
         {status ? <StatusIcon status={status} /> : <span className="qr-noico muted small">—</span>}
       </summary>
       <div className="qr-drawer">
-        <code>
-          {field.rule ? `${field.rule} · ` : ''}field {field.num} · position {field.pos}, length {field.len} ·{' '}
-          {obligation}
-        </code>
+        <code>{detail}</code>
       </div>
     </details>
+  );
+}
+
+/** One expandable QR field line: the StarTrack QR spec fields carry their own rule ids,
+ *  obligations and fixed char positions. */
+function QrFieldLine({ field, value, status }) {
+  const obligation = QR_OBLIGATION_LABEL[field.obligation] || field.obligation;
+  return (
+    <FieldLine
+      name={field.label}
+      spec={field.obligation === 'M' ? field.criteria : `${obligation}. ${field.criteria}`}
+      value={value}
+      status={status}
+      detail={`${field.rule ? `${field.rule} · ` : ''}field ${field.num} · position ${field.pos}, length ${field.len} · ${obligation}`}
+    />
   );
 }
 
@@ -1066,7 +1063,7 @@ function CopyButton({ value, label = 'Copy barcode value' }) {
   );
 }
 
-function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)' }) {
+function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)', showLegend = true }) {
   const segs = (segments || []).filter(s => s && s.text != null && String(s.text).length > 0);
   if (!segs.length) return null;
   const fullValue = segs.map(s => String(s.text)).join('');
@@ -1083,15 +1080,17 @@ function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)' })
         </code>
         <CopyButton value={fullValue} />
       </div>
-      <ul className="segmented-legend">
-        {segs.map((s, i) => (
-          <li key={i}>
-            <span className={`seg-swatch seg-c${i % SEG_PALETTE}`} aria-hidden="true" />
-            <span className="segmented-legend-label">{s.label}</span>
-            <code className="segmented-legend-val">{String(s.text).trim() || '(blank)'}</code>
-          </li>
-        ))}
-      </ul>
+      {showLegend ? (
+        <ul className="segmented-legend">
+          {segs.map((s, i) => (
+            <li key={i}>
+              <span className={`seg-swatch seg-c${i % SEG_PALETTE}`} aria-hidden="true" />
+              <span className="segmented-legend-label">{s.label}</span>
+              <code className="segmented-legend-val">{String(s.text).trim() || '(blank)'}</code>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
@@ -1282,24 +1281,200 @@ function rawSegments(rawValue, kind) {
   return out;
 }
 
-/** Renders each decoded barcode value colour-coded by its field format/lengths, with a legend. */
+// --- Per-field specifications for the barcode breakdown tables. Display-only: statuses
+// re-use the same reference maps and check-digit functions the rule engine validates with
+// (PRODUCT/SERVICE maps, calculateEparcelCheckDigit, parseSsccBarcode, STARTRACK maps);
+// no new validation logic is introduced here. Keyed by the rawSegments field label.
+const pf = (spec, check, detail) => ({ spec, check, detail });
+const digitsCheck = n => t => (new RegExp(`^\\d{${n}}$`).test(t) ? 'pass' : 'fail');
+const literalCheck = lit => t => (t === lit ? 'pass' : 'fail');
+
+const ARTICLE_FIELD_SPECS = {
+  MLID: pf('Merchant location ID — 3 or 5 alphanumeric', t =>
+    /^[A-Z0-9]{3}$|^[A-Z0-9]{5}$/i.test(t) ? 'pass' : 'fail'
+  ),
+  'Consignment serial': pf('Consignment serial — 7 digits', digitsCheck(7)),
+  'Article count': pf('Article number within consignment — 2 digits', digitsCheck(2)),
+  'Product code': pf(
+    '5-digit eParcel product code',
+    t => (PRODUCT_CODE_MAP[t] ? 'pass' : 'fail'),
+    t => PRODUCT_CODE_MAP[t] || 'not in the eParcel product map'
+  ),
+  'Service code': pf(
+    '2-digit eParcel service code',
+    t => (SERVICE_CODE_MAP[t] ? 'pass' : 'fail'),
+    t => SERVICE_CODE_MAP[t]?.name || 'not in the eParcel service map'
+  ),
+  'Postage paid': pf('Postage paid indicator — 1 character'),
+  'Check digit': pf(
+    'Weighted mod-10 check digit over the preceding characters',
+    (t, ctx) => {
+      const calc = calculateEparcelCheckDigit(String(ctx.article || '').slice(0, -1));
+      return calc.validInput ? (calc.checkDigit === t ? 'pass' : 'fail') : null;
+    },
+    (t, ctx) => {
+      const calc = calculateEparcelCheckDigit(String(ctx.article || '').slice(0, -1));
+      return calc.validInput ? `expected ${calc.checkDigit}` : '';
+    }
+  )
+};
+
+const ssccFromContext = ctx => parseSsccBarcode(ctx.joined.length === 18 ? `00${ctx.joined}` : ctx.joined);
+const SSCC_FIELD_SPECS = {
+  'AI 00': pf('GS1 Application Identifier 00 — SSCC follows', literalCheck('00')),
+  'Extension digit': pf('Extension digit 0–9 (merchant assigned)', digitsCheck(1)),
+  'Company prefix + serial': pf('GS1 company prefix + serial reference — 16 digits', digitsCheck(16)),
+  'Check digit': pf(
+    'GS1 mod-10 check digit',
+    (t, ctx) => (ssccFromContext(ctx).valid ? 'pass' : 'fail'),
+    (t, ctx) => {
+      const parsed = ssccFromContext(ctx);
+      return parsed.expectedCheckDigit ? `expected ${parsed.expectedCheckDigit}` : '';
+    }
+  )
+};
+
+const GS1_FIELD_SPECS = {
+  'AI 01 GTIN': pf('GS1 Application Identifier 01 — GTIN follows', literalCheck('01')),
+  'AI 01 GTIN value': pf('14-digit GTIN (99312650999998 = Australia Post eParcel)', digitsCheck(14)),
+  'AI 91 article': pf('GS1 AI 91 — eParcel article and services data follows', literalCheck('91')),
+  'AI 91 article value': pf(
+    'eParcel article ID — 21 chars (3-char MLID) or 23 chars (5-char MLID)',
+    () => 'manual_review',
+    () => 'payload did not parse as a standard eParcel article'
+  ),
+  'AI 420 postcode': pf('GS1 AI 420 — ship-to postcode follows', literalCheck('420')),
+  'AI 420 postcode value': pf('Delivery postcode — 4 digits', digitsCheck(4)),
+  'AI 92 DPID': pf('GS1 AI 92 — delivery point identifier follows', literalCheck('92')),
+  'AI 92 DPID value': pf('Delivery point identifier (DPID) — 8 digits', digitsCheck(8)),
+  'AI 8008 date/time': pf('GS1 AI 8008 — production date/time follows', literalCheck('8008')),
+  'AI 8008 date/time value': pf('Date/time — YYMMDDHHMMSS', digitsCheck(12)),
+  'AI 00 SSCC': pf('GS1 Application Identifier 00 — SSCC follows', literalCheck('00')),
+  'AI 00 SSCC value': pf('18-digit SSCC with GS1 mod-10 check digit', t =>
+    parseSsccBarcode(`00${t}`).valid ? 'pass' : 'fail'
+  ),
+  'GS1 element': pf('Unrecognised GS1 element', () => 'manual_review')
+};
+
+const FREIGHT_FIELD_SPECS = {
+  'Despatch ID': pf('Despatch/depot identifier — 4 alphanumeric', t => (/^[A-Z0-9]{4}$/i.test(t) ? 'pass' : 'fail')),
+  'Connote sequence': pf('Consignment note sequence — 8 digits', digitsCheck(8)),
+  'Product code': pf(
+    'StarTrack product code — 3 characters',
+    t => (STARTRACK_PRODUCT_CODE_MAP[t] ? 'pass' : 'fail'),
+    t => STARTRACK_PRODUCT_CODE_MAP[t]?.name || 'not in the StarTrack product map'
+  ),
+  'Item sequence': pf('Freight item sequence — 5 digits', digitsCheck(5))
+};
+
+const ROUTING_FIELD_SPECS = {
+  'Label code': pf(
+    'StarTrack service label code (e.g. EXP / PRM / ARL)',
+    t => (STARTRACK_LABEL_CODE_MAP[t] ? 'pass' : 'manual_review'),
+    t =>
+      STARTRACK_LABEL_CODE_MAP[t]
+        ? `products: ${STARTRACK_LABEL_CODE_MAP[t].join(', ')}`
+        : 'not a known StarTrack label code'
+  ),
+  Postcode: pf('Destination postcode — 4 digits', digitsCheck(4)),
+  'Depot/port': pf('Destination depot/port — 2–3 characters', t => (/^[A-Z0-9]{2,3}$/i.test(t) ? 'pass' : 'fail')),
+  'AI 421': pf('GS1 AI 421 — postal code with ISO country follows', literalCheck('421')),
+  'Country code': pf('ISO 3166 numeric country code (036 = Australia)', digitsCheck(3)),
+  'AI 403': pf('GS1 AI 403 — routing code follows', literalCheck('403'))
+};
+
+const ATL_FIELD_SPECS = {
+  Prefix: pf('Literal character C', literalCheck('C')),
+  Counter: pf('Nine-digit sequential counter (starts 000000001)', digitsCheck(9))
+};
+
+/** Picks the field-spec map for a segmented barcode. SSCC-split segments can surface under
+ *  several kinds (freight, linear, sscc), so their labels take precedence over the kind. */
+function fieldSpecsFor(kind, segments) {
+  if (segments.some(s => s.label === 'Extension digit')) return { ...GS1_FIELD_SPECS, ...SSCC_FIELD_SPECS };
+  if (kind === 'freight') return FREIGHT_FIELD_SPECS;
+  if (kind === 'routing') return ROUTING_FIELD_SPECS;
+  if (kind === 'atl') return ATL_FIELD_SPECS;
+  return { ...GS1_FIELD_SPECS, ...ARTICLE_FIELD_SPECS };
+}
+
+/** QR-style per-field breakdown for a colour-segmented barcode value: one expandable line
+ *  per field with its specification and status check, colour-matched to the raw string above
+ *  (same segment order, so seg-cN indexes line up). */
+function SegmentedFields({ segments, kind }) {
+  const segs = (segments || []).filter(s => s && String(s.text).length > 0);
+  if (!segs.length) return null;
+  const specs = fieldSpecsFor(kind, segs);
+  if (!segs.some(s => specs[s.label])) return null;
+  const joined = segs.map(s => String(s.text)).join('');
+  const artLabels = Object.keys(ARTICLE_FIELD_SPECS);
+  const ctx = {
+    joined,
+    article: segs
+      .filter(s => artLabels.includes(s.label))
+      .map(s => String(s.text))
+      .join('')
+  };
+  const lens = segs.map(s => String(s.text).length);
+  const starts = lens.map((_, i) => 1 + lens.slice(0, i).reduce((a, b) => a + b, 0));
+  return (
+    <div className="qr-lines">
+      <StatusKeyLegend />
+      <div className="qr-lines-head">
+        <span />
+        <span>Field</span>
+        <span>Specification</span>
+        <span>Raw value</span>
+        <span />
+      </div>
+      {segs.map((s, i) => {
+        const text = String(s.text);
+        const start = starts[i];
+        const def = specs[s.label];
+        const detail = [`position ${start}, length ${text.length}`, def?.detail ? def.detail(text, ctx) : '']
+          .filter(Boolean)
+          .join(' · ');
+        return (
+          <FieldLine
+            key={`${i}-${s.label}`}
+            swatchClass={`seg-c${i % SEG_PALETTE}`}
+            name={s.label}
+            spec={def?.spec || '—'}
+            value={text}
+            status={def?.check ? def.check(text, ctx) : null}
+            detail={detail}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/** Renders each decoded barcode value colour-coded by its field format/lengths, with the
+ *  QR-style per-field breakdown beneath it when the kind has field specifications (the
+ *  breakdown then replaces the plain colour legend). */
 function DecodedBarcodes({ barcodes, kind, label, emptyText }) {
   if (!barcodes || !barcodes.length) return <p className="muted">{emptyText}</p>;
   return (
     <ul className="barcode-list decoded-list">
-      {barcodes.map(b => (
-        <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
-          <div className="barcode-meta">
-            <strong>{label}</strong> {b.pageNumber ? `page ${b.pageNumber}` : ''}
-          </div>
-          <SegmentedCode segments={rawSegments(b.rawValue, kind)} title={null} />
-          <div className="muted small">
-            {b.pageBoundingBox
-              ? 'Barcode location verified on this label.'
-              : 'Barcode decoded; exact location not mapped.'}
-          </div>
-        </li>
-      ))}
+      {barcodes.map(b => {
+        const segments = rawSegments(b.rawValue, kind).filter(s => s && String(s.text).length > 0);
+        const hasFieldRows = segments.some(s => fieldSpecsFor(kind, segments)[s.label]);
+        return (
+          <li key={`${b.pageNumber || 0}-${b.rawValue}`}>
+            <div className="barcode-meta">
+              <strong>{label}</strong> {b.pageNumber ? `page ${b.pageNumber}` : ''}
+            </div>
+            <SegmentedCode segments={segments} title={null} showLegend={!hasFieldRows} />
+            {hasFieldRows ? <SegmentedFields segments={segments} kind={kind} /> : null}
+            <div className="muted small">
+              {b.pageBoundingBox
+                ? 'Barcode location verified on this label.'
+                : 'Barcode decoded; exact location not mapped.'}
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -1609,7 +1784,6 @@ function StarTrackFreightItemSection({ audit, items }) {
 function DataMatrixSection({ audit, items }) {
   const images = audit?.labelImages || {};
   const dataMatrixBarcodes = decodedBarcodeList(audit, 'datamatrix');
-  const dmParses = dmParseList(audit);
   return (
     <section className="card audit-section" id="datamatrix-section">
       <div className="section-heading">
@@ -1647,36 +1821,6 @@ function DataMatrixSection({ audit, items }) {
               emptyText="No GS1 DataMatrix value decoded from the uploaded file."
             />
           </div>
-
-          {dmParses.length > 0 && (
-            <div className="decoded-panel ai-panel">
-              <h3>GS1 DataMatrix AI breakdown</h3>
-              {dmParses.map(dm => (
-                <div key={dm.raw} className="fact-cards dm-ai-cards">
-                  <div>
-                    <span>AI 01 GTIN</span>
-                    <strong>{dm.compact?.slice(2, 16) || 'Not parsed'}</strong>
-                  </div>
-                  <div>
-                    <span>AI 91 article</span>
-                    <strong>{dm.article?.articleId || dm.base?.article?.articleId || 'Not parsed'}</strong>
-                  </div>
-                  <div>
-                    <span>AI 420 postcode</span>
-                    <strong>{dm.postcode || 'Not present'}</strong>
-                  </div>
-                  <div>
-                    <span>AI 92 DPID</span>
-                    <strong>{dm.dpid || 'Not present / omitted'}</strong>
-                  </div>
-                  <div>
-                    <span>AI 8008 date/time</span>
-                    <strong>{dm.dateTime || 'Not present'}</strong>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
 
           <ValidationTable items={items} />
         </div>
@@ -2565,7 +2709,7 @@ function App() {
                   </section>
 
                   <AuditBookmarks audit={activeAudit} sections={sections} />
-                  <AuditModeSection audit={activeAudit} items={sections.mode} />
+                  <AuditModeSection items={sections.mode} />
                   <FullLabelImageSection audit={activeAudit} items={sections.label} onZoomLabel={setZoomImage} />
                   {activeAudit.carrier === 'startrack' ? (
                     <>

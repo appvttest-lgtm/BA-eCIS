@@ -871,6 +871,12 @@ figcaption {
   font-size: 14px;
   color: var(--color-text);
 }
+/* Colour swatch tying a breakdown line back to its segment in the raw string above. */
+.qr-name .seg-swatch {
+  margin-right: 7px;
+  vertical-align: -1px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
 .qr-spec {
   font-size: 13px;
   color: var(--color-muted);

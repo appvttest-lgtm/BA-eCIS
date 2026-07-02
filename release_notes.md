@@ -6,6 +6,24 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.10.0 - QR-style field breakdown for every barcode; audit-mode section retired
+--------------------------------------------------------------------------------
+The StarTrack 2D QR "parsed payload fields" layout is now the standard breakdown for every
+barcode on both carriers.
+- Every decoded barcode (eParcel article, GS1-128 linear, GS1 DataMatrix, eParcel SSCC,
+  StarTrack freight item, routing, ATL and StarTrack SSCC) now renders its colour-coded raw
+  string with a QR-style field table beneath it: one expandable line per field with a colour
+  swatch matched to the raw string, the field name, its specification, the raw value and a
+  pass/review/fail status icon. Char position and length sit in the expandable drawer.
+- Field statuses re-use the engine's own reference maps and check functions (eParcel
+  product/service maps, weighted mod-10 article check digit, GS1 mod-10 SSCC check digit,
+  StarTrack product/label-code maps) - display only, no rule-set changes.
+- The plain colour legend and the separate "GS1 DataMatrix AI breakdown" cards are replaced
+  by the field tables (same information, one place).
+- The "Selected audit mode" section is removed from the report; the header already shows the
+  selected mode. It only reappears (slim, rule rows only) if a mode check fails, so wrong-toggle
+  failures stay visible and bookmarkable.
+
 v1.9.3 - lean pass: drop unused legacy OCR cores (~24 MB) and dead code
 -----------------------------------------------------------------------
 Over-engineering audit applied; no behaviour change intended.
