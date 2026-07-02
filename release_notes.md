@@ -6,6 +6,22 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.12.12 - FNC1 separators shown in the DataMatrix breakdown
+-------------------------------------------------------------
+- The colour-coded DataMatrix string now shows a divider wherever the spec expects a
+  Function 1 group separator: a short vertical bar with a small "⟨FNC1⟩" label between
+  the coloured fields, at the spec's page-19 positions (before AI 420, 92 and 8008).
+  The divider appears whether or not the separator character survived decoding - many
+  scanners strip FNC1 from the reported payload, so the structural boundary is marked
+  either way.
+- Each divider also gets a row in the field table: a pass tick with "control
+  character" or "readable text" when the separator was decoded (e.g. a real ASCII 29
+  or the literal "<GS>" rendering), or a neutral dash with "separator character not
+  visible in this decode" when the scanner stripped it.
+- Copy fidelity improves as a side effect: the segmented-row copy button now includes
+  the original separator characters verbatim (they were previously dropped from that
+  one copy path); the marker text is display-only and never enters the clipboard.
+
 v1.12.11 - DataMatrix breakdown matches the Parcel Post spec's AI 91 forms
 ---------------------------------------------------------------------------
 - The eParcel GS1 DataMatrix per-field breakdown no longer reports "payload did not

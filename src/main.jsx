@@ -1140,7 +1140,7 @@ function CopyButton({ value, label = 'Copy barcode value', text }) {
 }
 
 function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)', showLegend = true }) {
-  const segs = (segments || []).filter(s => s && s.text != null && String(s.text).length > 0);
+  const segs = (segments || []).filter(s => s && ((s.text != null && String(s.text).length > 0) || s.display));
   if (!segs.length) return null;
   const fullValue = segs.map(s => String(s.text)).join('');
   return (
@@ -1149,8 +1149,8 @@ function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)', s
       <div className="segmented-code-row">
         <code className="segmented-code">
           {segs.map((s, i) => (
-            <span key={i} className={`seg seg-c${i % SEG_PALETTE}`} title={s.label}>
-              {String(s.text)}
+            <span key={i} className={s.display ? 'seg seg-sep' : `seg seg-c${i % SEG_PALETTE}`} title={s.label}>
+              {s.display ?? String(s.text)}
             </span>
           ))}
         </code>
@@ -1226,10 +1226,16 @@ function dataMatrixSegments(value) {
   // Fixed-value-length AIs can be consumed back-to-back without a separator; AI 91 (article) is
   // variable so it always runs to the end of its element.
   const FIXED = { '00': 18, '01': 14, 420: 4, 92: 8, 8008: 12 };
+  const sepSeg = text => ({ text, label: 'FNC1 separator', display: '⟨FNC1⟩' });
   const splitElement = s => {
     const out = [];
     let i = 0;
     while (i < s.length) {
+      // The spec's component table (Parcel Post v1.4 p19) places an FNC1 before AI 420,
+      // 92 and 8008. When those AIs follow the previous element with no decoded
+      // separator (many scanners strip FNC1 from the reported payload), mark the
+      // expected boundary with a zero-length divider so the structure stays visible.
+      if (i > 0 && /^(420|92|8008)/.test(s.slice(i, i + 4))) out.push(sepSeg(''));
       const fixed = Object.keys(FIXED).find(ai => s.startsWith(ai, i));
       if (fixed) {
         out.push(
@@ -1265,15 +1271,21 @@ function dataMatrixSegments(value) {
   // Split on every separator representation a decoder can emit: GS/RS/FS control
   // characters, the pipe stand-in, CR/LF (some scanners report FNC1 as a newline),
   // and the literal "<GS>"/"<RS>"/"<FS>" strings produced by human-readable decode
-  // modes. Stray spaces/tabs at element edges are trimmed the same way the engine's
-  // normalizeBarcode strips them before parsing.
-  const parts = String(value)
+  // modes. The separators are kept as their own segments - the original characters
+  // stay as the segment text (so joins, positions and copies remain verbatim) and a
+  // visible marker is rendered instead. Stray spaces/tabs at element edges are
+  // trimmed the same way the engine's normalizeBarcode strips them before parsing.
+  const tokens = String(value)
     .replace(/[()]/g, '')
-    .split(/(?:[\x1d\x1e\x1c|\r\n]|<GS>|<RS>|<FS>)+/)
-    .map(s => s.replace(/^[\t ]+|[\t ]+$/g, ''))
-    .filter(Boolean);
-  const out = parts.flatMap(splitElement).filter(s => String(s.text).length > 0);
-  return out.length ? out : [seg(String(value), 'Decoded value')];
+    .split(/((?:[\x1d\x1e\x1c|\r\n]|<GS>|<RS>|<FS>)+)/);
+  const out = tokens.flatMap((tok, idx) => {
+    if (idx % 2 === 1) return [sepSeg(tok)];
+    const t = tok.replace(/^[\t ]+|[\t ]+$/g, '');
+    return t ? splitElement(t) : [];
+  });
+  // Zero-length segments survive only as display markers (expected-FNC1 dividers).
+  const filtered = out.filter(s => String(s.text).length > 0 || s.display);
+  return filtered.some(s => String(s.text).length > 0) ? filtered : [seg(String(value), 'Decoded value')];
 }
 
 /** Splits a decoded barcode value into colour-coded field segments by its fixed format and field
@@ -1441,6 +1453,16 @@ const GS1_FIELD_SPECS = {
   'AI 00 SSCC value': pf('18-digit SSCC with GS1 mod-10 check digit', t =>
     parseSsccBarcode(`00${t}`).valid ? 'pass' : 'fail'
   ),
+  'FNC1 separator': pf(
+    'GS1 FNC1 group separator expected at this element boundary — encoded as ASCII 29',
+    t => (t.length ? 'pass' : null),
+    t =>
+      t.length === 0
+        ? 'separator character not visible in this decode — many scanners strip FNC1 from the reported payload'
+        : /^[\x1d\x1e\x1c\r\n]+$/.test(t)
+          ? 'control character'
+          : 'reported by the decoder as readable text; the symbol itself normally encodes ASCII 29'
+  ),
   'GS1 element': pf('Unrecognised GS1 element', () => 'manual_review')
 };
 
@@ -1490,7 +1512,7 @@ function fieldSpecsFor(kind, segments) {
  *  per field with its specification and status check, colour-matched to the raw string above
  *  (same segment order, so seg-cN indexes line up). */
 function SegmentedFields({ segments, kind }) {
-  const segs = (segments || []).filter(s => s && String(s.text).length > 0);
+  const segs = (segments || []).filter(s => s && (String(s.text).length > 0 || s.display));
   if (!segs.length) return null;
   const specs = fieldSpecsFor(kind, segs);
   if (!segs.some(s => specs[s.label])) return null;
@@ -1525,10 +1547,10 @@ function SegmentedFields({ segments, kind }) {
         return (
           <FieldLine
             key={`${i}-${s.label}`}
-            swatchClass={`seg-c${i % SEG_PALETTE}`}
+            swatchClass={s.display ? 'seg-sep' : `seg-c${i % SEG_PALETTE}`}
             name={s.label}
             spec={def?.spec || '—'}
-            value={text}
+            value={text.length ? (s.display ?? text) : ''}
             status={def?.check ? def.check(text, ctx) : null}
             detail={detail}
           />
@@ -1547,7 +1569,7 @@ function DecodedBarcodes({ barcodes, kind, label, emptyText, showLegend }) {
   return (
     <ul className="barcode-list decoded-list">
       {barcodes.map(b => {
-        const segments = rawSegments(b.rawValue, kind).filter(s => s && String(s.text).length > 0);
+        const segments = rawSegments(b.rawValue, kind).filter(s => s && (String(s.text).length > 0 || s.display));
         const hasFieldRows = segments.some(s => fieldSpecsFor(kind, segments)[s.label]);
         return (
           <li key={`${b.pageNumber || 0}-${b.rawValue}`}>

@@ -1092,6 +1092,36 @@ figcaption {
 .segmented-legend-val {
   color: #475569;
 }
+/* FNC1 group-separator divider in the DataMatrix breakdown: a short vertical bar
+ * with a small ⟨FNC1⟩ label between the coloured data segments. The bare .seg-sep
+ * styling doubles as the matching swatch in the field rows. */
+.seg-sep {
+  background: #eef1f4;
+  border: 1px dashed #aeb9c5;
+}
+.seg.seg-sep {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 3px;
+  padding: 0 2px;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.seg.seg-sep::before {
+  content: '';
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: #94a3b8;
+  flex: 0 0 auto;
+}
 .seg-c0 {
   background: #dbeafe;
 }
