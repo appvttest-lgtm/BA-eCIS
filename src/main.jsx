@@ -2607,11 +2607,7 @@ function App() {
           the panel stays visible but greyed out and cannot be opened. Remove the
           additional-data-disabled class and the preventDefault to re-enable. */}
       <details className="additional-data-panel additional-data-disabled">
-        <summary
-          className="additional-data-summary"
-          aria-disabled="true"
-          onClick={e => e.preventDefault()}
-        >
+        <summary className="additional-data-summary" aria-disabled="true" onClick={e => e.preventDefault()}>
           Additional provided data (optional) — Get Shipments payload &amp; SSCC extension/prefix
           <span className="disabled-tag">temporarily unavailable</span>
         </summary>
@@ -2693,9 +2689,8 @@ function App() {
             {/* Same AP emblem, tinted StarTrack blue when the audit (or the picker) is StarTrack. */}
             <img
               className={`rail-logo ${
-                (activeAudit
-                  ? activeAudit.selectedAuditMode?.carrier || activeAudit.carrier
-                  : selectedCarrier) === 'startrack'
+                (activeAudit ? activeAudit.selectedAuditMode?.carrier || activeAudit.carrier : selectedCarrier) ===
+                'startrack'
                   ? 'rail-logo-startrack'
                   : ''
               }`}
