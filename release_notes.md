@@ -6,6 +6,13 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.12.8 - clearer "Copy all label data" format
+-----------------------------------------------
+- The copied text now separates each barcode into its own block: the label on one
+  line, then the raw value fenced between dashed rules, with a blank line between
+  blocks. Raw values are copied verbatim (fixed-width QR payloads keep their internal
+  and trailing padding) instead of being trimmed.
+
 v1.12.7 - StarTrack logo tint matched to the brand blue
 --------------------------------------------------------
 - The StarTrack tint on the rail emblem now matches the StarTrack brand blue #009FDA

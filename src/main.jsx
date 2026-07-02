@@ -324,10 +324,17 @@ function barcodeDisplayName(b) {
   return b?.format || b?.symbology || 'barcode';
 }
 
-/** Assembles one "Label: raw value" line per decoded barcode on the label, in report
- *  order, for the header "copy all" action. Values are deduped so a symbol decoded on
- *  multiple passes is copied once; anything not covered by a named group falls back to
- *  its display name. */
+/** Assembles a labelled block per decoded barcode on the label, in report order, for
+ *  the header "copy all" action:
+ *
+ *    Label:
+ *    ------------------
+ *    raw value
+ *    ------------------
+ *
+ *  Raw values are kept verbatim (fixed-width QR payloads keep their padding) and
+ *  deduped so a symbol decoded on multiple passes is copied once; anything not covered
+ *  by a named group falls back to its display name. */
 function allBarcodesCopyText(audit) {
   const groups =
     audit?.carrier === 'startrack'
@@ -342,17 +349,19 @@ function allBarcodesCopyText(audit) {
           ['GS1 DataMatrix barcode', decodedBarcodeList(audit, 'datamatrix')],
           ['QR barcode', decodedBarcodeList(audit, 'qr')]
         ];
+  const RULE = '-'.repeat(18);
   const seen = new Set();
-  const lines = [];
+  const blocks = [];
   const push = (label, b) => {
-    const raw = String(b?.rawValue || '').trim();
-    if (!raw || seen.has(raw)) return;
-    seen.add(raw);
-    lines.push(`${label}: ${raw}`);
+    const raw = String(b?.rawValue || '');
+    const key = raw.trim();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    blocks.push(`${label}:\n${RULE}\n${raw}\n${RULE}`);
   };
   for (const [label, list] of groups) for (const b of list || []) push(label, b);
   for (const b of audit?.detectedBarcodes || []) push(barcodeDisplayName(b), b);
-  return lines.join('\n');
+  return blocks.join('\n\n');
 }
 
 function formatDurationMs(ms) {
