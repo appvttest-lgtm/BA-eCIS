@@ -518,28 +518,38 @@ html {
   border-top: 1px solid #ececec;
   padding-top: 10px;
 }
+/* Bookmarks flow as a wrapping pill row (fails sorted first) so a long review list stays
+ * a few rows tall inside the sticky nav card instead of one chip per line. */
 .review-links {
   list-style: none;
   margin: 10px 0 2px;
   padding: 0;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.review-links li {
+  display: contents;
 }
 .review-link {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 12px;
-  border-radius: 10px;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
   border: 1px solid transparent;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--color-text);
   text-decoration: none;
   transition:
     background 0.12s ease,
     border-color 0.12s ease;
+}
+.review-link .status-ico {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
 }
 .review-link .review-link-title {
   overflow-wrap: anywhere;

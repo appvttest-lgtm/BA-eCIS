@@ -816,9 +816,10 @@ function AuditBookmarks({ audit, sections }) {
       window.history.replaceState(null, '', `#${id}`);
     }
   };
-  const reviewItems = (audit?.validations || []).filter(
-    v => v.status === 'manual_review' || v.status === 'warning' || v.status === 'fail'
-  );
+  const REVIEW_SEVERITY = { fail: 0, warning: 1, manual_review: 2 };
+  const reviewItems = (audit?.validations || [])
+    .filter(v => v.status in REVIEW_SEVERITY)
+    .sort((a, b) => REVIEW_SEVERITY[a.status] - REVIEW_SEVERITY[b.status]);
   const nav =
     audit?.carrier === 'startrack'
       ? [

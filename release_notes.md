@@ -6,6 +6,13 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.10.7 - review bookmarks flow as a compact pill row
+-----------------------------------------------------
+- Review bookmarks now wrap as a horizontal pill row (like the section pills) instead of
+  one full-width chip per line, so nine bookmarks take ~3 rows inside the sticky nav card
+  instead of nine. Chips are slightly smaller (rounded-pill shape, 15px status icon).
+- Bookmarks sort by severity: fails first, then warnings, then manual reviews.
+
 v1.10.6 - thin verdict banner; no more overlap with the section pills
 ---------------------------------------------------------------------
 - The sticky "Audit result" banner is now a thin single-row bar (~50px: label and verdict
