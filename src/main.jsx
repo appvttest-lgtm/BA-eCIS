@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
+  analyzeArticleCandidate,
   auditLabel,
   groupValidations,
   SERVICE_CODE_MAP,
@@ -1099,23 +1100,24 @@ function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)' })
  *  Australia Post AI pattern (01 GTIN, 91 article, 420 postcode, 92 DPID, 8008 date/time). */
 /** Splits an eParcel article number into its individual spec elements (MLID + 7-digit
  *  consignment serial + article count + product + service + postage-paid + check digit).
- *  Handles the 18/21/23-char forms; returns null for an unrecognised length. */
+ *  Structure and field lengths come from the audit engine's article parser (the single
+ *  slicing source of truth); the original string is sliced so the display stays faithful.
+ *  Returns null when the engine does not recognise a standard eParcel article. */
 function articleSegments(article) {
   const c = String(article || '');
-  if (!/^[A-Za-z0-9]+$/.test(c)) return null;
-  const mlid = c.length === 23 ? 5 : c.length === 21 ? 3 : c.length === 18 ? 0 : null;
-  if (mlid === null) return null;
-  const seg = (text, label) => ({ text, label });
-  const parts = mlid ? [seg(c.slice(0, mlid), 'MLID')] : [];
-  parts.push(
-    seg(c.slice(mlid, mlid + 7), 'Consignment serial'),
-    seg(c.slice(mlid + 7, mlid + 9), 'Article count'),
-    seg(c.slice(mlid + 9, mlid + 14), 'Product code'),
-    seg(c.slice(mlid + 14, mlid + 16), 'Service code'),
-    seg(c.slice(mlid + 16, mlid + 17), 'Postage paid'),
-    seg(c.slice(mlid + 17, mlid + 18), 'Check digit')
-  );
-  return parts;
+  const parsed = analyzeArticleCandidate(c)?.article;
+  if (parsed?.type !== 'eparcel-standard' || parsed.articleId.length !== c.length) return null;
+  const fields = [
+    [parsed.mlidLength, 'MLID'],
+    [7, 'Consignment serial'],
+    [2, 'Article count'],
+    [5, 'Product code'],
+    [2, 'Service code'],
+    [1, 'Postage paid'],
+    [1, 'Check digit']
+  ];
+  let i = 0;
+  return fields.map(([len, label]) => ({ text: c.slice(i, (i += len)), label }));
 }
 
 /** Length of the eParcel article ID at the front of an AI 91 payload. AusPost sometimes appends
@@ -1128,7 +1130,7 @@ function eparcelArticleLength(payload) {
     const rest = c.slice(len);
     return rest === '' || /^(420|92|8008|00|01)/.test(rest);
   };
-  for (const len of [21, 23, 18]) {
+  for (const len of [21, 23]) {
     if (len <= c.length && articleSegments(c.slice(0, len)) && remainderOk(len)) return len;
   }
   return c.length;

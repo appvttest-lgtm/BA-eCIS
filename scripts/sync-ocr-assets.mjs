@@ -43,15 +43,21 @@ const note = (label, size) => {
 
 // 1. Tesseract worker (main-thread entry the app loads as a Web Worker).
 console.log('worker:');
-note('tesseract/worker.min.js', copy(fromPkg('tesseract.js', 'dist', 'worker.min.js'), toPublic('tesseract', 'worker.min.js')));
+note(
+  'tesseract/worker.min.js',
+  copy(fromPkg('tesseract.js', 'dist', 'worker.min.js'), toPublic('tesseract', 'worker.min.js'))
+);
 
-// 2. Every WASM core variant. tesseract.js feature-detects the browser's SIMD
-//    support at runtime and requests one of these by name, so ALL must be present
-//    (plain / simd / relaxedsimd, each with and without the LSTM model).
-console.log('core (all wasm variants):');
+// 2. The LSTM WASM core variants. tesseract.js feature-detects the browser's SIMD
+//    support at runtime and requests one tier by name (plain / simd / relaxedsimd),
+//    so all three tiers must be present. The app creates its worker with
+//    OEM 1 (LSTM_ONLY) and no legacyCore, so the non-lstm legacy-engine variants
+//    (~24 MB) are never requested and are deliberately NOT shipped; tesseract.js
+//    throws "Legacy model requested but code missing." if that ever changes.
+console.log('core (lstm wasm variants):');
 const coreDir = fromPkg('tesseract.js-core');
 for (const file of fs.readdirSync(coreDir).sort()) {
-  if (file.endsWith('.wasm') || file.endsWith('.wasm.js')) {
+  if (file.includes('-lstm') && (file.endsWith('.wasm') || file.endsWith('.wasm.js'))) {
     note(`tesseract-core/${file}`, copy(path.join(coreDir, file), toPublic('tesseract-core', file)));
   }
 }

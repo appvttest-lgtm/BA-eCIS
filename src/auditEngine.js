@@ -6,7 +6,6 @@ import { AU_STATES, getRuleSet } from '../rules/index.js';
 import {
   getProductCodeDescription,
   getServiceCodeDescription,
-  PRODUCT_CODE_MAP,
   SERVICE_CODE_MAP,
   SERVICE_TO_PRODUCT_MAP,
   STARTRACK_PRODUCT_CODE_MAP,
@@ -292,7 +291,7 @@ export function normalizeBarcode(raw) {
 }
 
 /** Converts eParcel alpha characters to the digits used by the article check-digit algorithm. */
-export function alphaToAsciiLastDigit(ch) {
+function alphaToAsciiLastDigit(ch) {
   if (/^[A-Z]$/.test(ch)) return String(ch.charCodeAt(0)).slice(-1);
   return ch;
 }
@@ -772,84 +771,6 @@ export function extractLabelFacts(extractedText) {
 export function extractTextBarcodeCandidates(extractedText) {
   const facts = extractLabelFacts(extractedText);
   return facts.articleIds;
-}
-
-/** Validates the product/service pair embedded in a standard eParcel article ID. */
-export function validateServiceProduct(article) {
-  const results = [];
-  if (!article || article.type === 'sscc') return results;
-  const service = SERVICE_CODE_MAP[article.serviceCode];
-  const validProducts = SERVICE_TO_PRODUCT_MAP[article.serviceCode] || [];
-
-  results.push(
-    service
-      ? result(
-          'SERVICE_KNOWN',
-          'Known service code',
-          'ERROR',
-          'service-code',
-          'pass',
-          `Service ${article.serviceCode}: ${service.name}`,
-          { actual: article.serviceCode }
-        )
-      : result(
-          'SERVICE_KNOWN',
-          'Known service code',
-          'ERROR',
-          'service-code',
-          'fail',
-          `Unknown service code ${article.serviceCode}`,
-          { actual: article.serviceCode }
-        )
-  );
-
-  results.push(
-    PRODUCT_CODE_MAP[article.productCode]
-      ? result(
-          'PRODUCT_KNOWN',
-          'Known product code',
-          'ERROR',
-          'service-code',
-          'pass',
-          `Product ${article.productCode}: ${PRODUCT_CODE_MAP[article.productCode]}`,
-          { actual: article.productCode }
-        )
-      : result(
-          'PRODUCT_KNOWN',
-          'Known product code',
-          'ERROR',
-          'service-code',
-          'fail',
-          `Unknown product code ${article.productCode}`,
-          { actual: article.productCode }
-        )
-  );
-
-  if (service) {
-    const ok = validProducts.includes(article.productCode);
-    results.push(
-      ok
-        ? result(
-            'SERVICE_PRODUCT_MATCH',
-            'Service/product compatibility',
-            'ERROR',
-            'service-code',
-            'pass',
-            `Service ${article.serviceCode} supports product ${article.productCode}.`,
-            { expected: validProducts.join(', '), actual: article.productCode }
-          )
-        : result(
-            'SERVICE_PRODUCT_MATCH',
-            'Service/product compatibility',
-            'ERROR',
-            'service-code',
-            'fail',
-            `Service ${article.serviceCode} does not support product ${article.productCode}.`,
-            { expected: validProducts.join(', '), actual: article.productCode }
-          )
-    );
-  }
-  return results;
 }
 
 function decodedRawValues(detectedBarcodes) {

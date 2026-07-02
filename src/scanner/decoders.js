@@ -187,6 +187,22 @@ export function zxingDecodeCanvas(
   }
 }
 
+/** Converts a ZXing-WASM four-corner position into the axis-aligned box used by other decoders. */
+function positionToBox(position) {
+  if (!position) return null;
+  const corners = [position.topLeft, position.topRight, position.bottomLeft, position.bottomRight];
+  const xs = corners.map(p => p?.x ?? 0);
+  const ys = corners.map(p => p?.y ?? 0);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return {
+    x: Math.round(x),
+    y: Math.round(y),
+    width: Math.round(Math.max(...xs) - x),
+    height: Math.round(Math.max(...ys) - y)
+  };
+}
+
 /** Runs ZXing-WASM, the primary decoder for reliable Code128/DataMatrix reads in local browsers. */
 export async function wasmDecodeCanvas(
   canvas,
@@ -228,54 +244,7 @@ export async function wasmDecodeCanvas(
         variantLabel,
         orientation: r.orientation,
         symbologyIdentifier: r.symbologyIdentifier || '',
-        boundingBox: r.position
-          ? {
-              x: Math.round(
-                Math.min(
-                  r.position.topLeft?.x ?? 0,
-                  r.position.bottomLeft?.x ?? 0,
-                  r.position.topRight?.x ?? 0,
-                  r.position.bottomRight?.x ?? 0
-                )
-              ),
-              y: Math.round(
-                Math.min(
-                  r.position.topLeft?.y ?? 0,
-                  r.position.bottomLeft?.y ?? 0,
-                  r.position.topRight?.y ?? 0,
-                  r.position.bottomRight?.y ?? 0
-                )
-              ),
-              width: Math.round(
-                Math.max(
-                  r.position.topLeft?.x ?? 0,
-                  r.position.bottomLeft?.x ?? 0,
-                  r.position.topRight?.x ?? 0,
-                  r.position.bottomRight?.x ?? 0
-                ) -
-                  Math.min(
-                    r.position.topLeft?.x ?? 0,
-                    r.position.bottomLeft?.x ?? 0,
-                    r.position.topRight?.x ?? 0,
-                    r.position.bottomRight?.x ?? 0
-                  )
-              ),
-              height: Math.round(
-                Math.max(
-                  r.position.topLeft?.y ?? 0,
-                  r.position.bottomLeft?.y ?? 0,
-                  r.position.topRight?.y ?? 0,
-                  r.position.bottomRight?.y ?? 0
-                ) -
-                  Math.min(
-                    r.position.topLeft?.y ?? 0,
-                    r.position.bottomLeft?.y ?? 0,
-                    r.position.topRight?.y ?? 0,
-                    r.position.bottomRight?.y ?? 0
-                  )
-              )
-            }
-          : null
+        boundingBox: positionToBox(r.position)
       }));
   } catch (error) {
     debugWarn('ZXing-WASM scan failed', regionLabel, variantLabel, error);

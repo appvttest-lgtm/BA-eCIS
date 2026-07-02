@@ -6,6 +6,21 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.9.3 - lean pass: drop unused legacy OCR cores (~24 MB) and dead code
+-----------------------------------------------------------------------
+Over-engineering audit applied; no behaviour change intended.
+- Removed the six legacy (non-LSTM) tesseract core variants from public/tesseract-core/ (~24 MB
+  per shipped copy). The app creates its OCR worker in LSTM_ONLY mode so these were never
+  requested; scripts/sync-ocr-assets.mjs now syncs only the *-lstm variants. tesseract.js fails
+  loudly ("Legacy model requested but code missing.") if legacy mode is ever introduced.
+- Deleted the dead validateServiceProduct() (superseded by the serviceProductCompatible rule
+  function) and the orphaned scripts/audit-harness.mjs (golden corpus covers it).
+- The report's article segmentation now derives its field slicing from the audit engine's
+  article parser instead of a hand-copied slice table (one source of truth; display remains
+  faithful to the scanned string). Dropped the speculative 18-char article form the engine
+  never recognised.
+- Collapsed the ZXing-WASM bounding-box corner min/max block into a small helper.
+
 v1.9.2 - report detail: copy icons, full eParcel/AI-91 element breakdown, frozen verdict
 ----------------------------------------------------------------------------------------
 Incremental refinements to the redesigned report (issues #15, #22, #23, #25).
