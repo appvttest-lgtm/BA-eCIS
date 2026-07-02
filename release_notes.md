@@ -6,6 +6,14 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.10.6 - thin verdict banner; no more overlap with the section pills
+---------------------------------------------------------------------
+- The sticky "Audit result" banner is now a thin single-row bar (~50px: label and verdict
+  side by side at 24px) instead of a ~115px stacked card, so it no longer covers the
+  sticky section pills / bookmarks underneath it on failed labels.
+- The quick-nav sticky offset moves up to match (72px -> 56px) and anchor scroll margins
+  were retuned so bookmark jumps still land below the sticky stack.
+
 v1.10.5 - clean sections hide their parse cards and spec reference text
 -----------------------------------------------------------------------
 - The per-barcode parse fact-cards (e.g. ATL number/counter/format/orientation, routing

@@ -430,16 +430,23 @@ details summary {
 .upload-card textarea + textarea {
   margin-top: 10px;
 }
-/* Overall verdict banner frozen at the top of the report (issue #25 "freeze frame"). */
+/* Overall verdict banner frozen at the top of the report (issue #25 "freeze frame").
+ * Kept to a thin single row so it never overlaps the sticky quick-nav below it. */
 .consolidated-summary {
   position: sticky;
   top: 0;
   z-index: 20;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 9px 22px;
+}
+.consolidated-summary > div {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
 }
 .nav-card {
   position: sticky;
-  top: 72px;
+  top: 56px;
   z-index: 5;
 }
 .quick-nav {
@@ -503,7 +510,7 @@ html {
 }
 .rule-row[id],
 .audit-section[id] {
-  scroll-margin-top: 200px;
+  scroll-margin-top: 220px;
 }
 
 .review-list {
@@ -1218,13 +1225,15 @@ figcaption {
   margin: 3px 0;
 }
 .consolidated-summary {
-  display: block;
   border-width: 2px;
 }
 .consolidated-summary h2 {
-  margin-bottom: 4px;
+  margin: 0;
+  font-size: var(--text-body);
 }
 .consolidated-summary .overall {
+  margin: 0;
+  font-size: 24px;
   line-height: 1;
 }
 .summary-pass {
