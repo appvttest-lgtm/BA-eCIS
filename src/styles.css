@@ -824,7 +824,9 @@ figcaption {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.9;
-  white-space: pre-wrap;
+  /* break-spaces (not pre-wrap): preserved space runs in fixed-width payloads wrap like
+   * characters instead of hanging their coloured background past the box edge. */
+  white-space: break-spaces;
   word-break: break-all;
   color: #1f2937;
 }

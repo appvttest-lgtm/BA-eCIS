@@ -6,6 +6,14 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.10.8 - colour-coded string no longer bleeds past its box
+-----------------------------------------------------------
+- Fixed-width payloads (StarTrack QR) contain long runs of preserved spaces for blank
+  fields; with white-space: pre-wrap those trailing spaces hang past the container edge,
+  dragging their coloured segment background outside the box. Switched the segmented code
+  block to white-space: break-spaces so space runs wrap like characters and every colour
+  stays inside the box.
+
 v1.10.7 - review bookmarks flow as a compact pill row
 -----------------------------------------------------
 - Review bookmarks now wrap as a horizontal pill row (like the section pills) instead of
