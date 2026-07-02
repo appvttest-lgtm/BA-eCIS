@@ -447,15 +447,53 @@ details summary {
   flex-wrap: wrap;
   gap: 8px;
 }
+/* Section pills: passing sections stay quiet (dot only); review/fail sections tint the
+ *  whole pill so problems stand out at a glance. */
 .quick-nav a {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid #dde5ef;
-  background: #f7faff;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
   border-radius: 999px;
-  padding: 8px 10px;
-  font-weight: 700;
+  padding: 7px 13px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.quick-nav a:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-1);
+  box-shadow: 0 1px 3px rgba(38, 37, 31, 0.08);
+}
+.nav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: #9aa4af;
+}
+.nav-pass .nav-dot {
+  background: #0a9b3d;
+}
+.nav-review .nav-dot {
+  background: #d98a00;
+}
+.nav-fail .nav-dot {
+  background: #d0112b;
+}
+.nav-review {
+  background: #fff8ea;
+  border-color: #f2d99b;
+}
+.nav-fail {
+  background: #fff0f2;
+  border-color: #f2b4bd;
 }
 .review-list {
   margin-top: 14px;
@@ -1232,21 +1270,55 @@ figcaption {
   grid-area: status;
   align-self: start;
 }
-.selected-label-header h2 {
-  margin-bottom: 8px;
+.selected-label-eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-subtle);
+  margin-bottom: 4px;
+}
+.selected-label-number {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.selected-label-number code {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 4px 10px;
+  border-radius: 8px;
 }
 .selected-label-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
-.selected-label-meta span {
-  display: inline-block;
-  padding: 7px 9px;
-  border-radius: 999px;
-  background: #f3f6fa;
-  border: 1px solid #e0e7ef;
+.selected-label-meta > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
   font-size: 12px;
+}
+.selected-label-meta .meta-k {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-subtle);
+  white-space: nowrap;
+}
+.selected-label-meta .meta-v {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
 }
 .single-audit-view {
   animation: fade-in 0.18s ease-out;

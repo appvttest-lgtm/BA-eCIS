@@ -6,6 +6,15 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.10.1 - slicker report header and section navigation
+------------------------------------------------------
+- Report header: small "ARTICLE NUMBER" eyebrow over a large mono article number with a
+  one-click copy button; the mode/product/service/file facts become labelled chips
+  (muted label + strong value) instead of bold-colon pills.
+- Section quick-nav: plain-blue underlined links + repeated PASS badges replaced with
+  quiet pills - a small status dot per section (green/amber/red/grey), with review/fail
+  sections tinting the whole pill so problems stand out while passing sections stay calm.
+
 v1.10.0 - QR-style field breakdown for every barcode; audit-mode section retired
 --------------------------------------------------------------------------------
 The StarTrack 2D QR "parsed payload fields" layout is now the standard breakdown for every

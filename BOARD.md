@@ -14,6 +14,7 @@ Not yet merged to main. Warm-theme report rebuild plus GitHub issue burn-down.
 - [x] #22 full eParcel article breakdown; AI 91 split to article elements + trailing AIs (420/92/8008) #feature
 - [x] #23 collapse optional payload + SSCC inputs under an "Additional provided data" dropdown #feature
 - [x] #25 freeze the PASS/REVIEW/FAIL verdict banner at the top (partial) #feature
+- [x] QR-style per-field breakdown applied to every barcode (eParcel article/GS1/SSCC, StarTrack freight/routing/ATL/SSCC); audit-mode card retired (v1.10.0) #feature
 - [ ] #16 SSCC-QR validation detail, #17 sync report, #18 wrapping, #24 redundant section, #25 layout consolidation — blocked on issue screenshots #feature
 - [ ] #11 #12 #13 #14 — deferred by owner #feature
 

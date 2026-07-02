@@ -818,11 +818,20 @@ function AuditBookmarks({ audit, sections }) {
   return (
     <section className="card nav-card">
       <div className="quick-nav">
-        {nav.map(([id, label, items]) => (
-          <a key={id} href={`#${id}`}>
-            {label} <SectionStatus items={items} />
-          </a>
-        ))}
+        {nav.map(([id, label, items]) => {
+          const tone = sectionTone(items);
+          return (
+            <a
+              key={id}
+              href={`#${id}`}
+              className={`nav-pill nav-${tone}`}
+              title={tone === 'neutral' ? 'no checks' : tone}
+            >
+              <span className="nav-dot" aria-hidden="true" />
+              {label}
+            </a>
+          );
+        })}
       </div>
       {reviewItems.length > 0 && (
         <details className="review-list" open>
@@ -2681,29 +2690,41 @@ function App() {
               return (
                 <section className="single-audit-view" key={`${h.articleNumber}-${activeIndex}`}>
                   <section className="card compact-card selected-label-header">
-                    <h2>
-                      Article Number: <code>{h.articleNumber}</code>
-                    </h2>
+                    <span className="selected-label-eyebrow">Article number</span>
+                    <div className="selected-label-number">
+                      <code>{h.articleNumber}</code>
+                      <CopyButton value={h.articleNumber} />
+                    </div>
                     <div className="selected-label-meta">
                       <span>
-                        <strong>Mode:</strong>{' '}
-                        {LABEL_FAMILY_NAMES[activeAudit.selectedAuditMode?.carrier || activeAudit.carrier] ||
-                          activeAudit.carrier}{' '}
-                        /{' '}
-                        {LABEL_FORMAT_NAMES[activeAudit.selectedAuditMode?.labelFormat || activeAudit.labelFormat] ||
-                          activeAudit.labelFormat ||
-                          'standard'}
+                        <span className="meta-k">Mode</span>
+                        <span className="meta-v">
+                          {LABEL_FAMILY_NAMES[activeAudit.selectedAuditMode?.carrier || activeAudit.carrier] ||
+                            activeAudit.carrier}{' '}
+                          /{' '}
+                          {LABEL_FORMAT_NAMES[activeAudit.selectedAuditMode?.labelFormat || activeAudit.labelFormat] ||
+                            activeAudit.labelFormat ||
+                            'standard'}
+                        </span>
                       </span>
                       <span>
-                        <strong>Product:</strong> {h.productCode ? `${h.productCode} — ${h.productName}` : h.product}
+                        <span className="meta-k">Product</span>
+                        <span className="meta-v">
+                          {h.productCode ? `${h.productCode} — ${h.productName}` : h.product}
+                        </span>
                       </span>
                       <span>
-                        <strong>{activeAudit.carrier === 'startrack' ? 'Routing / service:' : 'Service Code:'}</strong>{' '}
-                        {h.serviceCode || 'not parsed'}
-                        {h.serviceName ? ` — ${h.serviceName}` : ''}
+                        <span className="meta-k">
+                          {activeAudit.carrier === 'startrack' ? 'Routing / service' : 'Service code'}
+                        </span>
+                        <span className="meta-v">
+                          {h.serviceCode || 'not parsed'}
+                          {h.serviceName ? ` — ${h.serviceName}` : ''}
+                        </span>
                       </span>
                       <span>
-                        <strong>File:</strong> {h.displayFile || h.filename}
+                        <span className="meta-k">File</span>
+                        <span className="meta-v">{h.displayFile || h.filename}</span>
                       </span>
                     </div>
                   </section>
