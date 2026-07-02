@@ -612,6 +612,13 @@ function sectionTone(items = []) {
   return 'neutral';
 }
 
+/** Clean sections hide their parse fact-cards and spec reference text; both surface only
+ *  when the section carries a warning or failure the reviewer needs the context for. */
+function sectionHasIssues(items) {
+  const tone = sectionTone(items);
+  return tone === 'fail' || tone === 'review';
+}
+
 function SectionStatus({ items }) {
   const tone = sectionTone(items);
   return <span className={`section-status section-status-${tone}`}>{tone === 'neutral' ? 'no checks' : tone}</span>;
@@ -1535,11 +1542,13 @@ function StarTrackQrSection({ audit, items }) {
           )}
         </div>
         <div>
-          <p className="muted">Checks the required StarTrack QR payload.</p>
-          <StandardLine>
-            StarTrack QR fields are fixed width and include receiver suburb/postcode, connote, freight item number,
-            product code, quantity, weight, despatch date, unit type, destination depot, DG indicator and movement type.
-          </StandardLine>
+          {sectionHasIssues(items) && (
+            <StandardLine>
+              StarTrack QR fields are fixed width and include receiver suburb/postcode, connote, freight item number,
+              product code, quantity, weight, despatch date, unit type, destination depot, DG indicator and movement
+              type.
+            </StandardLine>
+          )}
           <div className="decoded-panel">
             <h3>Raw decoded QR string (colour-coded by field)</h3>
             <DecodedBarcodes
@@ -1626,7 +1635,7 @@ function StarTrackRoutingSection({ audit, items }) {
             label="Routing barcode"
             emptyText="No StarTrack routing barcode value decoded."
           />
-          {routes.length > 0 && (
+          {sectionHasIssues(items) && routes.length > 0 && (
             <div className="fact-cards fact-cards-wide">
               {routes.map(route => (
                 <React.Fragment key={route.raw}>
@@ -1650,11 +1659,13 @@ function StarTrackRoutingSection({ audit, items }) {
               ))}
             </div>
           )}
-          <StandardLine>
-            StarTrack routing barcode is required separately from the freight item and ATL barcodes. Standard format is
-            SSS9999DD/DDD: Premium and Fixed Price Premium labels commonly use a three-character depot/port suffix,
-            while Express labels may use a two-character suffix. AU domestic SSCC labels may use GS1 421/403 routing.
-          </StandardLine>
+          {sectionHasIssues(items) && (
+            <StandardLine>
+              StarTrack routing barcode is required separately from the freight item and ATL barcodes. Standard format
+              is SSS9999DD/DDD: Premium and Fixed Price Premium labels commonly use a three-character depot/port suffix,
+              while Express labels may use a two-character suffix. AU domestic SSCC labels may use GS1 421/403 routing.
+            </StandardLine>
+          )}
           <ValidationTable items={items} />
         </div>
       </div>
@@ -1691,7 +1702,7 @@ function StarTrackAtlSection({ audit, items }) {
             label="ATL barcode"
             emptyText="No StarTrack ATL barcode value decoded."
           />
-          {atlParses.length > 0 && (
+          {sectionHasIssues(items) && atlParses.length > 0 && (
             <div className="fact-cards fact-cards-wide">
               {atlParses.map(atl => (
                 <React.Fragment key={atl.atlNumber}>
@@ -1715,11 +1726,13 @@ function StarTrackAtlSection({ audit, items }) {
               ))}
             </div>
           )}
-          <StandardLine>
-            StarTrack ATL barcode content is C999999999. C is always the character C and the nine-digit sequential
-            counter starts at 000000001. Preferred orientation is Picket Fence, minimum bar height 10mm, minimum barcode
-            length 28mm, left/right quiet zone 5mm, and resolution 6 dots per mm.
-          </StandardLine>
+          {sectionHasIssues(items) && (
+            <StandardLine>
+              StarTrack ATL barcode content is C999999999. C is always the character C and the nine-digit sequential
+              counter starts at 000000001. Preferred orientation is Picket Fence, minimum bar height 10mm, minimum
+              barcode length 28mm, left/right quiet zone 5mm, and resolution 6 dots per mm.
+            </StandardLine>
+          )}
           <ValidationTable items={items} />
         </div>
       </div>
@@ -1757,7 +1770,7 @@ function StarTrackFreightItemSection({ audit, items }) {
             label="Freight item barcode"
             emptyText="No StarTrack freight item / SSCC barcode value decoded."
           />
-          {freightParses.length > 0 && (
+          {sectionHasIssues(items) && freightParses.length > 0 && (
             <div className="fact-cards fact-cards-wide">
               {freightParses.map(f => (
                 <React.Fragment key={f.freightItemId}>
@@ -1783,7 +1796,7 @@ function StarTrackFreightItemSection({ audit, items }) {
               ))}
             </div>
           )}
-          {ssccs.length > 0 && (
+          {sectionHasIssues(items) && ssccs.length > 0 && (
             <details className="reference-details sscc-details">
               <summary>SSCC details ({ssccs.length})</summary>
               <div className="fact-cards fact-cards-wide">
@@ -1817,10 +1830,12 @@ function StarTrackFreightItemSection({ audit, items }) {
               ))}
             </details>
           )}
-          <StandardLine>
-            StarTrack freight item barcode is mandatory and is separate from the routing barcode. It is either
-            20-character Code128 XXXZ99999999AAA99999 or GS1 AI 00 SSCC.
-          </StandardLine>
+          {sectionHasIssues(items) && (
+            <StandardLine>
+              StarTrack freight item barcode is mandatory and is separate from the routing barcode. It is either
+              20-character Code128 XXXZ99999999AAA99999 or GS1 AI 00 SSCC.
+            </StandardLine>
+          )}
           <ValidationTable items={items} />
         </div>
       </div>
@@ -1849,15 +1864,17 @@ function DataMatrixSection({ audit, items }) {
           )}
         </div>
         <div>
-          {auditHasSsccOnly(audit) ? (
-            <StandardLine>
-              SSCC labels use AI 00. eParcel AI 91/product/service evaluation is not applicable to an SSCC barcode.
-            </StandardLine>
-          ) : (
-            <StandardLine>
-              GS1 DataMatrix should include AI 01, AI 91, AI 420 postcode and AI 8008 date/time. AI 92 DPID is optional.
-            </StandardLine>
-          )}
+          {sectionHasIssues(items) &&
+            (auditHasSsccOnly(audit) ? (
+              <StandardLine>
+                SSCC labels use AI 00. eParcel AI 91/product/service evaluation is not applicable to an SSCC barcode.
+              </StandardLine>
+            ) : (
+              <StandardLine>
+                GS1 DataMatrix should include AI 01, AI 91, AI 420 postcode and AI 8008 date/time. AI 92 DPID is
+                optional.
+              </StandardLine>
+            ))}
 
           <div className="decoded-panel">
             <h3>Raw decoded GS1 DataMatrix string (colour-coded by AI)</h3>
@@ -1909,17 +1926,18 @@ function LinearBarcodeSection({ audit, items }) {
             label="Linear barcode"
             emptyText="No Code128/GS1-128 value decoded."
           />
-          {auditHasSsccOnly(audit) ? (
-            <StandardLine>
-              SSCC linear barcodes use AI 00 and should decode to a valid SSCC value. eParcel
-              product/service/check-digit fields are not encoded in the SSCC value.
-            </StandardLine>
-          ) : (
-            <StandardLine>
-              Linear GS1-128 should encode AI 01 + AusPost GTIN, AI 91 + article component, with a valid eParcel check
-              digit.
-            </StandardLine>
-          )}
+          {sectionHasIssues(items) &&
+            (auditHasSsccOnly(audit) ? (
+              <StandardLine>
+                SSCC linear barcodes use AI 00 and should decode to a valid SSCC value. eParcel
+                product/service/check-digit fields are not encoded in the SSCC value.
+              </StandardLine>
+            ) : (
+              <StandardLine>
+                Linear GS1-128 should encode AI 01 + AusPost GTIN, AI 91 + article component, with a valid eParcel check
+                digit.
+              </StandardLine>
+            ))}
           <ValidationTable items={items} />
         </div>
       </div>

@@ -6,6 +6,15 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.10.5 - clean sections hide their parse cards and spec reference text
+-----------------------------------------------------------------------
+- The per-barcode parse fact-cards (e.g. ATL number/counter/format/orientation, routing
+  label/postcode/depot, freight article/consignment/product, the collapsed SSCC details)
+  and the "Specification standard / example" reference paragraphs are now hidden when the
+  section has no warnings or failures - the colour-coded string + field breakdown already
+  carry that information for clean sections. Both reappear automatically when a section
+  rule warns or fails, giving the reviewer the spec context next to the problem.
+
 v1.10.4 - rule tables default to warnings & fails only
 ------------------------------------------------------
 - Every per-section rule table now opens on the "Warnings & fails" filter instead of "All",
