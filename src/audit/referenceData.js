@@ -156,8 +156,3 @@ export function getServiceCodeDescription(code) {
   const service = SERVICE_CODE_MAP[code];
   return service ? `${service.name} - ${service.description}` : 'Unknown service code';
 }
-
-/** Returns the service rule object used by payload comparison and service-matrix UI. */
-export function getServiceCodeRules(code) {
-  return SERVICE_CODE_MAP[code] || null;
-}

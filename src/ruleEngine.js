@@ -16,11 +16,6 @@ export function registerRuleFunction(name, fn) {
   CUSTOM_FNS[name] = fn;
 }
 
-/** Looks up a registered rule function by name. */
-export function getRuleFunction(name) {
-  return CUSTOM_FNS[name];
-}
-
 /** Resolves a dotted path against the evidence context or the current forEach item. */
 export function resolvePath(path, context, item) {
   if (path == null || path === '') return undefined;
