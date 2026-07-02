@@ -1084,8 +1084,10 @@ const SEG_PALETTE = 8;
  *  glyph, swapping to a check mark for a moment after a successful copy. */
 function CopyButton({ value, label = 'Copy barcode value', text }) {
   const [copied, setCopied] = useState(false);
-  const payload = String(value ?? '').trim();
-  if (!payload) return null;
+  // Copy verbatim: fixed-width payloads (StarTrack QR) carry significant leading/
+  // trailing padding, so only the "is there anything to copy" check may trim.
+  const payload = String(value ?? '');
+  if (!payload.trim()) return null;
   const doCopy = async () => {
     try {
       if (navigator.clipboard?.writeText) {

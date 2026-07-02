@@ -6,6 +6,13 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.12.9 - copy buttons never trim barcode values
+-------------------------------------------------
+- The shared copy-to-clipboard button no longer trims the value it writes: fixed-width
+  StarTrack QR payloads keep their significant leading and trailing padding on every
+  copy action ("Copy all label data" and the per-barcode copy icons). Trimming is only
+  used to decide whether there is anything to copy.
+
 v1.12.8 - clearer "Copy all label data" format
 -----------------------------------------------
 - The copied text now separates each barcode into its own block: the label on one
