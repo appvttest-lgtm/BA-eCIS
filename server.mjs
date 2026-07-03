@@ -75,8 +75,16 @@ function serveFile(res, filePath, stat) {
 
 /** Stats and serves a file asynchronously; runs the fallback (or 404s) when it is not a file. */
 function sendFileOrFallback(res, filePath, fallback) {
-  fs.stat(filePath, (statErr, stat) => {
-    if (!statErr && stat.isFile()) return serveFile(res, filePath, stat);
+  // Defense in depth: the request handler already normalizes and containment-checks
+  // the path, but re-verify at the filesystem boundary so no future caller can
+  // reach fs with a path outside dist/.
+  const resolved = path.resolve(filePath);
+  const distRoot = path.resolve(distDir);
+  if (resolved !== distRoot && !resolved.startsWith(distRoot + path.sep)) {
+    return send(res, 403, 'Forbidden');
+  }
+  fs.stat(resolved, (statErr, stat) => {
+    if (!statErr && stat.isFile()) return serveFile(res, resolved, stat);
     if (fallback) return fallback();
     return send(res, 404, 'Not found');
   });
@@ -93,6 +101,10 @@ function isAllowedHost(hostHeader) {
   return host === '127.0.0.1' || host === 'localhost' || host === '[::1]';
 }
 
+// Plain HTTP is deliberate and safe here: the server binds 127.0.0.1 only, so the
+// traffic never leaves this machine. TLS on loopback would add certificate
+// management for end users without changing the security posture (accepted risk;
+// see the per-release security assessment).
 const server = http.createServer((req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return send(res, 405, 'Method not allowed');
@@ -115,6 +127,12 @@ const server = http.createServer((req, res) => {
     return send(res, 400, 'Bad request');
   }
 
+  // A %00 in the URL would otherwise reach fs.stat, which throws synchronously on
+  // NUL bytes and would bring the whole server down.
+  if (requestedPath.includes('\0')) {
+    return send(res, 400, 'Bad request');
+  }
+
   if (requestedPath === '/') requestedPath = '/index.html';
 
   const normalized = path.normalize(requestedPath).replace(/^([/\\])+/, '');
@@ -128,6 +146,14 @@ const server = http.createServer((req, res) => {
   // React owns client-side routing, so unknown static paths fall back to the app shell.
   return sendFileOrFallback(res, absolutePath, () => sendFileOrFallback(res, indexHtmlPath, null));
 });
+
+// Explicit resource limits: this server only ever streams small static files to a
+// local browser, so anything holding a connection open longer than this is
+// misbehaving and gets cut rather than accumulating sockets.
+server.requestTimeout = 30_000;
+server.headersTimeout = 10_000;
+server.keepAliveTimeout = 5_000;
+server.maxRequestsPerSocket = 1000;
 
 server.on('error', err => {
   if (err.code === 'EADDRINUSE') {

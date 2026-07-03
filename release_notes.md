@@ -6,6 +6,27 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.13.2 - Local server hardening (Snyk findings triage)
+---------------------------------------------------------
+Response to a Snyk scan of the static local server (server.mjs, mirrored in
+portable/):
+
+- Path traversal (flagged at the fs.stat call): already contained by the request
+  handler's normalize + path.relative check; a defense-in-depth containment
+  re-check now also runs at the filesystem boundary, so no future caller can reach
+  fs with a path outside dist/. Verified live: encoded and doubled dot-segment
+  traversal attempts receive only the SPA index.html fallback.
+- NUL-byte requests (%00) are rejected with 400 before reaching fs.stat, which
+  throws synchronously on NUL and would previously have crashed the server.
+- Explicit resource limits set (requestTimeout 30s, headersTimeout 10s,
+  keepAliveTimeout 5s, maxRequestsPerSocket 1000).
+- Cleartext HTTP is an accepted, documented design decision: the server binds
+  127.0.0.1 only, so traffic never leaves the machine; TLS on loopback would add
+  certificate management without changing the security posture.
+- reportView.jsx "hardcoded password" finding is a false positive: the flagged
+  string is SVG path data for the green tick icon, keyed by the rule status
+  "pass". No change needed.
+
 v1.13.1 - GS1 DataMatrix carrier compliance: FNC1-first and ECC 200
 --------------------------------------------------------------------
 Per the GS1 DataMatrix Guideline (gs1.org), a GS1 DataMatrix is specifically Data
