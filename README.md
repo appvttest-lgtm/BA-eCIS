@@ -116,6 +116,15 @@ The local HTTP server is used so browser modules, PDF workers, WebAssembly asset
 - Development-only tooling (eslint, prettier and plugins, pinned exact) never ships in dist/. Two moderate advisories exist in Vite 5's dev-server esbuild; they affect npm run dev only and the fix is deferred because it requires a breaking Vite major upgrade (see release notes v1.7.4).
 - A CycloneDX SBOM covering the full build-time dependency tree is committed at `docs/security/sbom.cyclonedx.json` and regenerated each release with `npm run sbom`.
 
+## Snyk Integration Findings (triaged v1.13.2)
+
+- Path Traversal (`server.mjs`): mitigated — request paths are normalized and containment-checked, plus a v1.13.2 defense-in-depth re-check at the `fs` boundary; traversal attempts verified to receive only the SPA `index.html` fallback.
+- Allocation of Resources Without Limits (`server.mjs`): mitigated — explicit `requestTimeout` 30s, `headersTimeout` 10s, `keepAliveTimeout` 5s and `maxRequestsPerSocket` 1000 set in v1.13.2.
+- Cleartext HTTP (`server.mjs`): accepted by design — the server binds `127.0.0.1` only, so traffic never leaves the machine and TLS on loopback would add certificate management without changing the security posture.
+- Use of Hardcoded Passwords (`reportView.jsx`): false positive — the flagged string is SVG path data for the green tick icon, keyed by the rule status name `pass`; no credential exists.
+- The `portable/server.mjs` findings are the same file mirrored by the portable build; fixes apply to both automatically via `npm run build:portable`.
+- Related hardening from the same triage: `%00` URLs are rejected with 400 before reaching `fs.stat`, which throws synchronously on NUL bytes and could previously crash the server.
+
 ## Rule Sets
 
 Validation rules are declarative JSON files under `rules/`, derived from the two carrier specifications and the checklists in `docs/checklists/`. Each carrier has a base file plus per-product variant files that extend it:
