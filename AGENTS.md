@@ -120,7 +120,16 @@ Behavior that must be preserved:
 - **Identity-gated payload comparison** — a pasted Get Shipments payload must first
   match the label on identity fields (article ID, freight item ID, SSCC, consignment
   ID, connote ID); on mismatch, secondary comparisons report as *not applicable*,
-  never as matches.
+  never as matches. Identity values come from **decoded barcode data only** — OCR/text
+  facts must never arm the identity gate.
+- **OCR is one-way** — barcode decode is authoritative for barcode values; OCR/text is
+  only ever compared *against* decoded data, never used as a value source.
+- **Printed-vs-decoded checks use print-only facts** — StarTrack visible-text rules
+  (`text.visible*`, `derived.receiverEvidence`) read the pre-enrichment facts;
+  decoded-data backfill must never satisfy a "printed on the label" check.
+- **Undetected states stay visible** — gated mandatory rules use `reportWhenSkipped` /
+  `onEmpty` so a check whose input is missing emits a manual-review / not-assessed row
+  instead of silently vanishing from the report.
 - StarTrack barcode roles stay separate: 2D QR, routing, freight item, ATL
   (`C999999999` format), SSCC.
 - Check-digit and product/service-matrix validation functions.
