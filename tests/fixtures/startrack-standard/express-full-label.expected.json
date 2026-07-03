@@ -6,15 +6,15 @@
   },
   "overallStatus": "REVIEW",
   "counts": {
-    "total": 51,
-    "passed": 49,
+    "total": 53,
+    "passed": 50,
     "failed": 0,
     "manualReview": 2,
     "critical": 5,
-    "errors": 37,
-    "warnings": 1
+    "errors": 38,
+    "warnings": 2
   },
-  "firedRuleCount": 51,
+  "firedRuleCount": 53,
   "results": {
     "AUDIT_MODE_CARRIER": "pass",
     "AUDIT_MODE_FORMAT": "pass",
@@ -26,6 +26,7 @@
     "ST-FRT-02C": "pass",
     "ST-FRT-03": "pass",
     "ST-FRT-04": "pass",
+    "ST-FRT-07": "not_applicable",
     "ST-FRT-08": "pass",
     "ST-FRT-09": "pass",
     "ST-HDR-01": "pass",
@@ -64,6 +65,7 @@
     "ST-RTE-04": "pass",
     "ST-RTE-09": "pass",
     "ST-SND-01": "manual_review",
+    "ST-SSC-STRAY": "pass",
     "ST-X-01": "pass",
     "ST-X-02": "pass",
     "ST_TEXT_EXTRACTED": "pass"

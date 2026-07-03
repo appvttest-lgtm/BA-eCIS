@@ -11,6 +11,7 @@
     { "id": "ST-FRT-02C", "disabled": true },
     { "id": "ST-FRT-03", "disabled": true },
     { "id": "ST-FRT-04", "disabled": true },
+    { "id": "ST-FRT-07", "disabled": true },
     { "id": "ST-FRT-08", "disabled": true },
     { "id": "ST-FRT-09", "disabled": true },
     { "id": "ST-PRD-01", "disabled": true },
@@ -40,12 +41,20 @@
       "severity": "CRITICAL",
       "category": "startrack-sscc",
       "source": { "doc": "MOS v9", "page": 13 },
+      "when": {
+        "any": [
+          { "path": "barcodes.sscc.valid", "op": "notEmpty" },
+          { "path": "barcodes.sscc.invalid", "op": "notEmpty" }
+        ]
+      },
+      "reportWhenSkipped": true,
       "input": "barcodes.sscc.invalid",
       "evidence": ["derived.invalidSsccReasons"],
       "assert": { "op": "empty" },
       "messages": {
         "pass": "All decoded SSCC barcodes have valid mod-10 check digits.",
-        "fail": "One or more decoded SSCC values failed the mod-10 check digit."
+        "fail": "One or more decoded SSCC values failed the mod-10 check digit.",
+        "skipped": "No SSCC barcode was decoded, so the check digit could not be assessed."
       }
     },
     {
@@ -57,12 +66,35 @@
       "category": "startrack-sscc",
       "source": { "doc": "MOS v9", "page": 34 },
       "forEach": "barcodes.qr",
+      "onEmpty": "manual_review",
       "itemWhen": { "path": "item.fields.movementTypeIndicator", "op": "present" },
       "input": "item.fields.movementTypeIndicator",
       "assert": { "op": "equals", "value": "N" },
       "messages": {
         "pass": "QR movement type is N (despatch), as required for SSCC labels.",
-        "fail": "QR movement type is {actual}. SSCC barcodes may only be used for despatch movements."
+        "fail": "QR movement type is {actual}. SSCC barcodes may only be used for despatch movements.",
+        "empty": "No StarTrack QR payload was decoded, so the despatch-only movement restriction could not be assessed. SSCC barcodes may only be used for despatch movements - confirm the label is not a return or transfer."
+      }
+    },
+    {
+      "id": "ST-SSC-08",
+      "title": "Human-readable SSCC digits match the barcode",
+      "description": "The 20 human-readable SSCC digits printed with the AI 00 symbol must equal the decoded SSCC. Compared against print-only text so the barcode cannot vouch for itself.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-sscc",
+      "source": { "doc": "MOS v9", "page": 13 },
+      "when": { "path": "text.visibleSsccIds", "op": "notEmpty" },
+      "reportWhenSkipped": true,
+      "forEach": "barcodes.sscc.valid",
+      "input": "item.articleId",
+      "evidence": ["text.visibleSsccIds"],
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "text.visibleSsccIds", "normalize": ["stripSpaces", "upper"] } },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Printed SSCC digits match the decoded AI 00 SSCC.",
+        "fail": "The printed SSCC digits do not match the decoded AI 00 SSCC ({actual}). Confirm visually - text extraction may be affected by watermarks or overlays.",
+        "skipped": "No human-readable SSCC digits were extracted from the label text, so the printed digits could not be compared to the decoded SSCC."
       }
     },
     {

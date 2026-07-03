@@ -92,6 +92,11 @@ export function dedupeBarcodes(items) {
       ...(!existing.locationQuality && clean.locationQuality ? { locationQuality: clean.locationQuality } : {}),
       ...(!existing.targetBox && clean.targetBox ? { targetBox: clean.targetBox } : {}),
       ...(existing.barCount == null && clean.barCount != null ? { barCount: clean.barCount } : {}),
+      // The ISO/IEC 15424 symbology identifier proves GS1 carrier compliance
+      // (]d2 = ECC 200 + FNC1 first); keep it from whichever decoder reported it.
+      ...(!existing.symbologyIdentifier && clean.symbologyIdentifier
+        ? { symbologyIdentifier: clean.symbologyIdentifier }
+        : {}),
       // Keep the source label that explains the successful location read in the UI.
       ...(clean.pageBoundingBox && !existing.pageBoundingBox
         ? {

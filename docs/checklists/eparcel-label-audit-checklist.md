@@ -11,7 +11,7 @@ This checklist enumerates every label conformance rule in the specification. Eac
 | Column | Values |
 | --- | --- |
 | **Obligation** | `M` Mandatory · `HD` Highly Desirable · `REC` Recommended · `COND` Conditional (mandatory when the condition applies) |
-| **Audit** | `AUTO` deterministically checkable from the digital label · `PARTIAL` checkable via heuristics (OCR/text layer, raster sampling, geometry) · `MANUAL` physical/print check, present in the report as a manual-review item only |
+| **Audit** | `AUTO` deterministically checkable from the digital label · `PARTIAL` checkable via heuristics (OCR/text layer, raster sampling, geometry) · `MANUAL` physical/print check — NOT surfaced as report rows today (tracked as gaps in `intended-checklist.json`) |
 | **Coverage** | ✅ implemented (engine check ID) · 🟡 partially implemented · ❌ gap · ⛔ documented out-of-scope |
 
 ---
@@ -82,7 +82,9 @@ This checklist enumerates every label conformance rule in the specification. Eac
 | EP-DM-05 | AI 420 + 4-digit delivery postcode present | M | AUTO | ✅ `DM_POSTCODE_n` | p19 |
 | EP-DM-06 | AI 92 + 8-digit DPID; when DPID unavailable, AI 92 and its separator are omitted entirely; `00000000` is invalid | COND | AUTO | ✅ `DM_DPID_n` | p6, p19, p28 |
 | EP-DM-07 | AI 8008 + label-generation date/time `YYMMDDHHMMSS`, no spaces | M | AUTO | 🟡 `DM_8008_n` — format only; calendar plausibility unchecked | p19, p28 |
-| EP-DM-08 | Group separators positioned immediately before AI 420 and AI 8008 | M | AUTO | 🟡 implicit in parsing; an explicit positional check would surface the documented failure mode directly | p28 |
+| EP-DM-08 | Group separators positioned immediately before AI 420 and AI 8008 | M | AUTO | ✅ `EP-DM-08` — AI values recoverable only without their separators go to manual review | p28 |
+| EP-DM-09 | GS1 FNC1 in the FIRST position (what makes the symbol a *GS1* DataMatrix) | M | AUTO | ✅ `EP-DM-09` — assessed from the ISO/IEC 15424 symbology identifier (`]d2`); manual review when the decoder reports none | GS1 DataMatrix Guideline |
+| EP-DM-10 | Data Matrix ECC 200 only (ECC 000-140 not permitted for GS1 applications) | M | AUTO | ✅ `EP-DM-10` — identifier `]d1`–`]d6`, or a ZXing decode (ZXing only reads ECC 200) | GS1 DataMatrix Guideline; ISO/IEC 16022 |
 
 ## 7. Article number & check digit
 
@@ -168,9 +170,16 @@ From the spec's "invalid 2D symbols" examples (p28) — each should be a regress
 
 ## Engine deviations to resolve in the code review
 
-- `A6_SIZE` accepted dimensions don't match the spec's stated 150 × 100 mm label size (currently A6-centric wording and 105×148 acceptance).
-- Suburb/state/postcode rule is detected case-insensitively; capitalisation and the no-comma rule are not enforced (EP-TO-06 / EP-FR-05).
-- No cross-consistency checks: linear vs DataMatrix article (EP-LIN-09), visible article vs decoded (EP-ART-08), AI 420 vs visible postcode (EP-TO-08).
-- AI 8008 is format-checked only; no plausibility validation (valid calendar date/time, not in the future) (EP-DM-07).
-- Returns-specific rules absent (EP-RET-01..03) even though return product codes 00065/00068 are recognised.
+Resolved since this list was written (kept for history; `npm run checklist` is authoritative):
+
+- ~~`A6_SIZE` accepted dimensions~~ — EP-LAY-01 now asserts 150 × 100 mm ± 8 mm.
+- ~~Suburb/state/postcode case-insensitive~~ — EP-TO-06 / EP-FR-05 now assert capitalisation and no commas.
+- ~~No cross-consistency checks~~ — EP-LIN-09, EP-ART-08 (incl. printed SSCC digits on ESS), EP-TO-08 are live; EP-SS-03/EP-SS-03A cross-check the DataMatrix SSCC and GTIN prefix on SSCC labels.
+- ~~AI 8008 format-checked only~~ — EP-DM-07 validates calendar plausibility (not-in-future still unchecked).
+- ~~Returns-specific rules absent~~ — EP-RET-01..03 are live in the returns variant.
+- Invalid-symbol modes #2/#7/#8 (separator position / missing / doubled FNC1) are now flagged by EP-DM-08 (manual review, since some scanners strip separator control characters).
+
+Still open:
+
 - Font name/size data available in the PDF text layer is unused (EP-TO-04, EP-FR-03).
+- AI 8008 not-in-future check (EP-DM-07).

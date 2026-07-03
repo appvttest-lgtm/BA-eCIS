@@ -29,12 +29,78 @@
       "severity": "CRITICAL",
       "category": "sscc",
       "source": { "doc": "PP&EP v1.4", "page": 26 },
+      "when": {
+        "any": [
+          { "path": "barcodes.sscc.valid", "op": "notEmpty" },
+          { "path": "barcodes.sscc.invalid", "op": "notEmpty" }
+        ]
+      },
+      "reportWhenSkipped": true,
       "input": "barcodes.sscc.invalid",
       "evidence": ["derived.invalidSsccReasons"],
       "assert": { "op": "empty" },
       "messages": {
         "pass": "All decoded SSCC barcodes have valid mod-10 check digits.",
-        "fail": "One or more decoded SSCC values failed the mod-10 check digit."
+        "fail": "One or more decoded SSCC values failed the mod-10 check digit.",
+        "skipped": "No SSCC barcode was decoded from the linear symbol, so the check digit could not be assessed."
+      }
+    },
+    {
+      "id": "EP-SS-03",
+      "title": "DataMatrix repeats the linear SSCC",
+      "description": "The GS1 DataMatrix must carry the same AI 00 SSCC as the linear barcode in its AI 91 article position. A DataMatrix with a different or missing SSCC breaks the label's article identity.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "sscc",
+      "source": { "doc": "PP&EP v1.4", "page": 26 },
+      "when": { "path": "barcodes.sscc.valid", "op": "notEmpty" },
+      "reportWhenSkipped": true,
+      "forEach": "barcodes.datamatrix",
+      "input": "item.article.articleId",
+      "evidence": ["item.raw", "derived.linearSsccIds"],
+      "onMissing": "manual_review",
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.linearSsccIds", "normalize": ["stripSpaces", "upper"] } },
+      "messages": {
+        "pass": "The DataMatrix carries the same SSCC as the linear barcode.",
+        "fail": "The DataMatrix article ({actual}) does not equal the SSCC decoded from the linear barcode.",
+        "missing": "The DataMatrix payload does not carry a recognisable SSCC article identifier in the AI 91 position, so it could not be compared to the linear SSCC.",
+        "skipped": "No valid linear SSCC was decoded, so the DataMatrix SSCC could not be cross-checked against it."
+      }
+    },
+    {
+      "id": "EP-SS-03A",
+      "title": "DataMatrix retains the Australia Post GTIN prefix",
+      "description": "On SSCC labels the GS1 DataMatrix must still open with AI 01 + the Australia Post GTIN 99312650999998 before the AI 91 article component.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "sscc",
+      "source": { "doc": "PP&EP v1.4", "page": 26 },
+      "forEach": "barcodes.datamatrix",
+      "input": "item.base.hasAusPostGtin",
+      "evidence": ["item.raw"],
+      "assert": { "op": "equals", "value": true },
+      "messages": {
+        "pass": "The DataMatrix opens with AI 01 and the Australia Post GTIN.",
+        "fail": "The DataMatrix does not open with AI 01 + the Australia Post GTIN 99312650999998."
+      }
+    },
+    {
+      "id": "EP-ART-08",
+      "title": "Visible article ID matches barcode",
+      "description": "The human-readable article identifier (the 20-digit SSCC on SSCC labels) must equal the decoded barcode article once spacing is removed. Text extraction is heuristic and may be affected by watermarks or label overlays.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "barcode-structure",
+      "source": { "doc": "PP&EP v1.4", "page": 26 },
+      "when": { "path": "text.articleIds", "op": "notEmpty" },
+      "forEach": "articles",
+      "itemWhen": { "path": "item.type", "op": "in", "value": ["eparcel-standard", "sscc"] },
+      "input": "item.articleId",
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "text.articleIds", "normalize": ["stripSpaces", "upper"] } },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Visible article identifier matches the decoded barcode article.",
+        "fail": "Visible article identifier does not match the decoded barcode article. Confirm visually — text extraction may be affected by watermarks or overlays."
       }
     },
     {

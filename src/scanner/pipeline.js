@@ -3,7 +3,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { readBarcodes as readWasmBarcodes } from 'zxing-wasm/reader';
-import { mergeExtractedText, recognizeCanvasText } from '../ocrText.js';
+import { mergeExtractedText, recognizeCanvasText, recognizeBarcodeCropText } from '../ocrText.js';
 import { isUprightOrientation, pickRotationCandidates, findLabelRegions } from '../preprocess.js';
 import { FORMAT_KIND } from './barcodeTypes.js';
 import { debugWarn } from './debugLog.js';
@@ -627,6 +627,37 @@ export function pdfTextLayerNeedsOcr(lines) {
   return usefulChars < PDF_TEXT_LAYER_MIN_USEFUL_CHARS;
 }
 
+// At most this many decoded barcodes get a dedicated HRI OCR pass per label.
+const MAX_BARCODE_CROP_OCR = 4;
+
+/**
+ * Targeted OCR over the located barcode regions, expanded to include the
+ * human-readable line printed with each symbol. The crops get an aggressive
+ * contrast/sharpen profile that would degrade the label's general text, which is
+ * why this runs separately from the gentle full-label pass. Returns merged text
+ * that is only ever used as visible-text evidence (one-way cross-check).
+ */
+async function recognizeBarcodeCropOcr(canvas, detectedBarcodes, mark, contextLabel) {
+  const located = (detectedBarcodes || []).filter(b => b?.pageBoundingBox).slice(0, MAX_BARCODE_CROP_OCR);
+  const texts = [];
+  for (const [index, barcode] of located.entries()) {
+    const box = barcode.pageBoundingBox;
+    // HRI digits print above/below the symbol: pad generously sideways and extend
+    // well below (and a little above) the decoded bounding box.
+    const padX = Math.round(box.width * 0.2) + 12;
+    const x = Math.max(0, Math.round(box.x - padX));
+    const w = Math.min(canvas.width - x, Math.round(box.width + padX * 2));
+    const y = Math.max(0, Math.round(box.y - box.height * 0.5 - 10));
+    const h = Math.min(canvas.height - y, Math.round(box.height * 2.2 + 20));
+    if (w < 40 || h < 24) continue;
+    const crop = cropCanvas(canvas, x, y, w, h);
+    const ocr = await recognizeBarcodeCropText(crop, mark, `${contextLabel} barcode crop ${index + 1}`);
+    if (ocr.text) texts.push(ocr.text);
+    await yieldToBrowser();
+  }
+  return mergeExtractedText(...texts);
+}
+
 /** Image upload pipeline: orient, segment and scan; returns one entry per label. */
 export async function processImageLabels(file, detector, onDebug = null, labelFamily = 'eparcel') {
   const fileStart = performance.now();
@@ -692,7 +723,11 @@ export async function processImageLabels(file, detector, onDebug = null, labelFa
       // them for validation (the label prints every barcode value in human-readable form,
       // so OCR backs up any value a barcode failed to decode).
       const ocr = await recognizeCanvasText(canvas, mark, segContext);
-      const ocrText = ocr.text;
+      // The gentle full-label pass often misses the small HRI digits printed with each
+      // barcode; a second, aggressive pass over just the located barcode crops recovers
+      // them for the printed-vs-decoded cross-checks.
+      const cropOcrText = await recognizeBarcodeCropOcr(canvas, detected, mark, segContext);
+      const ocrText = mergeExtractedText(ocr.text, cropOcrText);
       await yieldToBrowser();
 
       labels.push({
@@ -833,7 +868,10 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
             charCount: 0,
             detail: 'Selectable PDF text layer was sufficient; OCR not required.'
           };
-      const ocrText = ocr.text;
+      // Barcode-crop OCR runs whenever the page needed OCR at all: on scanned/rotated
+      // pages the HRI digits are exactly the text the gentle full-page pass misses.
+      const cropOcrText = shouldOcrPage ? await recognizeBarcodeCropOcr(canvas, detected, mark, segContext) : '';
+      const ocrText = mergeExtractedText(ocr.text, cropOcrText);
       if (!shouldOcrPage) {
         mark(
           `Skipped OCR on page ${pageNumber}; selectable PDF text layer provided sufficient audit text`,

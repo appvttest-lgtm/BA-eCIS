@@ -271,12 +271,12 @@ function serviceFlagPayloadMatch(article, ctx) {
 }
 
 function auditIdentityValues(audit) {
-  const facts = audit?.labelFacts || {};
   const articles = audit?.articles || [];
   const startrack = audit?.startrack || {};
+  // Identity is proven by DECODED barcode data only. Text/OCR-derived facts are
+  // deliberately excluded: OCR is a one-way cross-check and must never stand in
+  // as the label-identity source for payload comparison.
   return uniqueNonEmpty([
-    ...(facts.articleIds || []),
-    ...(facts.consignmentIds || []),
     ...articles.flatMap(a => [a.articleId, a.freightItemId, a.sscc, a.consignmentId]),
     ...(audit?.parsed || []).flatMap(p => [
       p.articleId,
@@ -507,6 +507,51 @@ function compareValidationToApiPayload(v, audit, ctx) {
   return withField(null);
 }
 
+/** Builds the summary validation rows that make payload problems visible in the report. */
+function payloadSummaryValidations(apiPayload, validations) {
+  const rows = [];
+  if (apiPayload.parseError) {
+    rows.push({
+      id: 'PAYLOAD_PARSE',
+      title: 'Get Shipments payload parse',
+      severity: 'WARNING',
+      category: 'api-payload',
+      status: 'warning',
+      message: `The pasted Get Shipments payload could not be parsed as JSON (${apiPayload.parseError}). Comparison ran against the raw text only.`
+    });
+  }
+  if (apiPayload.identityGateApplied && apiPayload.identityMatchesLabel === false) {
+    rows.push({
+      id: 'PAYLOAD_IDENTITY',
+      title: 'Get Shipments payload matches this label',
+      severity: 'WARNING',
+      category: 'api-payload',
+      status: 'warning',
+      message:
+        'None of the decoded article/consignment identifiers on this label were found in the supplied Get Shipments payload. The payload likely belongs to a different shipment; field comparisons were suppressed.',
+      evidence: apiPayload.identityValues.join('\n')
+    });
+    return rows;
+  }
+  const mismatched = validations.filter(v => v.apiPayloadMatch?.status === 'mismatch');
+  if (mismatched.length) {
+    const fields = [...new Set(mismatched.map(v => v.apiPayloadMatch?.field || v.id).filter(Boolean))];
+    rows.push({
+      id: 'PAYLOAD_FIELD_MISMATCH',
+      title: 'Get Shipments payload field mismatches',
+      severity: 'WARNING',
+      category: 'api-payload',
+      status: 'manual_review',
+      message: `Label data does not match the supplied Get Shipments payload for: ${fields.join(', ')}. Expand the affected rules for the compared values.`,
+      evidence: mismatched
+        .map(v => `${v.id}: ${v.apiPayloadMatch?.detail || 'mismatch'}`)
+        .slice(0, 12)
+        .join('\n')
+    });
+  }
+  return rows;
+}
+
 /** Adds payload-comparison metadata to validation rows without changing the original scan evidence. */
 export function attachApiPayloadComparison(audit, payloadText) {
   const parsedPayload = parseApiPayloadText(payloadText);
@@ -517,7 +562,21 @@ export function attachApiPayloadComparison(audit, payloadText) {
     ...v,
     apiPayloadMatch: compareValidationToApiPayload(v, withPayload, apiPayload)
   }));
-  return { ...withPayload, validations };
+  const extraRows = payloadSummaryValidations(apiPayload, validations);
+  validations.push(...extraRows);
+  // The per-label summary was built before the payload rows existed; fold them in
+  // so payload problems influence the overall status instead of hiding in the list.
+  const summary =
+    audit.summary && extraRows.length
+      ? {
+          ...audit.summary,
+          total: audit.summary.total + extraRows.length,
+          warnings: audit.summary.warnings + extraRows.filter(r => r.severity === 'WARNING').length,
+          manualReview: audit.summary.manualReview + extraRows.filter(r => r.status === 'manual_review').length,
+          overallStatus: audit.summary.overallStatus === 'PASS' ? 'REVIEW' : audit.summary.overallStatus
+        }
+      : audit.summary;
+  return { ...withPayload, validations, summary };
 }
 
 /** Runs the full eParcel rule set against one rendered label/page. */

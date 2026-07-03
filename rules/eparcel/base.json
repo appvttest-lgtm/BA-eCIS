@@ -198,13 +198,18 @@
       "category": "gs1-128",
       "source": { "doc": "PP&EP v1.4", "page": 17 },
       "forEach": "barcodes.gs1",
-      "itemWhen": { "path": "item.hasAi01", "op": "equals", "value": true },
+      "itemWhen": {
+        "any": [
+          { "path": "item.sourceType", "op": "equals", "value": "linear" },
+          { "path": "item.hasAi01", "op": "equals", "value": true }
+        ]
+      },
       "input": "item.prefix16",
       "evidence": ["item.raw"],
       "assert": { "op": "equals", "value": "0199312650999998" },
       "messages": {
         "pass": "Barcode begins with AI 01 and the expected Australia Post GTIN.",
-        "fail": "Barcode has AI 01 but does not match the expected Australia Post GTIN 99312650999998."
+        "fail": "Barcode does not begin with AI 01 + the Australia Post GTIN 99312650999998."
       }
     },
     {
@@ -216,7 +221,12 @@
       "category": "gs1-128",
       "source": { "doc": "PP&EP v1.4", "page": 17 },
       "forEach": "barcodes.gs1",
-      "itemWhen": { "path": "item.hasAi01", "op": "equals", "value": true },
+      "itemWhen": {
+        "any": [
+          { "path": "item.sourceType", "op": "equals", "value": "linear" },
+          { "path": "item.hasAi01", "op": "equals", "value": true }
+        ]
+      },
       "input": "item.hasAi91",
       "evidence": ["item.raw"],
       "assert": { "op": "equals", "value": true },
@@ -239,8 +249,12 @@
           { "path": "derived.dmArticleIds", "op": "notEmpty" }
         ]
       },
+      "reportWhenSkipped": true,
       "input": "derived",
-      "assert": { "op": "fn", "name": "linearDmAgreement" }
+      "assert": { "op": "fn", "name": "linearDmAgreement" },
+      "messages": {
+        "skipped": "An article number was not parsed from both the linear barcode and the DataMatrix, so their agreement could not be assessed."
+      }
     },
     {
       "id": "EP-ART-01",
@@ -431,6 +445,62 @@
       }
     },
     {
+      "id": "EP-DM-08",
+      "title": "FNC1 separators positioned before AI 420/92/8008",
+      "description": "A conforming DataMatrix positions an FNC1 group separator immediately before AI 420 and AI 8008 (and AI 92 when present). When an AI value can only be recovered by scanning the undelimited payload, the separators are missing or misplaced. Some scanners strip separator control characters, so this is raised for manual review rather than as a hard failure.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "datamatrix",
+      "source": { "doc": "PP&EP v1.4", "page": 28 },
+      "forEach": "barcodes.datamatrix",
+      "input": "item.aiSeparatorFallbacks",
+      "evidence": ["item.raw"],
+      "assert": { "op": "empty" },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "FNC1 group separators were found in position before each encoded AI.",
+        "fail": "AI value(s) {value} were only recoverable without their FNC1 group separator. Verify the symbol encodes a separator before AI 420/92/8008 - the scanner may also have stripped the control characters."
+      }
+    },
+    {
+      "id": "EP-DM-09",
+      "title": "GS1 FNC1 in first position",
+      "description": "A GS1 DataMatrix is Data Matrix ECC 200 with the FNC1 codeword in the FIRST position (GS1 DataMatrix Guideline / ISO/IEC 16022). The leading FNC1 is not transmitted as data; scanners signal it with the ISO/IEC 15424 symbology identifier ]d2, which is the evidence assessed here.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "datamatrix",
+      "source": { "doc": "GS1 DataMatrix Guideline", "ref": "ISO/IEC 15424 symbology identifier ]d2" },
+      "forEach": "barcodes.datamatrix",
+      "input": "item.fnc1FirstPosition",
+      "evidence": ["item.symbologyIdentifier", "item.decoderSource", "item.raw"],
+      "onMissing": "manual_review",
+      "assert": { "op": "equals", "value": true },
+      "messages": {
+        "pass": "Scanner reported symbology identifier ]d2: FNC1 is encoded in the first position, so the symbol is a GS1 DataMatrix.",
+        "fail": "The reported symbology identifier indicates the symbol does NOT carry FNC1 in the first position - it decodes as a plain Data Matrix, not a GS1 DataMatrix. See the identifier in the evidence.",
+        "missing": "The decoder did not report an ISO/IEC 15424 symbology identifier, so FNC1-in-first-position could not be verified digitally. Confirm the symbol was generated as a GS1 DataMatrix (not a plain Data Matrix)."
+      }
+    },
+    {
+      "id": "EP-DM-10",
+      "title": "Data Matrix ECC 200",
+      "description": "GS1 applications permit only the ECC 200 version of Data Matrix (ISO/IEC 16022); the older ECC 000-140 family is not allowed. Evidence: the ISO/IEC 15424 symbology identifier (]d1-]d6 indicate ECC 200 forms, ]d0 indicates ECC 000-140), or a successful decode by the ZXing engines, which only read ECC 200 symbols.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "datamatrix",
+      "source": { "doc": "GS1 DataMatrix Guideline", "ref": "ISO/IEC 16022 ECC 200" },
+      "forEach": "barcodes.datamatrix",
+      "input": "item.ecc200",
+      "evidence": ["item.symbologyIdentifier", "item.decoderSource"],
+      "onMissing": "manual_review",
+      "assert": { "op": "equals", "value": true },
+      "messages": {
+        "pass": "The symbol is Data Matrix ECC 200 (confirmed by the symbology identifier and/or a ZXing decode, which only reads ECC 200).",
+        "fail": "The reported symbology identifier indicates ECC 000-140, which is not permitted for GS1 applications.",
+        "missing": "Neither a symbology identifier nor a ZXing decode was available to confirm ECC 200. Verify the symbol is Data Matrix ECC 200."
+      }
+    },
+    {
       "id": "EP-DM-05",
       "title": "AI 420 delivery postcode",
       "description": "The DataMatrix must contain AI 420 followed by a four-digit delivery postcode.",
@@ -514,6 +584,23 @@
         "pass": "AI 8008 date/time is present and plausible: {actual}.",
         "fail": "AI 8008 label generation date/time is missing or invalid: {actual}.",
         "missing": "AI 8008 label generation date/time is missing from the DataMatrix payload."
+      }
+    },
+    {
+      "id": "EP-SS-STRAY",
+      "title": "Unexpected SSCC barcode on a standard label",
+      "description": "A valid AI 00 SSCC barcode was decoded on a label audited as a standard Parcel Post / Express Post label. SSCC symbols belong on SSCC logistics labels; an extra SSCC on a standard label can misdirect sortation.",
+      "obligation": "advisory",
+      "severity": "WARNING",
+      "category": "sscc",
+      "source": { "doc": "PP&EP v1.4", "page": 26 },
+      "when": { "path": "selected.format", "op": "equals", "value": "standard" },
+      "input": "barcodes.sscc.valid",
+      "assert": { "op": "empty" },
+      "failStatus": "warning",
+      "messages": {
+        "pass": "No unexpected SSCC barcode is present on this standard label.",
+        "fail": "A valid AI 00 SSCC barcode was decoded on a label audited as a standard label. Confirm the label format selection and the printed symbols."
       }
     }
   ]

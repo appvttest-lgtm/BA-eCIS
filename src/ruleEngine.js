@@ -394,7 +394,7 @@ export function evaluateRuleSet(inputRuleSet, context) {
             rule,
             ruleSet,
             onEmpty,
-            { expected: `${rule.forEach} populated`, actual: 'none decoded' },
+            { expected: `${rule.forEach} populated`, actual: 'none decoded', message: rule.messages?.empty },
             rule.input,
             null,
             context,

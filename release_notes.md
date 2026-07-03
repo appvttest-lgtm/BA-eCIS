@@ -6,6 +6,89 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.13.1 - GS1 DataMatrix carrier compliance: FNC1-first and ECC 200
+--------------------------------------------------------------------
+Per the GS1 DataMatrix Guideline (gs1.org), a GS1 DataMatrix is specifically Data
+Matrix ECC 200 with the FNC1 codeword in the FIRST position; the leading FNC1 is
+never transmitted as data - scanners signal it via the ISO/IEC 15424 symbology
+identifier "]d2". Neither property was previously assessed.
+
+- New rule EP-DM-09 "GS1 FNC1 in first position": passes on identifier ]d2/]d5,
+  fails on other ]dN identifiers (a plain Data Matrix, not GS1), and goes to
+  manual review when the decoder reported no identifier.
+- New rule EP-DM-10 "Data Matrix ECC 200": identifier ]d1-]d6 proves ECC 200 and
+  ]d0 fails (ECC 000-140 is not permitted for GS1 applications); when no identifier
+  is available, a decode by either ZXing engine still proves ECC 200 because ZXing
+  only reads ECC 200 symbols. Both rules apply to eParcel standard and SSCC labels.
+- The ZXing-WASM symbology identifier now survives barcode deduplication and is
+  attached to every DataMatrix parse as audit evidence.
+- The colour-coded DataMatrix breakdown now shows the leading "(FNC1) start"
+  marker at position 1 (previously only the separators before AI 420/92/8008 were
+  marked), with the reported symbology identifier when the decoder exposed it.
+
+v1.13.0 - Checklist gap remediation: silent false-passes closed, undetected states visible, barcode-crop OCR
+-------------------------------------------------------------------------------------------------------------
+Driven by four per-label-type audits (eParcel standard/SSCC, StarTrack standard/SSCC)
+of the documented rule sets vs the shipped engine.
+
+Barcode classification & parsing correctness:
+- A decoded DataMatrix can no longer satisfy the "GS1-128 linear barcode present"
+  check (EP-LIN-01); symbology metadata now outranks payload-content sniffing when
+  classifying DataMatrix vs linear values, and QR formats can no longer leak into
+  StarTrack's linear barcode list (a QR payload starting 00+18 digits previously
+  could satisfy the SSCC check).
+- SSCC symbols must now contain AI 00 + the 20-digit SSCC and nothing else; trailing
+  payload is rejected with an explicit reason.
+- The SSCC mod-10 check digit is now validated wherever the SSCC is carried,
+  including the AI 91 article position inside a GS1 DataMatrix.
+- Linear GS1 barcodes without the AI 01 + Australia Post GTIN opener now fail
+  EP-LIN-07 instead of being silently skipped.
+- New EP-DM-08: AI 420/92/8008 values recoverable only without their FNC1 group
+  separators are flagged for manual review (spec p28 invalid-symbol modes #2/#7/#8).
+- New ST-LIN-UNK: StarTrack linear symbols that decode but match no StarTrack
+  structure are surfaced for review instead of being mislabelled "not decoded".
+
+SSCC cross-checks:
+- New EP-SS-03/EP-SS-03A: the eParcel SSCC DataMatrix must repeat the linear SSCC
+  and retain the AusPost GTIN prefix.
+- ST-SSC-02/EP-SS-02 no longer emit a vacuous "all check digits valid" PASS when
+  zero SSCCs decoded; they now report "not assessed" instead.
+- New EP-SS-STRAY / ST-SSC-STRAY: a valid SSCC decoded on a standard-format audit
+  raises a warning.
+
+Printed-vs-decoded direction (StarTrack):
+- Printed-label checks (CONNOTE, label code, WEIGHT, CUBE, receiver block) no longer
+  accept values backfilled from the very barcodes they cross-check; ST-FRT-08
+  (printed CONNOTE = freight barcode) can now genuinely fail.
+- New ST-FRT-07 (visible article ID = freight barcode) and ST-SSC-08 (printed
+  20-digit SSCC = decoded SSCC), both compared against print-only text.
+
+Undetected/missing states are now visible:
+- Mandatory checks whose input data is undetected now emit manual-review or
+  "not assessed" rows instead of vanishing: ST-QR-MAND (QR undecoded), ST-SSC-06
+  (despatch-only), ST-RTE-03/04, ST-X-01/02, EP-LIN-09, EP-SS-02/03, ST-FRT-07/08,
+  ST-SSC-08, and the SSCC expected-prefix checks ("prefix not checked" note when no
+  expected value is supplied).
+- Get Shipments payload problems now surface as report rows (parse failure, identity
+  mismatch, per-field mismatches) and influence the overall status; the payload
+  identity gate accepts decoded barcode identifiers only (OCR text can no longer
+  stand in as the label-identity source).
+
+OCR improvements:
+- New targeted OCR pass over each located barcode crop (expanded to include the
+  human-readable line) using an aggressive profile: strong local contrast stretch,
+  heavier unsharp mask (1.4), up to 6x magnification and an alphanumeric whitelist -
+  recovering the HRI digits the full-label pass misses.
+- The full-label OCR pass's sharpening is reduced (0.8 -> 0.5) so general text is no
+  longer over-sharpened. Barcode decoding still always runs on the untouched canvas;
+  OCR remains a one-way cross-check and never a barcode value source.
+
+Docs/tests:
+- intended-checklist.json, coverage-report.json and both audit checklists updated
+  (stale "engine deviations" corrected; ST-SSC-08 documented; MANUAL legend fixed).
+- New regression suite tests/audit-gap-fixes.test.mjs (16 tests) pins every fix at
+  the auditLabel() boundary; golden baselines refreshed after review.
+
 v1.12.12 - FNC1 separators shown in the DataMatrix breakdown
 -------------------------------------------------------------
 - The colour-coded DataMatrix string now shows a divider wherever the spec expects a

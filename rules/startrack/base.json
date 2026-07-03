@@ -50,12 +50,14 @@
       "severity": "INFO",
       "category": "startrack-label-layout",
       "source": { "doc": "MOS v9", "ref": "1.003" },
-      "input": "text.labelCode",
+      "input": "text.visibleLabelCode",
       "assert": { "op": "present" },
       "onMissing": "manual_review",
+      "failStatus": "manual_review",
       "messages": {
-        "pass": "Label/product code evidence found: {actual}.",
-        "missing": "A three-character label code was not extracted from the text layer or barcode data."
+        "pass": "Label/product code found in the printed label text: {actual}.",
+        "fail": "A three-character label code was not extracted from the printed label text. Decoded barcodes carry the product code, but the header must also display it - confirm on the preview.",
+        "missing": "A three-character label code was not extracted from the printed label text. Decoded barcodes carry the product code, but the header must also display it - confirm on the preview."
       }
     },
     {
@@ -66,13 +68,13 @@
       "severity": "INFO",
       "category": "startrack-label-layout",
       "source": { "doc": "MOS v9", "ref": "1.004" },
-      "input": "text.consignmentIds",
+      "input": "text.visibleConsignmentIds",
       "assert": { "op": "notEmpty" },
       "onMissing": "manual_review",
       "failStatus": "manual_review",
       "messages": {
-        "pass": "Connote number evidence found: {actual}.",
-        "missing": "CONNOTE value was not extracted from the text layer or decoded barcode payload."
+        "pass": "Connote number found in the printed label text: {actual}.",
+        "missing": "A CONNOTE value was not extracted from the printed label text. Decoded barcodes carry the connote, but the header must also display it - confirm on the preview."
       }
     },
     {
@@ -88,8 +90,8 @@
       "onMissing": "manual_review",
       "failStatus": "manual_review",
       "messages": {
-        "pass": "Receiver details were extracted from the text layer or decoded QR payload.",
-        "missing": "Receiver details could not be isolated from the text layer or decoded QR payload."
+        "pass": "Receiver details were extracted from the printed label text.",
+        "missing": "Receiver details could not be isolated from the printed label text. The QR payload carries the receiver, but the label must also display it - confirm on the preview."
       }
     },
     {
@@ -117,12 +119,14 @@
       "severity": "INFO",
       "category": "startrack-label-layout",
       "source": { "doc": "MOS v9", "ref": "1.021" },
-      "input": "text.weightKg",
+      "input": "text.visibleWeightKg",
       "assert": { "op": "present" },
       "onMissing": "manual_review",
+      "failStatus": "manual_review",
       "messages": {
-        "pass": "Weight value found: {actual} kg.",
-        "missing": "Weight value was not extracted from the text layer or decoded barcode payload. Check the WEIGHT value printed on the label manually."
+        "pass": "Weight value found in the printed label text: {actual} kg.",
+        "fail": "A weight value was not extracted from the printed label text. The QR payload carries the weight, but the label must also display it - check the WEIGHT value on the preview.",
+        "missing": "A weight value was not extracted from the printed label text. The QR payload carries the weight, but the label must also display it - check the WEIGHT value on the preview."
       }
     },
     {
@@ -133,12 +137,14 @@
       "severity": "INFO",
       "category": "startrack-label-layout",
       "source": { "doc": "MOS v9", "ref": "1.021" },
-      "input": "text.cube",
+      "input": "text.visibleCube",
       "assert": { "op": "present" },
       "onMissing": "manual_review",
+      "failStatus": "manual_review",
       "messages": {
-        "pass": "Cubic volume found: {actual} m3.",
-        "missing": "Cubic volume was not extracted from the text layer or decoded barcode payload. Check the CUBE value printed on the label manually."
+        "pass": "Cubic volume found in the printed label text: {actual} m3.",
+        "fail": "A cubic volume was not extracted from the printed label text. The QR payload carries the cube, but the label must also display it - check the CUBE value on the preview.",
+        "missing": "A cubic volume was not extracted from the printed label text. The QR payload carries the cube, but the label must also display it - check the CUBE value on the preview."
       }
     },
     {
@@ -317,17 +323,23 @@
     {
       "id": "ST-FRT-08",
       "title": "Visible connote matches freight barcode",
-      "description": "The CONNOTE value printed in the header must equal the connote embedded in the freight item barcode.",
+      "description": "The CONNOTE value printed in the header must equal the connote embedded in the freight item barcode. Compared against print-only text so the barcode cannot vouch for itself.",
       "obligation": "mandatory",
       "severity": "ERROR",
       "category": "startrack-freight",
       "source": { "doc": "MOS v9", "page": 12 },
-      "when": { "path": "text.consignmentIds", "op": "notEmpty" },
+      "when": { "path": "text.visibleConsignmentIds", "op": "notEmpty" },
+      "reportWhenSkipped": true,
       "forEach": "barcodes.freight",
       "input": "item.connoteNumber",
-      "evidence": ["text.consignmentIds"],
-      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "text.consignmentIds", "normalize": ["stripSpaces", "upper"] } },
-      "failStatus": "manual_review"
+      "evidence": ["text.visibleConsignmentIds"],
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "text.visibleConsignmentIds", "normalize": ["stripSpaces", "upper"] } },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Printed CONNOTE matches the freight barcode connote.",
+        "fail": "The printed CONNOTE does not match the connote embedded in the freight item barcode ({actual}). Confirm visually - text extraction may be affected by watermarks or overlays.",
+        "skipped": "No printed CONNOTE value was extracted, so the printed connote could not be compared to the freight barcode."
+      }
     },
     {
       "id": "ST-RTE-02A",
@@ -364,9 +376,13 @@
       "category": "startrack-product",
       "source": { "doc": "MOS v9", "page": 7 },
       "when": { "path": "derived.primaryProductCode", "op": "present" },
+      "reportWhenSkipped": true,
       "forEach": "barcodes.routing",
       "input": "item",
-      "assert": { "op": "fn", "name": "routeProductMatch" }
+      "assert": { "op": "fn", "name": "routeProductMatch" },
+      "messages": {
+        "skipped": "No product code was decoded from a freight barcode or QR payload, so routing/product compatibility could not be assessed."
+      }
     },
     {
       "id": "ST-RTE-04",
@@ -377,11 +393,15 @@
       "category": "startrack-routing",
       "source": { "doc": "MOS v9", "page": 16 },
       "when": { "path": "derived.qrPostcodes", "op": "notEmpty" },
+      "reportWhenSkipped": true,
       "forEach": "barcodes.routing",
       "itemWhen": { "path": "item.postcode", "op": "present" },
       "input": "item.postcode",
       "evidence": ["derived.qrPostcodes"],
-      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.qrPostcodes" } }
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.qrPostcodes" } },
+      "messages": {
+        "skipped": "No receiver postcode was decoded from the QR payload, so the routing barcode postcode could not be cross-checked."
+      }
     },
     {
       "id": "ST-RTE-09",
@@ -409,8 +429,12 @@
       "category": "startrack-qr",
       "source": { "doc": "MOS v9", "page": 16 },
       "forEach": "barcodes.qr",
+      "onEmpty": "manual_review",
       "input": "item.fields",
-      "assert": { "op": "fn", "name": "qrMandatoryFields" }
+      "assert": { "op": "fn", "name": "qrMandatoryFields" },
+      "messages": {
+        "empty": "No StarTrack QR payload was decoded, so none of the mandatory QR fields could be assessed."
+      }
     },
     {
       "id": "ST-QR-F01",
@@ -820,11 +844,15 @@
       "category": "startrack-qr",
       "source": { "doc": "MOS v9", "page": 16 },
       "when": { "path": "derived.freightConnotes", "op": "notEmpty" },
+      "reportWhenSkipped": true,
       "forEach": "barcodes.qr",
       "itemWhen": { "path": "item.fields.connoteNumber", "op": "present" },
       "input": "item.fields.connoteNumber",
       "evidence": ["derived.freightConnotes"],
-      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.freightConnotes", "normalize": ["stripSpaces", "upper"] } }
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.freightConnotes", "normalize": ["stripSpaces", "upper"] } },
+      "messages": {
+        "skipped": "No freight item barcode was decoded, so the QR connote could not be cross-checked against it."
+      }
     },
     {
       "id": "ST-X-02",
@@ -835,11 +863,70 @@
       "category": "startrack-qr",
       "source": { "doc": "MOS v9", "page": 16 },
       "when": { "path": "derived.freightIds", "op": "notEmpty" },
+      "reportWhenSkipped": true,
       "forEach": "barcodes.qr",
       "itemWhen": { "path": "item.fields.freightItemNumber", "op": "present" },
       "input": "item.fields.freightItemNumber",
       "evidence": ["derived.freightIds"],
-      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.freightIds", "normalize": ["stripSpaces", "upper"] } }
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "derived.freightIds", "normalize": ["stripSpaces", "upper"] } },
+      "messages": {
+        "skipped": "No freight item barcode was decoded, so the QR freight item number could not be cross-checked against it."
+      }
+    },
+    {
+      "id": "ST-FRT-07",
+      "title": "Visible article ID matches freight barcode",
+      "description": "The human-readable article/freight item ID printed with the barcode must equal the decoded 20-character freight item value. Compared against print-only text so the barcode cannot vouch for itself.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-freight",
+      "source": { "doc": "MOS v9", "ref": "1.023" },
+      "when": { "path": "text.visibleArticleIds", "op": "notEmpty" },
+      "reportWhenSkipped": true,
+      "forEach": "barcodes.freight",
+      "input": "item.freightItemId",
+      "evidence": ["text.visibleArticleIds"],
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "text.visibleArticleIds", "normalize": ["stripSpaces", "upper"] } },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Printed article ID matches the decoded freight item barcode.",
+        "fail": "The printed article ID does not match the decoded freight item barcode ({actual}). Confirm visually - text extraction may be affected by watermarks or overlays.",
+        "skipped": "No printed article ID was extracted, so the human-readable value could not be compared to the freight barcode."
+      }
+    },
+    {
+      "id": "ST-LIN-UNK",
+      "title": "Linear barcode decoded but not recognised",
+      "description": "A linear barcode decoded from the label matches no StarTrack barcode structure (freight item, routing, ATL, or AI 00 SSCC). The symbol was readable - its content is malformed or belongs to another system - so it is surfaced for review instead of being reported as \"not decoded\".",
+      "obligation": "advisory",
+      "severity": "WARNING",
+      "category": "startrack-freight",
+      "source": { "doc": "MOS v9", "page": 12 },
+      "forEach": "barcodes.linearUnclassified",
+      "input": "item.value",
+      "evidence": ["item.reasons"],
+      "assert": { "op": "absent" },
+      "failStatus": "manual_review",
+      "messages": {
+        "fail": "A linear barcode decoded as \"{actual}\" but does not match any StarTrack barcode structure. Check the symbol on the preview - it may be malformed or foreign to this label."
+      }
+    },
+    {
+      "id": "ST-SSC-STRAY",
+      "title": "Unexpected SSCC barcode on a standard label",
+      "description": "A valid AI 00 SSCC barcode was decoded on a label audited as a standard consignment label. SSCC symbols belong on SSCC retailer labels; on a standard label an extra SSCC can misdirect sortation.",
+      "obligation": "advisory",
+      "severity": "WARNING",
+      "category": "startrack-freight",
+      "source": { "doc": "MOS v9", "page": 13 },
+      "when": { "path": "selected.format", "op": "equals", "value": "standard" },
+      "input": "barcodes.sscc.valid",
+      "assert": { "op": "empty" },
+      "failStatus": "warning",
+      "messages": {
+        "pass": "No unexpected SSCC barcode is present on this standard label.",
+        "fail": "A valid AI 00 SSCC barcode was decoded on a label audited as a standard consignment label: {actual}. Confirm the label format selection and the printed symbols."
+      }
     }
   ]
 }

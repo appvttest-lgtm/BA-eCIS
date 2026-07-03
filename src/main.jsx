@@ -1213,7 +1213,7 @@ function eparcelArticleLength(payload) {
   return c.length;
 }
 
-function dataMatrixSegments(value) {
+function dataMatrixSegments(value, symbologyIdent = '') {
   const seg = (text, label) => ({ text, label });
   const AI_LABEL = {
     '00': 'AI 00 SSCC',
@@ -1285,7 +1285,17 @@ function dataMatrixSegments(value) {
   });
   // Zero-length segments survive only as display markers (expected-FNC1 dividers).
   const filtered = out.filter(s => String(s.text).length > 0 || s.display);
-  return filtered.some(s => String(s.text).length > 0) ? filtered : [seg(String(value), 'Decoded value')];
+  // GS1 carriers require FNC1 in the FIRST position (GS1 DataMatrix: signalled as the
+  // ]d2 symbology identifier, never as a data character). Mark the expected leading
+  // position; when the decoder exposed the identifier it becomes the marker's text.
+  const startMarker = {
+    text: symbologyIdent,
+    label: 'FNC1 start',
+    display: symbologyIdent ? `⟨FNC1⟩ ${symbologyIdent}` : '⟨FNC1⟩'
+  };
+  return filtered.some(s => String(s.text).length > 0)
+    ? [startMarker, ...filtered]
+    : [seg(String(value), 'Decoded value')];
 }
 
 /** Splits a decoded barcode value into colour-coded field segments by its fixed format and field
@@ -1368,7 +1378,7 @@ function rawSegments(rawValue, kind) {
       break;
     }
     case 'datamatrix':
-      return dataMatrixSegments(v);
+      return dataMatrixSegments(v, (String(rawValue).match(/^\][A-Za-z0-9]{2}/) || [])[0] || '');
     default:
       out = whole;
   }
@@ -1452,6 +1462,16 @@ const GS1_FIELD_SPECS = {
   'AI 00 SSCC': pf('GS1 Application Identifier 00 — SSCC follows', literalCheck('00')),
   'AI 00 SSCC value': pf('18-digit SSCC with GS1 mod-10 check digit', t =>
     parseSsccBarcode(`00${t}`).valid ? 'pass' : 'fail'
+  ),
+  'FNC1 start': pf(
+    'GS1 symbol start: FNC1 required in the FIRST position (GS1 DataMatrix signals it as symbology identifier ]d2; GS1-128 as ]C1 — it is not a data character)',
+    t => (t === ']d2' || t === ']d5' || t === ']C1' ? 'pass' : /^\]d\d$/.test(t) ? 'fail' : null),
+    t =>
+      t === ''
+        ? 'not visible in this decode — see the "GS1 FNC1 in first position" rule row, which assesses the decoder-reported symbology identifier'
+        : /^\](d[25]|C1)$/.test(t)
+          ? `symbology identifier ${t}: FNC1 in first position (GS1 carrier)`
+          : `symbology identifier ${t}: FNC1 is NOT in first position`
   ),
   'FNC1 separator': pf(
     'GS1 FNC1 group separator expected at this element boundary — encoded as ASCII 29',

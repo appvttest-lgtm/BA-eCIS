@@ -4,8 +4,26 @@ const OCR_MIN_USEFUL_CHARS = 12;
 // Small label scans need to be magnified more than barcode decoding would tolerate;
 // this only governs the OCR copy, so a generous zoom is safe here.
 const OCR_MAX_UPSCALE = 3.5;
-// Unsharp-mask strength. Higher crisps edges more but can amplify scan noise.
-const OCR_SHARPEN_AMOUNT = 0.8;
+// Unsharp-mask strength for the FULL-LABEL text pass. Deliberately gentle: heavy
+// sharpening fractures thin glyph strokes and hurts general text recognition.
+const OCR_SHARPEN_AMOUNT = 0.5;
+
+// Barcode-crop OCR profile: the human-readable digits printed with a barcode are
+// small, high-contrast machine print, so they tolerate - and benefit from - a much
+// stronger local contrast stretch, heavier sharpening and greater magnification
+// than the label's general text.
+const CROP_OCR_PROFILE = {
+  minLongEdge: 1400,
+  maxLongEdge: 2600,
+  maxUpscale: 6,
+  sharpenAmount: 1.4,
+  lowFrac: 0.01,
+  highFrac: 0.99
+};
+// HRI lines are uppercase alphanumerics (plus GS1 AI parentheses); constraining the
+// engine to that set sharply reduces digit/letter confusions on barcode crops.
+const CROP_OCR_WHITELIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789() ';
+const CROP_OCR_MIN_USEFUL_CHARS = 6;
 
 let ocrWorkerPromise = null;
 let createOcrWorkerPromise = null;
@@ -96,7 +114,10 @@ function percentileBounds(gray, lowFrac, highFrac) {
  * Barcodes are decoded earlier from the untouched canvas, so sharpening here cannot
  * distort a barcode read - it only improves visible-text recognition.
  */
-function enhanceTextForOcr(ctx, width, height) {
+function enhanceTextForOcr(ctx, width, height, profile = {}) {
+  const sharpenAmount = profile.sharpenAmount ?? OCR_SHARPEN_AMOUNT;
+  const lowFrac = profile.lowFrac ?? 0.02;
+  const highFrac = profile.highFrac ?? 0.98;
   const image = ctx.getImageData(0, 0, width, height);
   const data = image.data;
   const n = width * height;
@@ -105,14 +126,14 @@ function enhanceTextForOcr(ctx, width, height) {
     const o = i * 4;
     gray[i] = data[o] * 0.299 + data[o + 1] * 0.587 + data[o + 2] * 0.114;
   }
-  const { lo, hi } = percentileBounds(gray, 0.02, 0.98);
+  const { lo, hi } = percentileBounds(gray, lowFrac, highFrac);
   const range = Math.max(1, hi - lo);
   for (let i = 0; i < n; i += 1) {
     gray[i] = Math.max(0, Math.min(255, ((gray[i] - lo) / range) * 255));
   }
   const blurred = boxBlur3(gray, width, height);
   for (let i = 0; i < n; i += 1) {
-    const sharp = Math.max(0, Math.min(255, gray[i] + OCR_SHARPEN_AMOUNT * (gray[i] - blurred[i])));
+    const sharp = Math.max(0, Math.min(255, gray[i] + sharpenAmount * (gray[i] - blurred[i])));
     const o = i * 4;
     data[o] = data[o + 1] = data[o + 2] = sharp;
     data[o + 3] = 255;
@@ -121,11 +142,14 @@ function enhanceTextForOcr(ctx, width, height) {
 }
 
 /** Builds the magnified, sharpened grayscale copy OCR runs on (never used for barcode decoding). */
-function prepareOcrCanvas(sourceCanvas) {
+function prepareOcrCanvas(sourceCanvas, profile = {}) {
+  const minLongEdge = profile.minLongEdge ?? OCR_MIN_LONG_EDGE;
+  const maxLongEdge = profile.maxLongEdge ?? OCR_MAX_LONG_EDGE;
+  const maxUpscale = profile.maxUpscale ?? OCR_MAX_UPSCALE;
   const longEdge = Math.max(sourceCanvas.width, sourceCanvas.height);
-  const upscale = longEdge < OCR_MIN_LONG_EDGE ? OCR_MIN_LONG_EDGE / Math.max(1, longEdge) : 1;
-  const downscale = longEdge > OCR_MAX_LONG_EDGE ? OCR_MAX_LONG_EDGE / longEdge : 1;
-  const scale = Math.min(OCR_MAX_UPSCALE, upscale) * Math.min(1, downscale);
+  const upscale = longEdge < minLongEdge ? minLongEdge / Math.max(1, longEdge) : 1;
+  const downscale = longEdge > maxLongEdge ? maxLongEdge / longEdge : 1;
+  const scale = Math.min(maxUpscale, upscale) * Math.min(1, downscale);
   const out = document.createElement('canvas');
   out.width = Math.max(1, Math.round(sourceCanvas.width * scale));
   out.height = Math.max(1, Math.round(sourceCanvas.height * scale));
@@ -135,7 +159,7 @@ function prepareOcrCanvas(sourceCanvas) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
-  enhanceTextForOcr(ctx, out.width, out.height);
+  enhanceTextForOcr(ctx, out.width, out.height, profile);
   return out;
 }
 
@@ -198,6 +222,41 @@ export async function recognizeCanvasText(canvas, mark, label) {
   } catch (error) {
     const detail = error?.message || String(error);
     mark?.(`OCR engine failed for ${label}: ${detail}`, ocrStart);
+    return { text: '', status: 'failed', charCount: 0, detail };
+  }
+}
+
+/**
+ * Runs a targeted OCR pass over one barcode evidence crop using the aggressive
+ * CROP_OCR_PROFILE (strong local contrast stretch, heavy unsharp mask, large
+ * magnification, alphanumeric whitelist). This recovers the human-readable digits
+ * printed with a barcode far more reliably than the gentle full-label pass, without
+ * risking the label's general text - the two passes are independent. The crop text
+ * is only ever merged into the label's extracted TEXT (a one-way cross-check);
+ * barcode values themselves always come from the decoders.
+ */
+export async function recognizeBarcodeCropText(cropCanvas, mark, label) {
+  const ocrStart = performance.now();
+  try {
+    const worker = await getOcrWorker();
+    const ocrCanvas = prepareOcrCanvas(cropCanvas, CROP_OCR_PROFILE);
+    await worker.setParameters({ tessedit_char_whitelist: CROP_OCR_WHITELIST });
+    let result;
+    try {
+      result = await worker.recognize(ocrCanvas);
+    } finally {
+      // The worker is shared with the full-label pass; always restore the full charset.
+      await worker.setParameters({ tessedit_char_whitelist: '' }).catch(() => {});
+    }
+    const text = normaliseOcrText(result?.data?.text || '');
+    if (text.length >= CROP_OCR_MIN_USEFUL_CHARS) {
+      mark?.(`Barcode-crop OCR read ${text.length} characters from ${label}`, ocrStart);
+      return { text, status: 'ok', charCount: text.length, detail: '' };
+    }
+    return { text: '', status: text.length ? 'low' : 'empty', charCount: text.length, detail: '' };
+  } catch (error) {
+    const detail = error?.message || String(error);
+    mark?.(`Barcode-crop OCR failed for ${label}: ${detail}`, ocrStart);
     return { text: '', status: 'failed', charCount: 0, detail };
   }
 }

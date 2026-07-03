@@ -11,7 +11,7 @@ This checklist enumerates every label conformance rule in the specification. Eac
 | Column | Values |
 | --- | --- |
 | **Obligation** | `M` Mandatory · `O` Optional · `COND` Conditional (mandatory when the condition applies) |
-| **Audit** | `AUTO` deterministically checkable from the digital label · `PARTIAL` checkable via heuristics (OCR/text layer, raster sampling, geometry) · `MANUAL` physical/print check, present in the report as a manual-review item only |
+| **Audit** | `AUTO` deterministically checkable from the digital label · `PARTIAL` checkable via heuristics (OCR/text layer, raster sampling, geometry) · `MANUAL` physical/print check — NOT surfaced as report rows today (tracked as gaps in `intended-checklist.json`) |
 | **Coverage** | ✅ implemented (engine check ID) · 🟡 partially implemented · ❌ gap · ⛔ documented out-of-scope |
 
 ---
@@ -100,8 +100,9 @@ This checklist enumerates every label conformance rule in the specification. Eac
 | ST-SSC-03 | Code set C with FNC1 prefix | M | PARTIAL (decoder abstracts) | ⛔ decoder-level | p13 |
 | ST-SSC-04 | Symbol: min bar width 0.3 mm; min height 25 mm; min length 78 mm; quiet zone 5 mm | M | PARTIAL | ❌ gap | p13 |
 | ST-SSC-05 | GS1 company prefix matches the prefix registered with StarTrack | M | AUTO (when expected prefix supplied) | ✅ `ST_SSCC_EXPECTED_*` | p13 |
-| ST-SSC-06 | SSCC labels used for despatch movements only (not returns/transfers); mandatory for NZ Premium with StarTrack-issued prefix/range | M | AUTO (vs QR movement type) | ❌ gap | p13, p34 |
+| ST-SSC-06 | SSCC labels used for despatch movements only (not returns/transfers); mandatory for NZ Premium with StarTrack-issued prefix/range | M | AUTO (vs QR movement type) | ✅ `ST-SSC-06` (manual review when no QR decoded) | p13, p34 |
 | ST-SSC-07 | Product/service not embedded in SSCC — embedded-field checks suppressed, product context from QR/routing | M | AUTO | ✅ `ST_SSCC_PRODUCT_RULE` | p13 |
+| ST-SSC-08 | Human-readable 20-digit SSCC printed with the symbol equals the decoded SSCC | M | AUTO (print-only text vs decoded value) | ✅ `ST-SSC-08` (value only; position/font not asserted) | p13 |
 
 ## 9. Sortation (routing) barcodes
 

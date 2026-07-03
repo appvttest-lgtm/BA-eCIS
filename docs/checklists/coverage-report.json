@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-06-29T00:31:12.450Z",
+  "generatedAt": "2026-07-03T00:02:49.363Z",
   "labelTypes": {
     "EPS": {
-      "total": 67,
-      "implemented": 35,
-      "partial": 3,
-      "gap": 29,
+      "total": 70,
+      "implemented": 38,
+      "partial": 4,
+      "gap": 28,
       "missing": 0,
       "gaps": [
         {
@@ -185,7 +185,7 @@
         },
         {
           "id": "EP-DM-08",
-          "status": "gap",
+          "status": "partial",
           "obligation": "M",
           "audit": "AUTO",
           "title": "Group separators positioned before AI 420 and AI 8008"
@@ -235,10 +235,10 @@
       ]
     },
     "ESS": {
-      "total": 53,
-      "implemented": 23,
-      "partial": 3,
-      "gap": 27,
+      "total": 57,
+      "implemented": 28,
+      "partial": 4,
+      "gap": 25,
       "missing": 0,
       "gaps": [
         {
@@ -390,17 +390,10 @@
         },
         {
           "id": "EP-DM-08",
-          "status": "gap",
+          "status": "partial",
           "obligation": "M",
           "audit": "AUTO",
           "title": "Group separators positioned before AI 420 and AI 8008"
-        },
-        {
-          "id": "EP-SS-03",
-          "status": "gap",
-          "obligation": "M",
-          "audit": "AUTO",
-          "title": "DataMatrix retains GTIN prefix + SSCC + AI 420 + AI 8008"
         },
         {
           "id": "EP-SS-04",
@@ -454,10 +447,10 @@
       ]
     },
     "STS": {
-      "total": 104,
-      "implemented": 47,
-      "partial": 17,
-      "gap": 40,
+      "total": 106,
+      "implemented": 49,
+      "partial": 19,
+      "gap": 38,
       "missing": 0,
       "gaps": [
         {
@@ -546,9 +539,9 @@
         },
         {
           "id": "ST-LOC-03",
-          "status": "gap",
+          "status": "partial",
           "obligation": "COND",
-          "audit": "AUTO",
+          "audit": "PARTIAL",
           "title": "NZ Premium location codes (RC=NZ, R1=SYD, R2=ZNA)"
         },
         {
@@ -658,9 +651,9 @@
         },
         {
           "id": "ST-FRT-07",
-          "status": "gap",
+          "status": "partial",
           "obligation": "M",
-          "audit": "PARTIAL",
+          "audit": "AUTO",
           "title": "Visible Article ID under barcode = decoded value"
         },
         {
@@ -862,10 +855,10 @@
       ]
     },
     "SSS": {
-      "total": 94,
-      "implemented": 42,
-      "partial": 14,
-      "gap": 38,
+      "total": 96,
+      "implemented": 44,
+      "partial": 15,
+      "gap": 37,
       "missing": 0,
       "gaps": [
         {
@@ -937,13 +930,6 @@
           "obligation": "COND",
           "audit": "PARTIAL",
           "title": "International receiver per Locations Master File"
-        },
-        {
-          "id": "ST-LOC-03",
-          "status": "gap",
-          "obligation": "COND",
-          "audit": "AUTO",
-          "title": "NZ Premium location codes (RC=NZ, R1=SYD, R2=ZNA)"
         },
         {
           "id": "ST-LOC-04",
@@ -1042,6 +1028,13 @@
           "obligation": "M",
           "audit": "PARTIAL",
           "title": "SSCC symbol geometry"
+        },
+        {
+          "id": "ST-SSC-08",
+          "status": "partial",
+          "obligation": "M",
+          "audit": "AUTO",
+          "title": "Human-readable SSCC digits = decoded SSCC"
         },
         {
           "id": "ST-RTE-04",

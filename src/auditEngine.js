@@ -141,6 +141,22 @@ function validateExpectedSsccPrefix({
         )
   );
 
+  // Make "not checked" visible: without an expected prefix/extension digit the
+  // registration checks cannot run, and that must be auditable rather than the
+  // rows silently not existing.
+  if (!expectedSscc.extensionDigit && !expectedSscc.companyPrefix) {
+    validations.push(
+      result(
+        `${idPrefix}_COMPANY_PREFIX`,
+        'SSCC GS1 Company Prefix',
+        'INFO',
+        category,
+        'not_applicable',
+        'No expected GS1 Company Prefix or extension digit was supplied, so the SSCC company prefix was not verified against merchant registration data.'
+      )
+    );
+  }
+
   if (validSsccs.length && expectedSscc.extensionDigit) {
     const matches = validSsccs.filter(s => s.extensionDigit === expectedSscc.extensionDigit);
     validations.push(
@@ -333,6 +349,10 @@ export function calculateEparcelCheckDigit(articleWithoutCheckDigit) {
 /** Parses a cleaned eParcel article or SSCC candidate once its outer structure is plausible. */
 function parseValidArticleId(cleaned) {
   if (/^00\d{18}$/.test(cleaned)) {
+    // The SSCC mod-10 check digit must hold wherever the SSCC is carried,
+    // including the AI 91 article position inside a GS1 DataMatrix.
+    const ssccDigits = cleaned.slice(2);
+    if (gs1Mod10CheckDigit(ssccDigits.slice(0, -1)) !== ssccDigits.slice(-1)) return null;
     return { type: 'sscc', articleId: cleaned, sscc: cleaned, valid: true };
   }
 
@@ -383,7 +403,10 @@ export function analyzeArticleCandidate(candidate) {
   if (valid) return { valid: true, article: valid, candidate: cleaned, reason: null };
 
   let reason = 'Article string does not match a standard eParcel article ID or SSCC structure.';
-  if (/^00\d+$/.test(cleaned) && cleaned.length !== 20) {
+  if (/^00\d{18}$/.test(cleaned)) {
+    const ssccDigits = cleaned.slice(2);
+    reason = `SSCC check digit mismatch. Expected ${gs1Mod10CheckDigit(ssccDigits.slice(0, -1))}, got ${ssccDigits.slice(-1)}.`;
+  } else if (/^00\d+$/.test(cleaned) && cleaned.length !== 20) {
     reason = `SSCC article IDs must be 20 digits including AI 00. Detected length ${cleaned.length}.`;
   } else if (/^\d+$/.test(cleaned) || /^[A-Z0-9]+$/.test(cleaned)) {
     reason = `Standard eParcel article IDs must be 21 characters for 3-character MLID or 23 characters for 5-character MLID. Detected length ${cleaned.length}.`;
@@ -497,11 +520,17 @@ export function parseGs1DataMatrix(raw) {
     }
   }
 
+  // Compact fallbacks recover AI values when the scanner dropped the FNC1 group
+  // separators. Each recovery is recorded: a conforming symbol positions a
+  // separator before AI 420 and AI 8008 (EP-DM-08), so needing the fallback is
+  // itself evidence the separators are missing or misplaced.
+  const aiSeparatorFallbacks = [];
   if (!hasAi420) {
     const m = compact.match(/420(\d{4})/);
     if (m) {
       hasAi420 = true;
       postcode = m[1];
+      aiSeparatorFallbacks.push('420');
     }
   }
   if (!hasAi92) {
@@ -509,6 +538,7 @@ export function parseGs1DataMatrix(raw) {
     if (m) {
       hasAi92 = true;
       dpid = m[1];
+      aiSeparatorFallbacks.push('92');
     }
   }
   if (!hasAi8008) {
@@ -516,6 +546,7 @@ export function parseGs1DataMatrix(raw) {
     if (m) {
       hasAi8008 = true;
       dateTime = m[1];
+      aiSeparatorFallbacks.push('8008');
     }
   }
 
@@ -533,20 +564,42 @@ export function parseGs1DataMatrix(raw) {
     dpid,
     hasAi8008,
     dateTime,
+    aiSeparatorFallbacks,
     invalidLiteralSeparators: /FNC1|_1|\$/i.test(String(raw || ''))
   };
 }
 
+/**
+ * GS1 DataMatrix carrier-compliance evidence (GS1 DataMatrix Guideline; ISO/IEC 16022/15424).
+ * A GS1 DataMatrix is Data Matrix ECC 200 with FNC1 in the first codeword position. The
+ * leading FNC1 is NOT transmitted as data - scanners signal it through the ISO/IEC 15424
+ * symbology identifier: ]d2 / ]d5 mean ECC 200 + FNC1 first (GS1); ]d1/]d3/]d4/]d6 are
+ * ECC 200 without FNC1 first; ]d0 is the non-permitted ECC 000-140 family. When no
+ * identifier is available, a decode by either ZXing engine still proves ECC 200 because
+ * ZXing only reads ECC 200 symbols; FNC1-first then stays unknown (null).
+ */
+export function dataMatrixComplianceEvidence({ raw = '', symbologyIdentifier = '', decoderSource = '' } = {}) {
+  const identifier = String(symbologyIdentifier || '') || (String(raw).match(/^\]d\d/) || [])[0] || '';
+  let fnc1FirstPosition = null;
+  if (identifier === ']d2' || identifier === ']d5') fnc1FirstPosition = true;
+  else if (/^\]d\d$/.test(identifier)) fnc1FirstPosition = false;
+  let ecc200 = null;
+  if (/^\]d[1-6]$/.test(identifier)) ecc200 = true;
+  else if (identifier === ']d0') ecc200 = false;
+  else if (/zxing/i.test(String(decoderSource))) ecc200 = true;
+  return { symbologyIdentifier: identifier, fnc1FirstPosition, ecc200, decoderSource: String(decoderSource || '') };
+}
+
 /** Identifies likely DataMatrix content when a scanner returns incomplete symbology metadata. */
 function looksLikeDataMatrix(raw, format = '') {
+  const fmt = String(format || '');
+  if (/data[_\s-]?matrix/i.test(fmt)) return true;
+  // Explicit non-DataMatrix symbology metadata is authoritative: an article's
+  // digits can coincidentally contain "420"/"8008", so content sniffing is only
+  // a fallback for scanners that report no usable format.
+  if (/code[_\s-]?128|gs1|qr|ean|upc|pdf417|aztec|itf|codabar|code[_\s-]?39|code[_\s-]?93/i.test(fmt)) return false;
   const n = normalizeBarcode(raw);
-  return (
-    /data[_\s-]?matrix/i.test(format) ||
-    n.includes('420') ||
-    n.includes('8008') ||
-    n.includes('|92') ||
-    n.includes('|420')
-  );
+  return n.includes('420') || n.includes('8008') || n.includes('|92') || n.includes('|420');
 }
 
 // Extracted text is attacker-controlled (crafted PDF text layers, OCR of
@@ -698,16 +751,16 @@ function extractArticleIdsFromLines(lines) {
     ids.push(...matches);
   }
   // Secondary pass: barcode human-readable text appears above/below the symbol
-  // without a heading. Scan all lines but apply the stricter pattern and require
-  // the line to contain ONLY the candidate (not part of a longer word).
+  // without a heading, often space-grouped (e.g. "00 39312 65000 00012 3"), so
+  // match with the line's spacing removed. Scan all lines but apply the stricter
+  // pattern and require the candidate to dominate the line (reduces watermark noise).
   if (ids.length === 0) {
     for (const line of lines) {
       if (/(?:AP\s*)?Article\s*Id/i.test(line)) continue;
-      const upper = String(line).toUpperCase().trim();
-      const matches = upper.match(EPARCEL_ARTICLE_RE) || [];
-      // Only take the match if it dominates the line (reduces watermark noise).
+      const stripped = String(line).toUpperCase().replace(/\s/g, '');
+      const matches = stripped.match(EPARCEL_ARTICLE_RE) || [];
       for (const m of matches) {
-        if (upper.replace(/\s/g, '').startsWith(m) || upper.replace(/\s/g, '').endsWith(m)) {
+        if (stripped.startsWith(m) || stripped.endsWith(m)) {
           ids.push(m);
         }
       }
@@ -803,13 +856,19 @@ function diagnosticManualValues(manualBarcodes) {
 }
 
 function decodedLinearPresent(detectedBarcodes) {
-  return detectedBarcodes.some(
-    b => /code[_\s-]?128|gs1/i.test(String(b.format || '')) || parseEparcelBarcode(b.rawValue || '').hasAi91
-  );
+  return detectedBarcodes.some(b => {
+    const fmt = String(b.format || b.symbology || '');
+    // A decoded DataMatrix/QR must never satisfy the "linear barcode present"
+    // requirement - the linear symbol has to be readable in its own right.
+    if (/data[_\s-]?matrix|qr|aztec|pdf417/i.test(fmt)) return false;
+    if (/code[_\s-]?128|gs1/i.test(fmt) || b.kind === 'linear') return true;
+    // Content fallback only when the scanner reported no usable symbology.
+    return !fmt && parseEparcelBarcode(b.rawValue || '').hasAi91;
+  });
 }
 
 function decodedDataMatrixPresent(detectedBarcodes) {
-  return detectedBarcodes.some(b => looksLikeDataMatrix(b.rawValue || '', b.format || ''));
+  return detectedBarcodes.some(b => looksLikeDataMatrix(b.rawValue || '', b.format || b.symbology || ''));
 }
 
 function validateLabelFacts(facts) {
@@ -1203,13 +1262,20 @@ function buildEparcelRuleContext({
   visualEvidence
 }) {
   const linearParses = parsed.filter(p => p.hasAi01 !== undefined);
-  const gs1Items = [...linearParses, ...dmParses.map(p => p.base).filter(Boolean)].map(p => ({
+  const gs1Items = [
+    ...linearParses.map(p => ({ parse: p, sourceType: 'linear' })),
+    ...dmParses
+      .map(p => p.base)
+      .filter(Boolean)
+      .map(p => ({ parse: p, sourceType: 'datamatrix' }))
+  ].map(({ parse: p, sourceType }) => ({
     raw: p.raw,
     compact: p.compact,
     prefix16: (p.compact || '').slice(0, 16),
     hasAi01: Boolean(p.hasAi01),
     hasAi91: Boolean(p.hasAi91),
-    hasAusPostGtin: Boolean(p.hasAusPostGtin)
+    hasAusPostGtin: Boolean(p.hasAusPostGtin),
+    sourceType
   }));
   const toBlock = facts.toBlock || [];
   const fromBlock = facts.fromBlock || [];
@@ -1240,6 +1306,7 @@ function buildEparcelRuleContext({
     derived: {
       linearArticleIds: linearParses.map(p => p.article?.articleId).filter(Boolean),
       dmArticleIds: dmParses.map(p => p.base?.article?.articleId).filter(Boolean),
+      linearSsccIds: validSsccs.map(s => s.articleId).filter(Boolean),
       invalidArticleReasons: invalidAnalyses.map(a => `${a.candidate}: ${a.reason}`).join('\n'),
       invalidSsccReasons: invalidSsccs.map(s => s.reason).join('\n')
     },
@@ -1261,6 +1328,7 @@ function selectEparcelVariant(selectedFormat, articles, facts) {
 function buildStarTrackRuleContext({
   fileInfo,
   facts,
+  rawFacts = null,
   selectedFormat,
   qrParses,
   freightParses,
@@ -1268,6 +1336,7 @@ function buildStarTrackRuleContext({
   atlParses,
   validSsccs,
   invalidSsccs,
+  unclassifiedLinear = [],
   expectedAtlNumbers,
   atlExpected,
   visualEvidence
@@ -1307,12 +1376,22 @@ function buildStarTrackRuleContext({
           ? { rc: 'AU', r1: routeDepot, r2: qrDepot }
           : { rc: 'AU', r1: null, r2: routeDepot };
   }
+  // Pre-enrichment (print-only) facts back the visible-content checks; the enriched
+  // facts remain available for rules where decoded data is a legitimate source.
+  const visible = rawFacts || facts;
   return {
     page: buildPageContext(fileInfo),
     text: {
       ...facts,
       hasStarTrackHeader: hasStarTrackHeaderText,
-      returnTransferIndicator: ((lines.join('\n').match(/\*\s*(RETURN|TRANSFER)\s*\*/i) || [])[0] || '').trim()
+      returnTransferIndicator: ((lines.join('\n').match(/\*\s*(RETURN|TRANSFER)\s*\*/i) || [])[0] || '').trim(),
+      visibleLabelCode: visible.labelCode || '',
+      visibleConsignmentIds: visible.consignmentIds || [],
+      visibleArticleIds: visible.articleIds || [],
+      visibleWeightKg: visible.weightKg || '',
+      visibleCube: visible.cube || '',
+      visibleUnit: visible.unit || '',
+      visibleSsccIds: visible.visibleSsccIds || []
     },
     barcodes: {
       qrPresent: qrParses.length > 0,
@@ -1324,6 +1403,7 @@ function buildStarTrackRuleContext({
       freight: freightParses,
       routing: routingParses,
       atl: atlParses,
+      linearUnclassified: unclassifiedLinear,
       sscc: { valid: validSsccs, invalid: invalidSsccs }
     },
     derived: {
@@ -1336,7 +1416,9 @@ function buildStarTrackRuleContext({
       atlExpected: Boolean(atlExpected),
       starTrackConfirmed: starTrackBarcodeDecoded || hasStarTrackHeaderText,
       invalidSsccReasons: invalidSsccs.map(s => s.reason).join('\n'),
-      receiverEvidence: [...(facts.toBlock || []), ...(facts.postcodeLines || [])]
+      // Print-only evidence: the receiver block must actually be printed on the
+      // label, so QR-backfilled address data must not satisfy this check.
+      receiverEvidence: [...(visible.toBlock || []), ...(visible.postcodeLines || [])]
     },
     selected: { carrier: 'startrack', format: selectedFormat }
   };
@@ -1370,16 +1452,25 @@ function auditEparcelLabel({
   const facts = extractLabelFacts(extractedText);
   const manualValues = diagnosticManualValues(manualBarcodes);
   const decodedValues = decodedRawValues(detectedBarcodes);
-  const allRawBarcodes = [...decodedValues];
 
   validations.push(...validateLabelFacts(facts));
 
   const decodedLinear = decodedLinearPresent(detectedBarcodes);
   const decodedDm = decodedDataMatrixPresent(detectedBarcodes);
 
-  const parsed = allRawBarcodes.map(raw =>
-    looksLikeDataMatrix(raw) ? parseGs1DataMatrix(raw) : parseEparcelBarcode(raw)
-  );
+  const parsed = detectedBarcodes
+    .map(b => ({
+      raw: b.rawValue || b.raw || b.text || '',
+      format: b.format || b.symbology || '',
+      symbologyIdentifier: b.symbologyIdentifier || '',
+      decoderSource: b.source || ''
+    }))
+    .filter(s => s.raw)
+    .map(s =>
+      looksLikeDataMatrix(s.raw, s.format)
+        ? { ...parseGs1DataMatrix(s.raw), ...dataMatrixComplianceEvidence(s) }
+        : parseEparcelBarcode(s.raw)
+    );
   // SSCC is proven by the linear barcode only (EP-SS-01); never let a GS1 Data
   // Matrix that repeats AI (00) SSCC stand in for the linear scan.
   const ssccParses = decodedLinearRawValues(detectedBarcodes)
@@ -1519,9 +1610,22 @@ export function parseSsccBarcode(raw) {
   // AI 00 is the leading AI of an SSCC barcode, so anchor at the start. A floating
   // match would hit "00" + 18 digits inside unrelated payloads (e.g. zero-padded
   // account fields in the StarTrack QR data) and report false check-digit failures.
-  const match = compact.match(/^00(\d{18})/);
+  const match = compact.match(/^00(\d{18})(.*)$/);
   if (!match) return { valid: false, raw, reason: 'No AI 00 + 18 digit SSCC found.' };
   const sscc = match[1];
+  // The spec requires FNC1 + AI 00 + the 20-digit SSCC and NOTHING else in the
+  // linear symbol; trailing payload means the symbol is not a conforming SSCC.
+  if (match[2]) {
+    return {
+      valid: false,
+      type: 'sscc',
+      raw,
+      ai: '00',
+      sscc,
+      articleId: `00${sscc}`,
+      reason: `SSCC barcode carries unexpected data after the 20-digit SSCC ("${match[2].slice(0, 24)}${match[2].length > 24 ? '...' : ''}"). The symbol must contain AI 00 + SSCC and nothing else.`
+    };
+  }
   const body = sscc.slice(0, -1);
   const checkDigit = sscc.slice(-1);
   const expected = gs1Mod10CheckDigit(body);
@@ -1980,6 +2084,18 @@ function extractStarTrackFacts(extractedText) {
   const dgPresent = /DANGEROUS\s+GOODS|DG\s*[:-]|AVIATION\s+SECURITY|IATA|UN\s?\d{4}/i.test(joined);
   const authorityToLeavePresent = /AUTHORITY\s+TO\s+LEAVE|\bATL\b/i.test(joined);
   const visibleAtlNumbers = [...new Set((joined.match(/\bC\d{9}\b/gi) || []).map(v => v.toUpperCase()))];
+  // Human-readable SSCC digits are printed beneath the AI 00 symbol, often space-grouped
+  // (e.g. "(00) 3 9312650 00000123 4"), so match on each line with spacing removed.
+  const visibleSsccIds = [
+    ...new Set(
+      lines
+        .map(line => String(line).replace(/[^A-Z0-9]/gi, ''))
+        .flatMap(cleaned => {
+          const m = cleaned.match(/(?:^|[A-Z])(00\d{18})(?:[A-Z]|$)/i) || cleaned.match(/^(00\d{18})$/);
+          return m ? [m[1]] : [];
+        })
+    )
+  ];
   return {
     lines,
     labelType: 'StarTrack',
@@ -1996,6 +2112,7 @@ function extractStarTrackFacts(extractedText) {
     dangerousGoodsDeclarationPresent: dgPresent,
     authorityToLeavePresent,
     visibleAtlNumbers,
+    visibleSsccIds,
     dgBlock: extractDgBlock(lines),
     destinationLooksNz,
     extractedLineCount: lines.length
@@ -2127,9 +2244,13 @@ function auditStarTrackLabel({
   let facts = extractStarTrackFacts(extractedText);
   const manualValues = diagnosticManualValues(manualBarcodes);
   const decodedValues = decodedRawValues(detectedBarcodes);
-  const linearBarcodes = detectedBarcodes.filter(
-    b => /128|code/i.test(String(b.format || b.symbology || '')) || b.kind === 'linear'
-  );
+  // 2D formats are excluded outright: "qr_code" would otherwise match /code/, letting
+  // a QR payload that starts with "00" + 18 digits masquerade as the SSCC linear symbol.
+  const linearBarcodes = detectedBarcodes.filter(b => {
+    const fmt = String(b.format || b.symbology || '');
+    if (/qr|data[_\s-]?matrix|aztec|pdf417/i.test(fmt)) return false;
+    return /128|code/i.test(fmt) || b.kind === 'linear';
+  });
   const linearValues = linearBarcodes.map(b => b.rawValue).filter(Boolean);
   const qrValues = detectedBarcodes
     .filter(b => /qr/i.test(String(b.format || b.symbology || '')) || b.kind === 'qr')
@@ -2156,6 +2277,23 @@ function auditStarTrackLabel({
   const invalidSsccs = ssccParses.filter(p => !p.valid);
   const routingParses = linearValues.map(parseStarTrackRoutingBarcode).filter(p => p.valid);
   const atlParses = linearValues.map(parseStarTrackAtlBarcode).filter(p => p.valid);
+  // Linear symbols that decoded but match no StarTrack structure are surfaced for
+  // review instead of silently disappearing as "not decoded" - the symbol DID read,
+  // its content is just malformed or foreign.
+  const classifiedLinearValues = new Set(
+    [...freightParses, ...routingParses, ...atlParses, ...ssccParses].map(p => p.raw)
+  );
+  const unclassifiedLinear = uniqueNonEmpty(linearValues.filter(v => !classifiedLinearValues.has(v))).map(value => ({
+    value,
+    reasons: [
+      parseStarTrackFreightItemBarcode(value).reason,
+      parseStarTrackRoutingBarcode(value).reason,
+      parseStarTrackAtlBarcode(value).reason,
+      parseSsccBarcode(value).reason
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }));
   const expectedAtlNumbers = uniqueNonEmpty([
     ...(facts.visibleAtlNumbers || []),
     ...qrParses.map(q => q.fields?.atlNumber).filter(Boolean)
@@ -2188,6 +2326,10 @@ function auditStarTrackLabel({
     .filter(Boolean)
     .join('\n');
 
+  // Keep the pre-enrichment facts: rules that verify what is PRINTED on the label
+  // must compare against text-only evidence, never against values backfilled from
+  // the very barcodes they are meant to cross-check.
+  const rawFacts = facts;
   facts = enrichStarTrackFactsFromDecodedData(facts, { qrParses, freightParses, routingParses, validSsccs });
   validations.push(
     ...validateSelectedAuditMode({
@@ -2251,6 +2393,7 @@ function auditStarTrackLabel({
   const ruleContext = buildStarTrackRuleContext({
     fileInfo,
     facts,
+    rawFacts,
     selectedFormat,
     qrParses,
     freightParses,
@@ -2258,6 +2401,7 @@ function auditStarTrackLabel({
     atlParses,
     validSsccs,
     invalidSsccs,
+    unclassifiedLinear,
     expectedAtlNumbers,
     atlExpected,
     visualEvidence
