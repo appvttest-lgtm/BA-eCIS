@@ -1,0 +1,52 @@
+{
+  "name": "eParcel Metro (M2M) worked example - Metro Service V2.0 p37 article, linear + DataMatrix agree",
+  "noFail": true,
+  "mustFire": [
+    "EP-MET-01",
+    "EP-MET-02",
+    "EP-MET-03",
+    "EP-MET-04",
+    "EP-MET-05",
+    "EP-MET-06",
+    "EP-SVC-07",
+    "EP-SVC-03",
+    "EP-ART-06"
+  ],
+  "mustPass": [
+    "EP-MET-01",
+    "EP-MET-02",
+    "EP-MET-03",
+    "EP-MET-04",
+    "EP-MET-05",
+    "EP-MET-06",
+    "EP-SVC-07",
+    "EP-SVC-03",
+    "EP-ART-06",
+    "EP-ART-07",
+    "EP-LIN-09"
+  ],
+  "input": {
+    "carrier": "eparcel",
+    "labelFamily": "eparcel",
+    "labelFormat": "standard",
+    "fileInfo": {
+      "name": "metro-label.pdf",
+      "widthMm": 150,
+      "heightMm": 100,
+      "pageCount": 1
+    },
+    "detectedBarcodes": [
+      {
+        "rawValue": "019931265099999891111JD000012001001210900",
+        "format": "code_128"
+      },
+      {
+        "rawValue": "019931265099999891111JD000012001001210900|4203000|9247609364|8008240517093000",
+        "format": "data_matrix",
+        "symbologyIdentifier": "]d2",
+        "source": "ZXing-WASM crop scanner"
+      }
+    ],
+    "extractedText": "Australia Post\nM2M\nTo\nTest Recipient\nYour Business Pty Ltd\n111 Bourke St\nAddress line 2\nMELBOURNE VIC 3000\nPh: 03 1234 5678\nArticle\n1 of 1\nAU VIC 3000\nConsignment No: 111JD0000120\nPackaging\nN/A\nWeight\n2.00kg\nCubic weight\nN/A\nFrom\nTest Sender\nYour Business Pty Ltd\n111 Bourke St\nMELBOURNE VIC 3000\nReferences\nSender Reference 1\nSender Reference 2\nAviation Security and Dangerous Goods Declaration\nThe sender acknowledges that this article may be carried by air and will be subject to aviation\nsecurity and clearing procedures; and the sender declares that the article does not contain any\ndangerous or prohibited goods, explosive or incendiary devices.\nA false declaration is a criminal offence.\nArticle ID: 111JD000012001001210900\n0528"
+  }
+}

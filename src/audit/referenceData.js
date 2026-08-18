@@ -8,7 +8,9 @@ export const PRODUCT_CODE_MAP = {
   '00096': 'Express Post + Signature',
   '00087': 'Express Post (Non-Signature)',
   '00065': 'Parcel Post Return',
-  '00068': 'Express Post Return'
+  '00068': 'Express Post Return',
+  '00121': 'Metro (Non-Signature)',
+  '00120': 'Metro + Signature'
 };
 
 // eParcel service codes also define the delivery flags we expect to see in a matching
@@ -98,14 +100,18 @@ export const SERVICE_CODE_MAP = {
 
 // Standard eParcel article IDs encode both service and product. This matrix rejects
 // combinations that can decode successfully but are not valid together.
+// Metro (00121/00120) accepts all three service codes the Metro spec lists (09, 45, 51).
+// The spec's product-attributes table (V2.0 p6) does not state which of the three belongs
+// to which sub-product, so the union is accepted rather than hard-failing a valid pairing;
+// tighten these three rows once Australia Post confirms the per-sub-product split.
 export const SERVICE_TO_PRODUCT_MAP = {
   '03': ['00093', '00096', '00065', '00068'],
   '08': ['00093', '00096', '00065', '00068'],
-  45: ['00093', '00096'],
+  45: ['00093', '00096', '00121', '00120'],
   15: ['00093', '00096'],
   50: ['00093', '00096'],
-  51: ['00093', '00096'],
-  '09': ['00091', '00087'],
+  51: ['00093', '00096', '00121', '00120'],
+  '09': ['00091', '00087', '00121', '00120'],
   49: ['00093'],
   81: ['00093'],
   82: ['00093'],

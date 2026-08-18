@@ -18,6 +18,13 @@ export * from './audit/referenceData.js';
 
 const STATE_REGEX = `(?:${AU_STATES.join('|')})`;
 const POSTCODE_LINE_REGEX = new RegExp(`\\b([A-Z][A-Z\\s'-]+?\\s+${STATE_REGEX}\\s+\\d{4})\\b`, 'i');
+// Metro labels carry a routing block - destination country code, state and postcode -
+// that the other eParcel templates do not have. Text items sharing a baseline are grouped
+// into a single line upstream (PDF text layer and OCR alike), so a same-line match is the
+// reliable signal; anything else stays undetected and surfaces as manual review rather
+// than passing silently.
+const METRO_ROUTING_REGEX = new RegExp(`^AU\\s+(${STATE_REGEX})\\s+(\\d{4})$`, 'i');
+const ADDRESS_STATE_REGEX = new RegExp(`\\b(${STATE_REGEX})\\b\\s+\\d{4}\\s*$`, 'i');
 
 /** Creates one normalized validation row consumed by both the React UI and exported HTML. */
 function result(id, title, severity, category, status, message, extra = {}) {
@@ -644,7 +651,7 @@ function isDgText(line) {
 }
 
 function isOperationalLine(line) {
-  return /^(DELIVERY\s+INSTRUCTIONS|Delivery\s+features|Signature\b|Con\s*No\b|Cons\s*No\b|PARCEL\b|AP\s*Article|Postage\s*Paid|Dead\s*weight|Weight\b|Ph\b|PHONE\b)/i.test(
+  return /^(DELIVERY\s+INSTRUCTIONS|Delivery\s+features|Signature\b|Con(?:s(?:ignment)?)?\s*No\b|PARCEL\b|AP\s*Article|Postage\s*Paid|Dead\s*weight|Weight\b|Ph\b|PHONE\b)/i.test(
     String(line || '').trim()
   );
 }
@@ -734,6 +741,38 @@ function extractPostcodeLines(lines) {
   return [...new Set(found)];
 }
 
+/** Extracts the Metro routing block (country code, state and postcode) from a single line. */
+function extractRoutingDetails(lines) {
+  for (const line of lines) {
+    const match = String(line || '')
+      .trim()
+      .match(METRO_ROUTING_REGEX);
+    if (match) {
+      return {
+        routingLine: match[0].replace(/\s+/g, ' '),
+        routingState: match[1].toUpperCase(),
+        routingPostcode: match[2]
+      };
+    }
+  }
+  return { routingLine: null, routingState: null, routingPostcode: null };
+}
+
+/** Reads the state from a "SUBURB STATE POSTCODE" line so routing details can be cross-checked. */
+function addressState(line) {
+  const match = String(line || '').match(ADDRESS_STATE_REGEX);
+  return match ? match[1].toUpperCase() : null;
+}
+
+/** Reads the visible "n of N" article count, which may sit under an Article/Parcel heading. */
+function extractArticleCountLine(lines) {
+  const inline = firstLineValue(lines, /(?:Article|Parcel)\s+(\d+\s+of\s+\d+)/i);
+  if (inline) return inline.replace(/\s+/g, ' ');
+  const idx = lines.findIndex(line => /^(?:Article|Parcel)s?$/i.test(String(line).trim()));
+  const next = idx >= 0 ? String(lines[idx + 1] || '').trim() : '';
+  return /^\d+\s+of\s+\d+$/i.test(next) ? next.replace(/\s+/g, ' ') : null;
+}
+
 // Matches a visible article ID: AI 00 SSCC (00 + 18 digits), or an eParcel article
 // (3- or 5-char MLID followed by exactly 18 digits). This is tighter than a generic
 // [A-Z0-9]{21|23} and avoids capturing watermark text.
@@ -777,9 +816,9 @@ export function extractLabelFacts(extractedText) {
 
   const articleIds = extractArticleIdsFromLines(lines);
 
-  let consNo = firstLineValue(lines, /Con(?:s)?\s*No\s*:?\s*([A-Z0-9]+)/i);
+  let consNo = firstLineValue(lines, /Con(?:s(?:ignment)?)?\s*No\s*:?\s*([A-Z0-9]+)/i);
   if (!consNo) {
-    const idx = lines.findIndex(line => /Cons\s*No\s*:?\s*$/i.test(line));
+    const idx = lines.findIndex(line => /Con(?:s(?:ignment)?)?\s*No\s*:?\s*$/i.test(line));
     if (idx >= 0 && lines[idx + 1] && /^[A-Z0-9]{6,16}$/i.test(lines[idx + 1])) consNo = lines[idx + 1];
   }
   const phone = firstLineValue(lines, /(?:Ph|Phone)\s*:?\s*([0-9 +()-]+)/i);
@@ -793,10 +832,13 @@ export function extractLabelFacts(extractedText) {
   const fromBlock = extractFromBlock(lines);
   const dgBlock = extractDgBlock(lines);
   const postcodeLines = extractPostcodeLines(lines);
+  const routing = extractRoutingDetails(lines);
+  const articleCountLine = extractArticleCountLine(lines);
 
   let labelType = null;
   if (/EXPRESS\s+POST/.test(upper)) labelType = 'Express Post';
   else if (/PARCEL\s+POST/.test(upper)) labelType = 'Parcel Post';
+  else if (/\bM2M\b/.test(upper)) labelType = 'Metro (M2M)';
   else if (/EPARCEL/.test(upper)) labelType = 'eParcel';
 
   return {
@@ -811,6 +853,8 @@ export function extractLabelFacts(extractedText) {
     fromBlock,
     dgBlock,
     postcodeLines,
+    ...routing,
+    articleCountLine,
     dangerousGoodsDeclarationPresent:
       dgBlock.length > 0 ||
       /Aviation\s+Security\s+and\s+Dangerous\s+Goods\s+Declaration/i.test(joined) ||
@@ -1279,6 +1323,7 @@ function buildEparcelRuleContext({
   }));
   const toBlock = facts.toBlock || [];
   const fromBlock = facts.fromBlock || [];
+  const toPostcodes = [...new Set(toBlock.flatMap(line => String(line).match(/\b\d{4}\b/g) || []))];
   const postcodes4 = [
     ...new Set([...(facts.postcodeLines || []), ...toBlock].flatMap(line => String(line).match(/\b\d{4}\b/g) || []))
   ];
@@ -1288,6 +1333,8 @@ function buildEparcelRuleContext({
       ...facts,
       toLastLine: lastAddressLine(toBlock),
       fromLastLine: lastAddressLine(fromBlock),
+      toPostcodes,
+      toState: addressState(lastAddressLine(toBlock)),
       postcodes4,
       labelDates: facts.dateCodeMMDD ? [facts.dateCodeMMDD] : [],
       dgPresent: Boolean(facts.dangerousGoodsDeclarationPresent),
@@ -1319,7 +1366,9 @@ function selectEparcelVariant(selectedFormat, articles, facts) {
   const products = articles.filter(a => a.type === 'eparcel-standard').map(a => a.productCode);
   if (products.some(code => code === '00065' || code === '00068')) return 'returns';
   if (products.some(code => code === '00096' || code === '00087')) return 'express-post';
+  if (products.some(code => code === '00121' || code === '00120')) return 'metro';
   if (products.length) return 'parcel-post';
+  if (/m2m|metro/i.test(facts?.labelType || '')) return 'metro';
   if (/express/i.test(facts?.labelType || '')) return 'express-post';
   if (/parcel/i.test(facts?.labelType || '')) return 'parcel-post';
   return 'base';

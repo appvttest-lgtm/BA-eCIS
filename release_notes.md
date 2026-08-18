@@ -6,6 +6,57 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.14.0 - Australia Post Metro (Metro to Metro) label support
+--------------------------------------------------------------
+Adds Metro as an auto-detected eParcel product variant, validated against the
+Australia Post Metro Service Integration Specification V2.0 (2024-05-17). Metro uses
+the same GS1 barcode contract as the other eParcel products, so barcode decoding,
+article parsing and the check digit are unchanged; what is new is the simplified
+label template and the product/service codes.
+
+- New rule set rules/eparcel/metro.json (extends eparcel-base) adding six Metro
+  rules: the M2M header marking, the routing details line (AU + state + postcode),
+  agreement of the routing postcode and state with the delivery address, the
+  consignment number, and the visible article count.
+- Metro products 00121 (Metro) and 00120 (Metro + Signature) added to the product
+  and service reference data and to the on-screen service code matrix. Service
+  codes 09, 45 and 51 are accepted for both sub-products: the spec's product
+  attributes table (p6) lists all three without stating which belongs to which
+  sub-product, so the union is accepted rather than hard-failing a valid pairing.
+  Australia Post's own example label pairs 00120 with service 51.
+- Variant selection resolves Metro from the decoded product code, falling back to
+  the printed M2M mark when no barcode decodes.
+- "Consignment No", the Metro wording, is now read from visible label text. The
+  previous pattern matched only "Cons No" / "Con No", so the consignment
+  cross-check never ran on a Metro label.
+- Scan plan gains Metro's barcode positions: the GS1-128 sits in a full-width strip
+  along the bottom edge and the GS1 DataMatrix in the top-right corner, where the
+  standard eParcel crop looks at neither.
+- The report header now names the rule set that was applied. Carrier and format are
+  chosen by the user, but the product variant is resolved from the barcode, so
+  without this the auditor could not see which rules ran.
+- Regression cover: tests/metro-label.test.mjs plus conforming and mis-routed Metro
+  fixtures in the golden corpus.
+
+Declared gaps (docs/checklists/intended-checklist.json): Metro postcode-zone pairing
+(EP-MET-08) needs the postcode spreadsheet attached to the spec PDF and would become a
+maintained dataset; the visible article count is not cross-checked against the barcode
+article count (EP-MET-07); the recommended DataMatrix physical size is not derived from
+the decode (EP-MET-09).
+
+Note on the specification: the worked example on p37 of Metro V2.0 is internally
+inconsistent. It gives check digit 5 for an article whose correct check digit under the
+spec's own algorithm (p26-28) is 0. The tool's check digit implementation reproduces the
+spec's Examples 1 and 2 exactly, so no change was made.
+
+v1.13.3 - service matrix highlights only the label's service+product combination
+---------------------------------------------------------------------------------
+- In the eParcel service code reference table, the "selected" marker on product
+  code/name cells is now gated on the row's service code also being decoded from the
+  label. Previously any row containing the label's product code lit up (the same
+  product appears under many service rows); now only the actual service+product
+  combination is marked. Display-only - the EP-SVC combination rules are unchanged.
+
 v1.13.2 - Local server hardening (Snyk findings triage)
 ---------------------------------------------------------
 Response to a Snyk scan of the static local server (server.mjs, mirrored in

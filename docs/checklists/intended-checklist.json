@@ -2,7 +2,8 @@
   "note": "INTENDED validation checklist (single source of truth). Transcribed from the carrier specifications. `implementedBy` lists the live rule id(s) in /rules that satisfy each requirement; an empty list is a deliberate gap (backlog). source: spec=spec requirement, auditor=app-added safeguard beyond the spec, code=implemented in src/ outside the JSON rule sets. Run `npm run checklist` to compare this against the rules the engine actually ships.",
   "specs": {
     "eparcel": "Parcel Post & Express Post — Label & Barcode Specification v1.4 (2025-06-05)",
-    "startrack": "StarTrack Label Specifications — Modify Your Own System (MOS) v9 (2020-10-14)"
+    "startrack": "StarTrack Label Specifications — Modify Your Own System (MOS) v9 (2020-10-14)",
+    "eparcelMetro": "Australia Post Metro Service Integration Specification V2.0 (2024-05-17)"
   },
   "labelTypes": {
     "EPS": "eParcel Standard",
@@ -86,6 +87,15 @@
     { "id": "EP-PHY-03", "carrier": "eparcel", "element": "physical", "labelTypes": ["EPS", "ESS"], "obligation": "REC", "audit": "MANUAL", "implementedBy": [], "title": "Regular print-quality checks", "specRef": "v1.4 p29" },
     { "id": "EP-PHY-04", "carrier": "eparcel", "element": "physical", "labelTypes": ["EPS", "ESS"], "obligation": "M", "audit": "MANUAL", "implementedBy": [], "title": "Label placement exposes address + barcodes", "specRef": "v1.4 p30" },
     { "id": "EP-PHY-05", "carrier": "eparcel", "element": "physical", "labelTypes": ["EPS", "ESS"], "obligation": "M", "audit": "MANUAL", "implementedBy": [], "title": "Labels approved by Australia Post (TechSignOff)", "specRef": "v1.4 p5, p25" },
+    { "id": "EP-MET-01", "carrier": "eparcel", "element": "layout", "labelTypes": ["EPS"], "obligation": "M", "audit": "PARTIAL", "partial": true, "implementedBy": ["EP-MET-01"], "title": "Metro (M2M) header branding", "note": "M2M mark detected from text; simplified-template artwork not verified", "specRef": "Metro V2.0 p14, p18" },
+    { "id": "EP-MET-02", "carrier": "eparcel", "element": "text", "labelTypes": ["EPS"], "obligation": "M", "audit": "PARTIAL", "partial": true, "implementedBy": ["EP-MET-02"], "title": "Routing details line (AU + state + postcode)", "note": "presence, uppercase and format asserted; font size and centring not verified", "specRef": "Metro V2.0 p19" },
+    { "id": "EP-MET-03", "carrier": "eparcel", "element": "text", "labelTypes": ["EPS"], "obligation": "M", "audit": "PARTIAL", "implementedBy": ["EP-MET-03"], "title": "Routing postcode matches the delivery address", "specRef": "Metro V2.0 p19" },
+    { "id": "EP-MET-04", "carrier": "eparcel", "element": "text", "labelTypes": ["EPS"], "obligation": "M", "audit": "PARTIAL", "implementedBy": ["EP-MET-04"], "title": "Routing state matches the delivery address", "specRef": "Metro V2.0 p19" },
+    { "id": "EP-MET-05", "carrier": "eparcel", "element": "text", "labelTypes": ["EPS"], "obligation": "M", "audit": "PARTIAL", "implementedBy": ["EP-MET-05"], "title": "Consignment number printed on the label", "specRef": "Metro V2.0 p18" },
+    { "id": "EP-MET-06", "carrier": "eparcel", "element": "text", "labelTypes": ["EPS"], "obligation": "M", "audit": "PARTIAL", "partial": true, "implementedBy": ["EP-MET-06"], "title": "Article count (n of N) printed", "note": "presence and n-of-N form only; not cross-checked against the barcode article count", "specRef": "Metro V2.0 p18" },
+    { "id": "EP-MET-07", "carrier": "eparcel", "element": "text", "labelTypes": ["EPS"], "obligation": "M", "audit": "MANUAL", "implementedBy": [], "title": "Visible article count agrees with the barcode article count", "note": "gap: visible n of N is not compared with the decoded article count field", "specRef": "Metro V2.0 p18, p22" },
+    { "id": "EP-MET-08", "carrier": "eparcel", "element": "payload", "labelTypes": ["EPS"], "obligation": "M", "audit": "MANUAL", "implementedBy": [], "title": "Lodgement and destination postcodes inside the same Metro city zone", "note": "gap: requires the Metro Postcodes spreadsheet attached to the spec PDF; Australia Post revises these ranges (V1.8, V1.9), so it is a maintained dataset", "specRef": "Metro V2.0 p7, p11" },
+    { "id": "EP-MET-09", "carrier": "eparcel", "element": "datamatrix", "labelTypes": ["EPS"], "obligation": "REC", "audit": "MANUAL", "implementedBy": [], "title": "GS1 DataMatrix 26x26 modules at 13.68 x 13.68 mm", "note": "gap: recommended size only; physical symbol size is not derived from the decode", "specRef": "Metro V2.0 p23" },
 
     { "id": "ST-LAY-01", "carrier": "startrack", "element": "layout", "labelTypes": ["STS", "SSS"], "obligation": "M", "audit": "AUTO", "implementedBy": ["ST-LAY-01"], "title": "Despatch label 100 x 150 mm", "specRef": "MOS v9 1.001 p19" },
     { "id": "ST-LAY-02", "carrier": "startrack", "element": "layout", "labelTypes": ["STS", "SSS"], "obligation": "M", "audit": "AUTO", "implementedBy": ["ST-LAY-01"], "title": "Controlled returns/transfer label 150 x 100 mm", "specRef": "MOS v9 3.001" },

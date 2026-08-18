@@ -19,7 +19,7 @@ const MANIFEST = path.join(ROOT, 'docs/checklists/intended-checklist.json');
 // label resolves to one of several product variants at audit time, so the actual rule
 // surface for a column is the union of its variants' rules.
 const LABEL_TYPE_VARIANTS = {
-  EPS: { carrier: 'eparcel', variants: ['parcel-post', 'express-post', 'returns'] },
+  EPS: { carrier: 'eparcel', variants: ['parcel-post', 'express-post', 'returns', 'metro'] },
   ESS: { carrier: 'eparcel', variants: ['sscc'] },
   STS: { carrier: 'startrack', variants: ['premium', 'express', 'fpp'] },
   SSS: { carrier: 'startrack', variants: ['sscc'] }

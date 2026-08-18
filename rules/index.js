@@ -5,6 +5,7 @@ import eparcelBase from './eparcel/base.json' with { type: 'json' };
 import eparcelParcelPost from './eparcel/parcel-post.json' with { type: 'json' };
 import eparcelExpressPost from './eparcel/express-post.json' with { type: 'json' };
 import eparcelReturns from './eparcel/returns.json' with { type: 'json' };
+import eparcelMetro from './eparcel/metro.json' with { type: 'json' };
 import eparcelSscc from './eparcel/sscc.json' with { type: 'json' };
 import startrackBase from './startrack/base.json' with { type: 'json' };
 import startrackExpress from './startrack/express.json' with { type: 'json' };
@@ -18,6 +19,7 @@ const RULE_SETS = {
     'parcel-post': mergeRuleSets(eparcelBase, eparcelParcelPost),
     'express-post': mergeRuleSets(eparcelBase, eparcelExpressPost),
     returns: mergeRuleSets(eparcelBase, eparcelReturns),
+    metro: mergeRuleSets(eparcelBase, eparcelMetro),
     sscc: mergeRuleSets(eparcelBase, eparcelSscc)
   },
   startrack: {

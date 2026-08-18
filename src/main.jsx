@@ -216,7 +216,9 @@ const SERVICE_REFERENCE_ROWS = [
     apiPayload: { authority_to_leave: false, allow_partial_delivery: true, safe_drop_enabled: false },
     products: [
       ['00093', 'Parcel Post + Signature'],
-      ['00096', 'Express Post + Signature']
+      ['00096', 'Express Post + Signature'],
+      ['00121', 'Metro (Non-Signature)'],
+      ['00120', 'Metro + Signature']
     ]
   },
   {
@@ -243,7 +245,9 @@ const SERVICE_REFERENCE_ROWS = [
     apiPayload: { authority_to_leave: false, allow_partial_delivery: true, safe_drop_enabled: true },
     products: [
       ['00093', 'Parcel Post + Signature'],
-      ['00096', 'Express Post + Signature']
+      ['00096', 'Express Post + Signature'],
+      ['00121', 'Metro (Non-Signature)'],
+      ['00120', 'Metro + Signature']
     ]
   },
   {
@@ -252,7 +256,9 @@ const SERVICE_REFERENCE_ROWS = [
     apiPayload: { authority_to_leave: true, allow_partial_delivery: true, safe_drop_enabled: false },
     products: [
       ['00091', 'Parcel Post (Non-Signature)'],
-      ['00087', 'Express Post (Non-Signature)']
+      ['00087', 'Express Post (Non-Signature)'],
+      ['00121', 'Metro (Non-Signature)'],
+      ['00120', 'Metro + Signature']
     ]
   },
   {
@@ -527,7 +533,10 @@ function ServiceCodeMatrix({ audit }) {
             {SERVICE_REFERENCE_ROWS.map(row => {
               const matchedService = selectedServices.includes(serviceRowMatchCode(row));
               return row.products.map(([productCode, productName], productIndex) => {
-                const matchedProduct = selectedProducts.includes(productCode);
+                // Only the label's actual service+product combination is marked "selected":
+                // the same product code appears under many service rows, so a product-only
+                // match must not light up rows whose service code is not on the label.
+                const matchedProduct = matchedService && selectedProducts.includes(productCode);
                 return (
                   <tr
                     key={`${row.serviceCode}-${productCode}`}
@@ -2957,6 +2966,10 @@ function App() {
                             activeAudit.labelFormat ||
                             'standard'}
                         </span>
+                      </span>
+                      <span>
+                        <span className="meta-k">Rule set</span>
+                        <span className="meta-v">{activeAudit.ruleSet?.name || 'carrier defaults'}</span>
                       </span>
                       <span>
                         <span className="meta-k">Product</span>

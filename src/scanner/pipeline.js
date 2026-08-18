@@ -23,7 +23,7 @@ import {
   countLinearBars
 } from './canvasUtils.js';
 import { dedupeBarcodes, detectWithBrowserBarcodeDetector, zxingDecodeCanvas, wasmDecodeCanvas } from './decoders.js';
-import { STARTRACK_LINEAR_TARGETS, createLabelImages } from './labelImages.js';
+import { EPARCEL_METRO_TARGETS, STARTRACK_LINEAR_TARGETS, createLabelImages } from './labelImages.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -226,6 +226,9 @@ export function buildCategorizedScanTargets(canvas, labelFamily = 'eparcel') {
       makeTarget(canvas, FORMAT_KIND.mixed, 'Full page safety scan', 0, 0, w, h, ['Code128', 'QRCode'])
     ];
   }
+  // The Metro crops always run alongside the standard ones: the product is only known
+  // after a barcode decodes, so the layout cannot be chosen up front.
+  const metro = EPARCEL_METRO_TARGETS;
   return [
     makeTarget(
       canvas,
@@ -236,6 +239,26 @@ export function buildCategorizedScanTargets(canvas, labelFamily = 'eparcel') {
       w * 0.62,
       h * 0.22,
       ['Code128']
+    ),
+    makeTarget(
+      canvas,
+      FORMAT_KIND.linear,
+      'eParcel Metro linear barcode expected crop',
+      w * metro.linear.x,
+      h * metro.linear.y,
+      w * metro.linear.w,
+      h * metro.linear.h,
+      ['Code128']
+    ),
+    makeTarget(
+      canvas,
+      FORMAT_KIND.datamatrix,
+      'eParcel Metro DataMatrix expected crop',
+      w * metro.dataMatrix.x,
+      h * metro.dataMatrix.y,
+      w * metro.dataMatrix.w,
+      h * metro.dataMatrix.h,
+      ['DataMatrix']
     ),
     makeTarget(canvas, FORMAT_KIND.mixed, 'Full page safety scan', 0, 0, w, h, ['Code128', 'DataMatrix'])
   ];

@@ -16,6 +16,14 @@ export const STARTRACK_PREVIEW_BOXES = {
   freight: { x: 0.07, y: 0.78, w: 0.86, h: 0.16, label: 'Freight zone' }
 };
 
+// The Metro template moves both symbols: the GS1-128 sits in a full-width strip along the
+// bottom edge and the (larger) GS1 DataMatrix in the top-right corner, where the standard
+// eParcel crop looks at neither.
+export const EPARCEL_METRO_TARGETS = {
+  linear: { x: 0.0, y: 0.79, w: 1.0, h: 0.21 },
+  dataMatrix: { x: 0.6, y: 0.03, w: 0.4, h: 0.3 }
+};
+
 export const STARTRACK_LINEAR_TARGETS = {
   atl: { x: 0.52, y: 0.02, w: 0.46, h: 0.16 },
   routing: { x: 0.03, y: 0.36, w: 0.62, h: 0.25 },
