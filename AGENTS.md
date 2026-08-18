@@ -82,7 +82,7 @@ src/
   scanner/          # decode engines, canvas utils, label preview images, file pipeline
 rules/
   index.js
-  eparcel/          # base.json + parcel-post / express-post / returns / sscc variants
+  eparcel/          # base.json + parcel-post / express-post / returns / metro / sscc variants
   startrack/        # base.json + express / premium / fpp / sscc variants
 docs/checklists/    # spec-derived audit checklists the rule sets implement
 tests/              # node smoke tests + golden-corpus harness (fixtures/ + golden.test.mjs)

@@ -6,6 +6,30 @@ Release focus
 -------------
 The v1.7.1 to v1.7.6 line replaces hard-coded validation logic with external JSON rule sets, adds a rule-by-rule report UI, introduces input preprocessing for rotated and multi-label uploads, and hardens the local server, the launcher and all attacker-controlled input paths. The local-only security design is unchanged.
 
+v1.14.1 - code quality: scan-plan module, DSL guard tests, dedup
+--------------------------------------------------------------------
+Internal quality pass. No functional or UI change - every rule, verdict and screen
+behaves exactly as in v1.14.0.
+
+- src/scanner/scanPlan.js: the pure scan-planning functions (makeTarget,
+  buildCategorizedScanTargets, mapBarcodeToPage, textContentItemsToLines) moved out of
+  pipeline.js. pipeline.js pulls in Vite-only asset imports, so nothing in it could be
+  loaded by the Node test runner; these functions decide which regions get scanned and
+  how a decoded symbol maps to page coordinates, and had no tests at all. Same code,
+  new home, now covered by tests/scanner-pipeline.test.mjs.
+- tests/rule-dsl-integrity.test.mjs: asserts every op and named function referenced by a
+  shipped rule is actually implemented. An unknown op inside a "when" gate evaluates to
+  false, which silently skips the rule and drops its row from the report - the one class
+  of rule typo that produced no visible signal.
+- src/scanner/labelImages.js: the preview and scan crop geometry in this module is now
+  in named tables (EPARCEL_SCAN_TARGETS, PREVIEW_CROPS) instead of inline literals. The
+  fractions are unchanged. Note the visual-evidence regions in pipeline.js are a separate,
+  deliberately different set of rectangles and were left alone.
+- Removed a byte-identical copy of the normalize helper from auditEngine.js (it now
+  imports applyNormalize from ruleEngine.js), and dropped two assert operators no rule
+  uses: lengthIn and uppercase.
+- eslint.config.mjs ignores .claude/**, so npm run lint is not broken by agent worktrees.
+
 v1.14.0 - Australia Post Metro (Metro to Metro) label support
 --------------------------------------------------------------
 Adds Metro as an auto-detected eParcel product variant, validated against the

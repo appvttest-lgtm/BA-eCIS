@@ -14,7 +14,7 @@ drift behind the code.
 `RULE-ID — criterion`. "—" = not applicable. Two audit-mode checks run for *every* label and sit
 above the matrix: `AUDIT_MODE_CARRIER` and `AUDIT_MODE_FORMAT` (selected carrier/format vs decoded
 evidence). "Standard" columns are the union of their product variants (Parcel Post / Express Post /
-Returns; Premium / Express / FPP); variant-only rules are noted inline.
+Returns / Metro; Premium / Express / FPP); variant-only rules are noted inline.
 
 | Barcode element | eParcel Standard | eParcel SSCC | StarTrack Standard | StarTrack SSCC |
 |---|---|---|---|---|

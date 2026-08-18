@@ -129,7 +129,7 @@ The local HTTP server is used so browser modules, PDF workers, WebAssembly asset
 
 Validation rules are declarative JSON files under `rules/`, derived from the two carrier specifications and the checklists in `docs/checklists/`. Each carrier has a base file plus per-product variant files that extend it:
 
-- `rules/eparcel/` - `base.json`, `parcel-post.json`, `express-post.json`, `returns.json`, `sscc.json`
+- `rules/eparcel/` - `base.json`, `parcel-post.json`, `express-post.json`, `returns.json`, `metro.json`, `sscc.json`
 - `rules/startrack/` - `base.json`, `express.json`, `premium.json`, `fpp.json`, `sscc.json`
 
 `src/ruleEngine.js` is the generic evaluator: it merges a variant over its base, resolves rule inputs against the evidence extracted from the label (page geometry, text layer, decoded barcodes), applies the declarative asserts (regex, equality, ranges, date formats, cross-field comparisons) and named functions for algorithmic checks (check digits, service/product matrix). Every result carries the rule definition, the input data and the outcome so the report can show all three side by side. The audit engine selects the variant automatically from the decoded product codes and the selected audit mode.

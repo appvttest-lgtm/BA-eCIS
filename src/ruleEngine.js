@@ -50,13 +50,23 @@ function isEmptyValue(value) {
   return false;
 }
 
-function applyNormalize(value, normalize = []) {
+// Normalize steps a rule may name in `assert.normalize`. `digitsOnly` has no rule-JSON
+// user but is called directly by the `ltePath` operator below - do not drop it on the
+// strength of a rules/ search alone.
+const NORMALIZE_STEPS = {
+  stripSpaces: s => s.replace(/\s+/g, ''),
+  upper: s => s.toUpperCase(),
+  trim: s => s.trim(),
+  digitsOnly: s => s.replace(/\D+/g, '')
+};
+
+export const NORMALIZE_STEP_NAMES = Object.keys(NORMALIZE_STEPS);
+
+export function applyNormalize(value, normalize = []) {
   let out = value === undefined || value === null ? '' : String(value);
   for (const step of normalize) {
-    if (step === 'stripSpaces') out = out.replace(/\s+/g, '');
-    if (step === 'upper') out = out.toUpperCase();
-    if (step === 'trim') out = out.trim();
-    if (step === 'digitsOnly') out = out.replace(/\D+/g, '');
+    const apply = Object.hasOwn(NORMALIZE_STEPS, step) ? NORMALIZE_STEPS[step] : null;
+    if (apply) out = apply(out);
   }
   return out;
 }
@@ -198,14 +208,6 @@ export function evalAssert(assert, value, context, item, constants) {
         actual: str
       };
     }
-    case 'lengthIn': {
-      const lengths = Array.isArray(assert.value) ? assert.value : [assert.value];
-      return {
-        pass: lengths.includes(str.length),
-        expected: `length ${lengths.join(' or ')}`,
-        actual: `length ${str.length} (${str || 'missing'})`
-      };
-    }
     case 'range': {
       const num = Number(str);
       const min = assert.min ?? -Infinity;
@@ -226,8 +228,6 @@ export function evalAssert(assert, value, context, item, constants) {
         actual: str
       };
     }
-    case 'uppercase':
-      return { pass: str === str.toUpperCase(), expected: 'fully capitalised', actual: str || 'missing' };
     case 'dateFormat':
       return checkDateFormat(value, assert.value);
     case 'fn': {

@@ -1,6 +1,6 @@
 // Core reference data used by the audit rules. Keep these maps close to the parser
 // code because decoded barcode fields are resolved directly against them.
-import { evaluateRuleSet, registerRuleFunction, resolvePath } from './ruleEngine.js';
+import { applyNormalize, evaluateRuleSet, registerRuleFunction, resolvePath } from './ruleEngine.js';
 import { AU_STATES, getRuleSet } from '../rules/index.js';
 
 import {
@@ -1055,17 +1055,6 @@ function summarizeValidations(validations) {
   return summary;
 }
 
-function normalizeForCompare(value, steps = []) {
-  let out = value === undefined || value === null ? '' : String(value);
-  for (const step of steps) {
-    if (step === 'stripSpaces') out = out.replace(/\s+/g, '');
-    if (step === 'upper') out = out.toUpperCase();
-    if (step === 'trim') out = out.trim();
-    if (step === 'digitsOnly') out = out.replace(/\D+/g, '');
-  }
-  return out;
-}
-
 registerRuleFunction('pageSizeWithin', (page, { args }) => {
   const widthMm = page?.widthMm;
   const heightMm = page?.heightMm;
@@ -1111,7 +1100,7 @@ registerRuleFunction('requiredDecode', (value, { context, args }) => {
 registerRuleFunction('inPathList', (value, { context, item, args }) => {
   const raw = resolvePath(args?.path, context, item);
   const list = (Array.isArray(raw) ? raw : raw === undefined || raw === null || raw === '' ? [] : [raw])
-    .map(v => normalizeForCompare(v, args?.normalize))
+    .map(v => applyNormalize(v, args?.normalize))
     .filter(Boolean);
   if (!list.length) {
     return {
@@ -1122,7 +1111,7 @@ registerRuleFunction('inPathList', (value, { context, item, args }) => {
       message: `No values were available at ${args?.path} to compare against.`
     };
   }
-  const needle = normalizeForCompare(value, args?.normalize);
+  const needle = applyNormalize(value, args?.normalize);
   return { pass: list.includes(needle), expected: list.join(', '), actual: needle || 'missing' };
 });
 

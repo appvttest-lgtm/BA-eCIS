@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import prettierCompat from 'eslint-config-prettier';
 
 export default [
-  { ignores: ['dist/**', 'public/**', 'node_modules/**', 'wrapper/**', 'release/**', 'portable/**'] },
+  { ignores: ['dist/**', 'public/**', 'node_modules/**', 'wrapper/**', 'release/**', 'portable/**', '.claude/**'] },
   js.configs.recommended,
   {
     files: ['src/**/*.{js,jsx}', 'rules/**/*.js'],

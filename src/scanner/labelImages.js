@@ -16,12 +16,24 @@ export const STARTRACK_PREVIEW_BOXES = {
   freight: { x: 0.07, y: 0.78, w: 0.86, h: 0.16, label: 'Freight zone' }
 };
 
-// The Metro template moves both symbols: the GS1-128 sits in a full-width strip along the
-// bottom edge and the (larger) GS1 DataMatrix in the top-right corner, where the standard
-// eParcel crop looks at neither.
-export const EPARCEL_METRO_TARGETS = {
-  linear: { x: 0.0, y: 0.79, w: 1.0, h: 0.21 },
-  dataMatrix: { x: 0.6, y: 0.03, w: 0.4, h: 0.3 }
+// Scan crops for the eParcel templates. The standard template puts the GS1-128 across the
+// upper-left; the Metro template moves it to a full-width strip along the bottom edge and
+// puts the (larger) GS1 DataMatrix in the top-right corner, where the standard crop looks
+// at neither. All three run on every eParcel label because the product is only known once
+// a barcode has decoded.
+export const EPARCEL_SCAN_TARGETS = {
+  standardLinear: { x: 0.04, y: 0.23, w: 0.62, h: 0.22 },
+  metroLinear: { x: 0.0, y: 0.79, w: 1.0, h: 0.21 },
+  metroDataMatrix: { x: 0.6, y: 0.03, w: 0.4, h: 0.3 }
+};
+
+// Fallback framing for the report's evidence images, used only when a decoded barcode
+// carries no page box of its own.
+const PREVIEW_CROPS = {
+  dataMatrix: { x: 0.55, y: 0.02, w: 0.43, h: 0.31 },
+  dataMatrixFocused: { x: 0.72, y: 0.07, w: 0.26, h: 0.22 },
+  qr: { x: 0.35, y: 0.1, w: 0.6, h: 0.55 },
+  rightLinear: { x: 0.68, y: 0.18, w: 0.31, h: 0.68 }
 };
 
 export const STARTRACK_LINEAR_TARGETS = {
@@ -260,26 +272,15 @@ export function createLabelImages(canvas, detectedBarcodes = [], labelFamily = '
   // Fixed template crops are fallback evidence only. If a barcode decoded with a real
   // page box, prefer that because label layouts can shift between products/customers.
   const st = STARTRACK_LINEAR_TARGETS;
-  const dmCrop = cropCanvas(canvas, w * 0.55, h * 0.02, w * 0.43, h * 0.31);
-  const dmFocusedCrop = cropCanvas(canvas, w * 0.72, h * 0.07, w * 0.26, h * 0.22);
-  const qrCrop = cropCanvas(canvas, w * 0.35, h * 0.1, w * 0.6, h * 0.55);
-  const linearCrop = cropCanvas(canvas, w * st.sweep.x, h * st.sweep.y, w * st.sweep.w, h * st.sweep.h);
-  const rightLinearCrop = cropCanvas(canvas, w * 0.68, h * 0.18, w * 0.31, h * 0.68);
-  const starTrackRoutingCrop = cropCanvas(
-    canvas,
-    w * st.routing.x,
-    h * st.routing.y,
-    w * st.routing.w,
-    h * st.routing.h
-  );
-  const starTrackAtlCrop = cropCanvas(canvas, w * st.atl.x, h * st.atl.y, w * st.atl.w, h * st.atl.h);
-  const starTrackFreightCrop = cropCanvas(
-    canvas,
-    w * st.freight.x,
-    h * st.freight.y,
-    w * st.freight.w,
-    h * st.freight.h
-  );
+  const crop = box => cropCanvas(canvas, w * box.x, h * box.y, w * box.w, h * box.h);
+  const dmCrop = crop(PREVIEW_CROPS.dataMatrix);
+  const dmFocusedCrop = crop(PREVIEW_CROPS.dataMatrixFocused);
+  const qrCrop = crop(PREVIEW_CROPS.qr);
+  const linearCrop = crop(st.sweep);
+  const rightLinearCrop = crop(PREVIEW_CROPS.rightLinear);
+  const starTrackRoutingCrop = crop(st.routing);
+  const starTrackAtlCrop = crop(st.atl);
+  const starTrackFreightCrop = crop(st.freight);
   const previewCandidateBoxes =
     labelFamily === 'startrack' ? buildStarTrackPreviewCandidateBoxes(canvas, detectedBarcodes) : [];
 
