@@ -1,0 +1,27 @@
+{
+  "id": "startrack-premium",
+  "carrier": "startrack",
+  "name": "StarTrack Premium",
+  "extends": "startrack-base",
+  "spec": { "doc": "StarTrack Label Specifications - Modify Your Own System (MOS) v9", "date": "2020-10-14" },
+  "constants": {
+    "allowedProducts": ["PRM", "APT", "ARL"]
+  },
+  "rules": [
+    {
+      "id": "ST-LOC-01",
+      "title": "Premium receiver location codes (RC/R1/R2)",
+      "description": "Premium labels must print the receiver location codes with the routing barcode (Arial Bold 22pt): RC = 'AU', R1 = Primary Port and R2 = Secondary Port from the Location Master File. NZ Premium (routing postcode 9901) prints the fixed trio NZ/SYD/ZNA. The printed codes are cross-checked one way against the decoded routing barcode port and the QR destination depot; Location Master File validity cannot be verified digitally.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-routing",
+      "source": { "doc": "MOS v9", "page": 24, "ref": "1.009 / 1.011.1" },
+      "when": { "path": "derived.receiverLocationCodes", "op": "present" },
+      "input": "derived.receiverLocationCodes",
+      "evidence": ["derived.primaryProductCode"],
+      "assert": { "op": "fn", "name": "receiverLocationCodesShown" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review"
+    }
+  ]
+}

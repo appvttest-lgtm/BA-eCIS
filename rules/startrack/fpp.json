@@ -1,0 +1,56 @@
+{
+  "id": "startrack-fpp",
+  "carrier": "startrack",
+  "name": "StarTrack Fixed Price Premium / Fixed Price Airlock",
+  "extends": "startrack-base",
+  "spec": { "doc": "StarTrack Label Specifications - Modify Your Own System (MOS) v9", "date": "2020-10-14" },
+  "constants": {
+    "allowedProducts": ["FPP", "FPA"]
+  },
+  "rules": [
+    {
+      "id": "ST-FPP-01",
+      "title": "Fixed price services are single-item consignments",
+      "description": "Fixed price services with fixed weight limits must have exactly one item per consignment, so the QR consignment quantity must be 1.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-qr",
+      "source": { "doc": "MOS v9", "page": 10 },
+      "forEach": "barcodes.qr",
+      "input": "item.fields.consignmentQuantity",
+      "assert": { "op": "matches", "value": "^\\s*1\\s*$" },
+      "messages": {
+        "pass": "Consignment quantity is 1, as required for fixed price services.",
+        "fail": "Consignment quantity is {actual}. Fixed price services must consign a single item."
+      }
+    },
+    {
+      "id": "ST-FPP-02",
+      "title": "Unit type permitted for fixed price services",
+      "description": "Pallets and skids are not permitted unit types for FPP/FPA products.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "startrack-product",
+      "source": { "doc": "MOS v9", "ref": "Appendix A" },
+      "forEach": "barcodes.qr",
+      "itemWhen": { "path": "item.fields.unitType", "op": "present" },
+      "input": "item.fields.unitType",
+      "assert": { "op": "notIn", "value": ["PAL", "SKI"] }
+    },
+    {
+      "id": "ST-LOC-01",
+      "title": "Premium receiver location codes (RC/R1/R2)",
+      "description": "Fixed Price Premium / Fixed Price Airlock are Premium-group products (FPP routes as PRM, FPA as ARL), so the label must print the Premium receiver location codes with the routing barcode (Arial Bold 22pt): RC = 'AU', R1 = Primary Port and R2 = Secondary Port from the Location Master File. The printed codes are cross-checked one way against the decoded routing barcode port and the QR destination depot; Location Master File validity cannot be verified digitally.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-routing",
+      "source": { "doc": "MOS v9", "page": 24, "ref": "1.009" },
+      "when": { "path": "derived.receiverLocationCodes", "op": "present" },
+      "input": "derived.receiverLocationCodes",
+      "evidence": ["derived.primaryProductCode"],
+      "assert": { "op": "fn", "name": "receiverLocationCodesShown" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review"
+    }
+  ]
+}

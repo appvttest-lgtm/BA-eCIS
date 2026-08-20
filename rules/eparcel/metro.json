@@ -1,0 +1,121 @@
+{
+  "id": "eparcel-metro",
+  "carrier": "eparcel",
+  "name": "eParcel Metro (Metro to Metro)",
+  "extends": "eparcel-base",
+  "spec": { "doc": "Australia Post Metro Service Integration Specification V2.0", "date": "2024-05-17" },
+  "constants": {
+    "allowedProducts": ["00121", "00120"]
+  },
+  "rules": [
+    {
+      "id": "EP-MET-01",
+      "title": "Metro (M2M) header branding",
+      "description": "Metro labels use the simplified Metro template and carry the M2M mark beside the Australia Post hero brand.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "label-layout",
+      "source": { "doc": "Metro V2.0", "page": 14 },
+      "input": "text.labelType",
+      "assert": { "op": "matches", "value": "M2M|metro", "flags": "i" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Metro header marking was found: {actual}.",
+        "fail": "Header text does not indicate a Metro label: {actual}. Confirm the M2M marking on the preview.",
+        "missing": "No M2M header marking was extracted. Confirm the Metro branding visually on the preview."
+      }
+    },
+    {
+      "id": "EP-MET-02",
+      "title": "Routing details line (country, state, postcode)",
+      "description": "Metro labels carry a routing block holding the destination country code (AU for domestic), destination state and postcode. All three must be uppercase and on one line.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "address-format",
+      "source": { "doc": "Metro V2.0", "page": 19 },
+      "input": "text.routingLine",
+      "evidence": ["text.routingState", "text.routingPostcode"],
+      "assert": { "op": "matches", "value": "^AU\\s+({{auStates}})\\s+\\d{4}$" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Routing details line is present and correctly formatted: {actual}.",
+        "fail": "Routing details line is not formatted as uppercase AU, state and postcode: {actual}.",
+        "missing": "No routing details line (AU + state + postcode) was extracted. Confirm it is present, uppercase and centred on the preview."
+      }
+    },
+    {
+      "id": "EP-MET-03",
+      "title": "Routing postcode matches the delivery address",
+      "description": "The postcode in the routing block must equal the delivery postcode shown in the TO address block.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "address-format",
+      "source": { "doc": "Metro V2.0", "page": 19 },
+      "when": { "path": "text.toPostcodes", "op": "notEmpty" },
+      "input": "text.routingPostcode",
+      "evidence": ["text.routingLine", "text.toLastLine"],
+      "assert": { "op": "fn", "name": "inPathList", "args": { "path": "text.toPostcodes" } },
+      "onMissing": "skip",
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Routing postcode {actual} matches the delivery address postcode.",
+        "fail": "Routing postcode {actual} does not match any postcode in the delivery address. Confirm visually - text extraction is heuristic."
+      }
+    },
+    {
+      "id": "EP-MET-04",
+      "title": "Routing state matches the delivery address",
+      "description": "The state in the routing block must equal the state shown on the last line of the TO address block. A correct postcode paired with the wrong state still misroutes the parcel.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "address-format",
+      "source": { "doc": "Metro V2.0", "page": 19 },
+      "when": { "path": "text.toState", "op": "notEmpty" },
+      "input": "text.routingState",
+      "evidence": ["text.routingLine", "text.toLastLine"],
+      "assert": { "op": "equalsPath", "path": "text.toState" },
+      "onMissing": "skip",
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Routing state {actual} matches the delivery address state.",
+        "fail": "Routing state {actual} does not match the delivery address state. Confirm visually - text extraction is heuristic."
+      }
+    },
+    {
+      "id": "EP-MET-05",
+      "title": "Consignment number printed",
+      "description": "The consignment number assigned when the shipment was created is a mandatory Metro label field. Its agreement with the decoded barcode is checked separately by EP-ART-07.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "address-format",
+      "source": { "doc": "Metro V2.0", "page": 18 },
+      "input": "text.consignmentIds",
+      "assert": { "op": "notEmpty" },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "A consignment number is printed on the label.",
+        "fail": "No consignment number was extracted from the label. Confirm the Consignment No field is present on the preview."
+      }
+    },
+    {
+      "id": "EP-MET-06",
+      "title": "Article count (n of N) printed",
+      "description": "The total number of articles in the consignment must be displayed, e.g. 1 of 1 for a single-article consignment.",
+      "obligation": "mandatory",
+      "severity": "WARNING",
+      "category": "address-format",
+      "source": { "doc": "Metro V2.0", "page": 18 },
+      "input": "text.articleCountLine",
+      "assert": { "op": "matches", "value": "^\\d+\\s+of\\s+\\d+$", "flags": "i" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "Article count is printed on the label: {actual}.",
+        "fail": "Article count text is not in the expected n of N form: {actual}.",
+        "missing": "No article count (n of N) was extracted. Confirm the Article n of N field is present on the preview."
+      }
+    }
+  ]
+}

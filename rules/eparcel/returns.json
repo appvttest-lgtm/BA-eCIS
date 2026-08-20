@@ -1,0 +1,61 @@
+{
+  "id": "eparcel-returns",
+  "carrier": "eparcel",
+  "name": "eParcel Returns",
+  "extends": "eparcel-base",
+  "spec": { "doc": "Parcel Post and Express Post - Label & Barcode Specification v1.4", "date": "2025-06-05" },
+  "constants": {
+    "allowedProducts": ["00065", "00068"]
+  },
+  "rules": [
+    {
+      "id": "EP-RET-01",
+      "title": "Returns service code 03 or 08 only",
+      "description": "eParcel Returns transactions support only service codes 03 (signature) or 08 (authority to leave).",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "service-code",
+      "source": { "doc": "PP&EP v1.4", "page": 20 },
+      "forEach": "articles",
+      "itemWhen": { "path": "item.type", "op": "equals", "value": "eparcel-standard" },
+      "input": "item.serviceCode",
+      "assert": { "op": "in", "value": ["03", "08"] },
+      "messages": {
+        "pass": "Service code {actual} is permitted for eParcel Returns.",
+        "fail": "Service code {actual} is not permitted for eParcel Returns. Only 03 or 08 are supported."
+      }
+    },
+    {
+      "id": "EP-RET-02",
+      "title": "Returns are single-parcel consignments",
+      "description": "Return consignments always contain exactly one article, so the article count must be 01.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "barcode-structure",
+      "source": { "doc": "PP&EP v1.4", "page": 20 },
+      "forEach": "articles",
+      "itemWhen": { "path": "item.type", "op": "equals", "value": "eparcel-standard" },
+      "input": "item.articleCount",
+      "assert": { "op": "equals", "value": "01" },
+      "messages": {
+        "pass": "Article count is 01, consistent with a single-parcel return consignment.",
+        "fail": "Article count {actual} is invalid for a return. Returns are always single-parcel consignments."
+      }
+    },
+    {
+      "id": "EP-RET-03",
+      "title": "SSCC barcodes not permitted on returns",
+      "description": "The standard Parcel Post/Express Post barcode is mandatory for returns services; SSCC barcodes cannot be used.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "sscc",
+      "source": { "doc": "PP&EP v1.4", "page": 26 },
+      "input": "barcodes.sscc.valid",
+      "assert": { "op": "empty" },
+      "messages": {
+        "pass": "No SSCC barcode is present on this return label.",
+        "fail": "An SSCC barcode was decoded on a returns label. SSCC numbering cannot be used for eParcel Returns."
+      }
+    }
+  ]
+}

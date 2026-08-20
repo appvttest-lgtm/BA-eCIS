@@ -1,0 +1,80 @@
+node_modules/
+.DS_Store
+*.log
+
+.idea/
+*.msi
+*.exe
+desktop.ini
+.env
+
+release/
+*.zip
+*.sha256
+*.obj
+
+# Code-analysis tool output (graphify) — generated, not part of the app or build
+graphify-out/
+
+# Scratch test receipts / sample exports — not required for code or output
+receipt-session-*.pdf
+
+# Editor / OS cruft
+.vscode/
+Thumbs.db
+*.tmp
+*.bak
+
+# ---------------------------------------------------------------------------
+# Maintenance / working files — kept on disk, out of the repo.
+# The repo tracks what the program needs to build, test and run; everything
+# below is authoring context, history or generated reporting.
+# ---------------------------------------------------------------------------
+
+# Agent / editor working context
+.claude/
+AGENTS.md
+BOARD.md
+
+# Change history and setup notes (superseded by README.md)
+release_notes.md
+README_LOCAL_SETUP.txt
+
+# Point-in-time security write-ups
+security-assessment-*.md
+security-release-log-*.md
+docs/security/
+
+# Authoring docs, design mockups and checklist prose
+docs/*.md
+docs/mockups/
+docs/checklists/*.md
+
+# Generated reporting output
+docs/checklists/coverage-report.json
+
+# Windows / OneDrive cruft
+$RECYCLE.BIN/
+ehthumbs.db
+~$*
+*.orig
+
+# Local-only development material - tests, fixtures and docs run on the dev machine
+# but are not part of the shipped application (CI runs lint/format/build/dist-drift only)
+tests/
+docs/
+
+# CI pipeline config - none yet for the GitLab transfer (kept locally for reference)
+.github/
+.gitlab-ci.yml
+
+# Ultra-lean repo: dev-only tooling stays on the dev machine
+eslint.config.mjs
+.prettierrc.json
+.prettierignore
+scripts/checklist-coverage.mjs
+scripts/golden-update.mjs
+scripts/make-golden-fixtures.mjs
+wrapper/
+build-dev-only.bat
+build-portable-release.bat

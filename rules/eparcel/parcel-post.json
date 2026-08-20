@@ -1,0 +1,30 @@
+{
+  "id": "eparcel-parcel-post",
+  "carrier": "eparcel",
+  "name": "eParcel Parcel Post",
+  "extends": "eparcel-base",
+  "spec": { "doc": "Parcel Post and Express Post - Label & Barcode Specification v1.4", "date": "2025-06-05" },
+  "constants": {
+    "allowedProducts": ["00093", "00091"]
+  },
+  "rules": [
+    {
+      "id": "EP-LAY-05-PP",
+      "title": "Parcel Post header branding",
+      "description": "Parcel Post labels carry the Parcel Post product header and may print in black and white.",
+      "obligation": "mandatory",
+      "severity": "WARNING",
+      "category": "label-layout",
+      "source": { "doc": "PP&EP v1.4", "page": 8 },
+      "input": "text.labelType",
+      "assert": { "op": "notMatches", "value": "express", "flags": "i" },
+      "onMissing": "manual_review",
+      "failStatus": "warning",
+      "messages": {
+        "pass": "Header branding is consistent with a Parcel Post label.",
+        "fail": "Header text suggests Express Post branding on a Parcel Post audit: {actual}.",
+        "missing": "Product header text was not extracted. Confirm the Parcel Post header visually on the preview."
+      }
+    }
+  ]
+}

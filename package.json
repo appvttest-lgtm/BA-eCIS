@@ -1,0 +1,43 @@
+{
+  "name": "ecommerce-integration-label-auditor-local",
+  "version": "1.14.4",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.10"
+  },
+  "description": "Local-only Australia Post eParcel and StarTrack digital label audit web app with barcode, SSCC, QR, routing and visible label checks.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "build": "vite build",
+    "build:portable": "node scripts/build-portable.mjs",
+    "sync:ocr": "node scripts/sync-ocr-assets.mjs",
+    "checklist": "node scripts/checklist-coverage.mjs",
+    "golden:fixtures": "node scripts/make-golden-fixtures.mjs",
+    "golden:update": "node scripts/golden-update.mjs",
+    "test": "node --test",
+    "lint": "eslint .",
+    "sbom": "npm sbom --sbom-format cyclonedx > docs/security/sbom.cyclonedx.json",
+    "format": "prettier --write \"src/**/*.{js,jsx}\" \"tests/**/*.mjs\" server.mjs rules/index.js eslint.config.mjs",
+    "format:check": "prettier --check \"src/**/*.{js,jsx}\" \"tests/**/*.mjs\" server.mjs rules/index.js eslint.config.mjs",
+    "start": "node server.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 4173"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "@tesseract.js-data/eng": "1.0.0",
+    "@zxing/library": "0.21.3",
+    "eslint": "9.39.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react": "7.37.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "16.5.0",
+    "pdfjs-dist": "4.10.38",
+    "prettier": "3.6.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "tesseract.js": "7.0.0",
+    "vite": "^8.0.16",
+    "zxing-wasm": "3.0.3"
+  }
+}

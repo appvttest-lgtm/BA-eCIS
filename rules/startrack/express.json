@@ -1,0 +1,27 @@
+{
+  "id": "startrack-express",
+  "carrier": "startrack",
+  "name": "StarTrack Express and Special Services",
+  "extends": "startrack-base",
+  "spec": { "doc": "StarTrack Label Specifications - Modify Your Own System (MOS) v9", "date": "2020-10-14" },
+  "constants": {
+    "allowedProducts": ["EXP", "TSE", "RET", "RE2"]
+  },
+  "rules": [
+    {
+      "id": "ST-LOC-02",
+      "title": "Express receiver location codes (RC/R1/R2)",
+      "description": "Express and Special Services labels must print the receiver location codes with the routing barcode (Arial Bold 22pt): RC = 'AU', R1 = blank and R2 = Nearest Depot from the Location Master File. The printed codes are cross-checked one way against the decoded routing barcode depot; Location Master File validity cannot be verified digitally.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-routing",
+      "source": { "doc": "MOS v9", "page": 24, "ref": "1.010" },
+      "when": { "path": "derived.receiverLocationCodes", "op": "present" },
+      "input": "derived.receiverLocationCodes",
+      "evidence": ["derived.primaryProductCode"],
+      "assert": { "op": "fn", "name": "receiverLocationCodesShown" },
+      "onMissing": "manual_review",
+      "failStatus": "manual_review"
+    }
+  ]
+}
