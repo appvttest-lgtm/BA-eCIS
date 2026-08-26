@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { formatRuleSource } from '../src/audit/ruleSource.js';
 import { resolveRuleSource } from '../src/ruleEngine.js';
-import { getRuleSet } from '../rules/index.js';
+import { getRuleSet } from '../src/carriers/index.js';
 
 test('formatRuleSource renders title, version, page and ref', () => {
   assert.equal(

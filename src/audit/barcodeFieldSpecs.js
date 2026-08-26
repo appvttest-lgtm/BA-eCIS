@@ -16,7 +16,7 @@ import {
   STARTRACK_PRODUCT_CODE_MAP
 } from '../auditEngine.js';
 import { resolveRuleSource } from '../ruleEngine.js';
-import { getRuleSet } from '../../rules/index.js';
+import { getRuleSet } from '../carriers/index.js';
 import { formatRuleSource } from './ruleSource.js';
 
 const EP_SPEC = 'PP&EP v1.4';

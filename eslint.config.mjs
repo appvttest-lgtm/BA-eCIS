@@ -11,7 +11,7 @@ export default [
   js.configs.recommended,
   {
     files: ['**/*.{js,jsx,mjs}'],
-    // 'latest' so the import attributes in rules/index.js (`with { type: 'json' }`) parse.
+    // 'latest' so the import attributes in src/carriers (`with { type: 'json' }`) parse.
     languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
     rules: {
       // GS1 FNC1 group separators (\x1d etc.) are the domain: barcode payloads carry them.
@@ -37,14 +37,7 @@ export default [
     }
   },
   {
-    files: [
-      'server.mjs',
-      'vite.config.js',
-      'eslint.config.mjs',
-      'rules/index.js',
-      'scripts/**/*.mjs',
-      'tests/**/*.mjs'
-    ],
+    files: ['server.mjs', 'vite.config.js', 'eslint.config.mjs', 'scripts/**/*.mjs', 'tests/**/*.mjs'],
     languageOptions: { globals: { ...globals.node } }
   },
   prettier

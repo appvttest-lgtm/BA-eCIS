@@ -8,21 +8,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DATE_FORMAT_NAMES, NORMALIZE_STEP_NAMES, resolvePath, resolveRuleSetTemplates } from '../src/ruleEngine.js';
-import { listRuleSets } from '../rules/index.js';
+import { listRuleSets } from '../src/carriers/index.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RULE_FILES = [
-  'rules/eparcel/base.json',
-  'rules/eparcel/parcel-post.json',
-  'rules/eparcel/express-post.json',
-  'rules/eparcel/returns.json',
-  'rules/eparcel/metro.json',
-  'rules/eparcel/sscc.json',
-  'rules/startrack/base.json',
-  'rules/startrack/express.json',
-  'rules/startrack/premium.json',
-  'rules/startrack/fpp.json',
-  'rules/startrack/sscc.json'
+  'src/carriers/eparcel/base/rules.json',
+  'src/carriers/eparcel/parcel-post/rules.json',
+  'src/carriers/eparcel/express-post/rules.json',
+  'src/carriers/eparcel/returns/rules.json',
+  'src/carriers/eparcel/metro/rules.json',
+  'src/carriers/eparcel/sscc/rules.json',
+  'src/carriers/startrack/base/rules.json',
+  'src/carriers/startrack/express/rules.json',
+  'src/carriers/startrack/premium/rules.json',
+  'src/carriers/startrack/fpp/rules.json',
+  'src/carriers/startrack/sscc/rules.json'
 ];
 
 const ASSERT_OPS = new Set([
@@ -47,7 +47,7 @@ const OBLIGATIONS = new Set(['mandatory', 'conditional', 'advisory', 'optional']
 const ON_MISSING = new Set(['fail', 'skip', 'warning', 'manual_review', 'info']);
 const FAIL_STATUSES = new Set(['fail', 'warning', 'manual_review', 'info']);
 const MESSAGE_PLACEHOLDERS = new Set(['value', 'expected', 'actual', 'path']);
-// Mirrors displayCategory() in src/auditEngine.js plus the categories it passes through.
+// Mirrors the displayCategories maps in src/carriers/*/index.js plus the categories passed through.
 const CATEGORIES = new Set([
   'label-layout',
   'address-format',
@@ -67,9 +67,14 @@ const CATEGORIES = new Set([
   'startrack-sscc'
 ]);
 
-/** Rule functions registered with registerRuleFunction() in src/auditEngine.js, scraped from source. */
+/** Rule functions registered with registerRuleFunction(), scraped from the carrier-pack sources. */
 function registeredFunctionNames() {
-  const source = fs.readFileSync(path.join(repoRoot, 'src/auditEngine.js'), 'utf8');
+  const sourceFiles = [
+    'src/carriers/shared/audit.js',
+    'src/carriers/eparcel/audit.js',
+    'src/carriers/startrack/audit.js'
+  ];
+  const source = sourceFiles.map(file => fs.readFileSync(path.join(repoRoot, file), 'utf8')).join('\n');
   return new Set([...source.matchAll(/registerRuleFunction\(\s*'([^']+)'/g)].map(m => m[1]));
 }
 
