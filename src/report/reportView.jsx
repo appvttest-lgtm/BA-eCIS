@@ -3,7 +3,7 @@
 // plus the executable JSON rule logic), and the outcome. Designed for the
 // ECIS in-browser report; tests/rulesCatalogue.test.mjs guards the rule catalogue.
 import React, { useMemo, useState } from 'react';
-import { formatRuleSource } from './audit/ruleSource.js';
+import { formatRuleSource } from './ruleSource.js';
 
 const STATUS_LABELS = {
   pass: 'PASS',

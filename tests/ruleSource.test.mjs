@@ -3,7 +3,7 @@
 // title and version, and the report formatter must render them for the Validation rule pane.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatRuleSource } from '../src/audit/ruleSource.js';
+import { formatRuleSource } from '../src/report/ruleSource.js';
 import { resolveRuleSource } from '../src/ruleEngine.js';
 import { getRuleSet } from '../src/carriers/index.js';
 

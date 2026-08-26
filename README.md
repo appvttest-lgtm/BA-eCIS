@@ -35,7 +35,7 @@ One rule to remember: **the barcode is the source of truth.** Whatever the barco
 
 ## Supported products and service codes
 
-These tables mirror the app's built-in reference data (`src/audit/referenceData.js`), which every rule check resolves against.
+These tables mirror the app's built-in reference data (`src/carriers/<carrier>/referenceData.js`), which every rule check resolves against.
 
 ### eParcel products
 
@@ -91,16 +91,40 @@ The routing barcode's label code must match the product's expected label code. U
 ```
 src/                  The app itself
   main.jsx            React UI: upload flow and audit orchestration
-  auditEngine.js      Parses barcodes, gathers evidence, picks the rule set
+  auditEngine.js      Public audit API: dispatches auditLabel through the carrier registry
   ruleEngine.js       Runs the JSON rules (generic — knows nothing about carriers)
-  reportView.jsx      The rule-by-rule report (value / rule / result panes)
-  preprocess.js       Rotates sideways labels, splits multi-label sheets
-  ocrText.js          OCR of the printed label text
   styles.css          All styling
   assets/             Images used in the UI
-  audit/
-    referenceData.js       Carrier tables: products, services, label codes, unit types
-    ruleSource.js          Spec citation line for the report (document title, version, page)
+  carriers/           One package per carrier; a new carrier is a new folder here
+    index.js          Carrier registry — the one place that lists the carriers
+    shared/           Cross-carrier text primitives and audit plumbing
+    formats/          Barcode formats used by more than one carrier (GS1 / SSCC)
+    eparcel/          The eParcel pack
+      audit.js             Evidence context, variant selection, carrier rule functions
+      facts.js             Visible-text fact extraction
+      referenceData.js     Product and service tables
+      ruleSets.js          Loads each label type's rules.json, merges variant over base
+      sections.jsx         eParcel-specific report sections
+      standards.js         Spec standard/example text per validation id
+      formats/             eParcel barcode formats (article, GS1 DataMatrix)
+      base/rules.json      Base rule set + documents registry (spec citations)
+      parcel-post/ express-post/ returns/ sscc/    One rules.json per label type
+      metro/               rules.json + routing.js (Metro-only routing extraction)
+    startrack/        The StarTrack pack — same shape: audit.js, facts.js,
+                      referenceData.js, ruleSets.js, sections.jsx, standards.js,
+                      formats/ (freight item, routing, ATL, QR),
+                      base/ express/ premium/ fpp/ sscc/ rules.json per label type
+  report/             Carrier-agnostic report UI
+    reportView.jsx    The rule-by-rule report (value / rule / result panes)
+    common.jsx        Shared components: section chrome, rail nav, field lines, copy buttons
+    sections.jsx      Maps an audit to its report sections (dispatches by carrier)
+    auditInfo.js      Pure helpers over the audit result: headers, summaries, copy-all text
+    segments.js       Colour-coded barcode field segmentation for display
+    standards.js      Merges the carriers' spec example texts
+    barcodeFieldSpecs.js   Barcode field breakdown specs: per-field check, obligation, citation
+    ruleSource.js     Spec citation line for the report (document title, version, page)
+  preprocess.js       Rotates sideways labels, splits multi-label sheets
+  ocrText.js          OCR of the printed label text
   scanner/
     pipeline.js       File in → pages → labels → decoded barcodes out
     scanPlan.js       Decides which regions to scan and maps coordinates back
@@ -110,15 +134,8 @@ src/                  The app itself
     barcodeTypes.js   Shared names for barcode kinds
     debugLog.js       Extra logging, off unless you opt in (localStorage 'ba-debug')
 
-rules/                The validation rules — JSON, one folder per carrier
-  index.js            Loads rule files and merges each variant over its base
-  eparcel/            base, parcel-post, express-post, returns, metro, sscc
-  startrack/          base, express, premium, fpp, sscc
-                      (base files also hold the documents registry: short source
-                      code, e.g. "PP&EP v1.4", → full document title/version/date)
-
 tests/                Node test suite (npm test): rule evaluator, barcode parsers,
-                      preprocessing, scan planning, and a rules catalogue lint
+                      preprocessing, scan planning, field specs, and a rules catalogue lint
 
 scripts/              Build tooling
   build-portable.mjs      Rebuilds portable/ from dist/ (the pre-commit hook runs this)

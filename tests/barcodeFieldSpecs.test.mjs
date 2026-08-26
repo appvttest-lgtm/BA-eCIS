@@ -10,7 +10,7 @@ import {
   fieldMetaText,
   fieldSpecsFor,
   QR_FIELD_SOURCE
-} from '../src/audit/barcodeFieldSpecs.js';
+} from '../src/report/barcodeFieldSpecs.js';
 
 const OBLIGATIONS = new Set(['mandatory', 'conditional', 'optional']);
 
