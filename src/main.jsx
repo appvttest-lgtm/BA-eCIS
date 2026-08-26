@@ -2318,7 +2318,7 @@ function App() {
   /** Starts the full audit immediately after a user drops or chooses files. */
   async function acceptSelectedFiles(selectedFiles) {
     if (!selectedCarrier || !selectedLabelFormat) {
-      setMessage('Select a carrier branch and a label format before uploading a label.');
+      setMessage('Select a label type and a label format before uploading a label.');
       return;
     }
     const { accepted, rejected } = normaliseSelectedFiles(selectedFiles);
@@ -2445,8 +2445,8 @@ function App() {
         <h2 id="audit-mode-title">Audit mode</h2>
         <div className="mode-control-grid">
           <div>
-            <span className="field-label">Carrier branch</span>
-            <div className="segmented-control" role="group" aria-label="Carrier branch">
+            <span className="field-label">Label type</span>
+            <div className="segmented-control" role="group" aria-label="Label type">
               {Object.entries(LABEL_FAMILY_NAMES).map(([value, label]) => (
                 <button
                   key={value}
@@ -2508,9 +2508,9 @@ function App() {
         ) : (
           <p className="dropzone-pending muted" role="status">
             {!selectedCarrier && !selectedLabelFormat
-              ? 'Choose a carrier branch and a label format above to enable label upload.'
+              ? 'Choose a label type and a label format above to enable label upload.'
               : !selectedCarrier
-                ? 'Choose a carrier branch above to enable label upload.'
+                ? 'Choose a label type above to enable label upload.'
                 : 'Choose a label format above to enable label upload.'}
           </p>
         )}
@@ -2818,11 +2818,11 @@ function App() {
                 </button>
               )}
             </div>
-            <p className="muted small uploader-modal-note">
-              {hasReport
-                ? 'Uploading a new label replaces the current report. Close this window to keep it.'
-                : 'Select the carrier and label format being tested, then upload the label. A wrong selection fails the audit-mode check while the full report still runs.'}
-            </p>
+            {hasReport && (
+              <p className="muted small uploader-modal-note">
+                Uploading a new label replaces the current report. Close this window to keep it.
+              </p>
+            )}
             {uploadPanel}
           </div>
         </div>
