@@ -29,7 +29,6 @@ const LABEL_FAMILY_NAMES = { eparcel: 'eParcel', startrack: 'StarTrack' };
 const LABEL_FORMAT_NAMES = { standard: 'Standard article format', sscc: 'SSCC article identifier' };
 const MAX_FILES_PER_BATCH = 20;
 const MAX_LABEL_FILE_BYTES = 50 * 1024 * 1024;
-const MAX_OPTIONAL_PAYLOAD_CHARS = 500_000;
 
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes)) return 'unknown size';
@@ -179,7 +178,7 @@ function selectedProductCodes(audit) {
 function auditHasSsccOnly(audit) {
   const articles = audit?.articles || [];
   return (
-    Boolean(audit?.expectedSscc?.provided) ||
+    audit?.selectedAuditMode?.labelFormat === 'sscc' ||
     (articles.some(a => a?.type === 'sscc') && !articles.some(a => a?.type === 'eparcel-standard'))
   );
 }
@@ -462,7 +461,6 @@ function StandardLine({ children }) {
 function ServiceCodeMatrix({ audit }) {
   const selectedServices = selectedServiceCodes(audit);
   const selectedProducts = selectedProductCodes(audit);
-  const showPayloadColumn = auditHasApiPayload(audit);
   return (
     <section className="card compact-card service-matrix-card">
       <SectionTitle id="service-code-reference">Service code reference</SectionTitle>
@@ -482,7 +480,6 @@ function ServiceCodeMatrix({ audit }) {
               <th>API payload / manifest flags</th>
               <th>Product Code</th>
               <th>Product Name</th>
-              {showPayloadColumn && <th>Get Shipments match</th>}
             </tr>
           </thead>
           <tbody>
@@ -539,15 +536,6 @@ function ServiceCodeMatrix({ audit }) {
                       {matchedProduct && <span className="selected-pill">selected</span>}
                     </td>
                     <td className={matchedProduct ? 'product-selected-cell' : ''}>{productName}</td>
-                    {showPayloadColumn && (
-                      <td>
-                        <span
-                          className={`payload-match ${selectedEparcelServiceRowPayloadStatus(audit, row, productCode) === 'Match' ? 'payload-match-match' : selectedEparcelServiceRowPayloadStatus(audit, row, productCode) === 'Does not match' ? 'payload-match-mismatch' : 'payload-match-not_checked'}`}
-                        >
-                          {selectedEparcelServiceRowPayloadStatus(audit, row, productCode)}
-                        </span>
-                      </td>
-                    )}
                   </tr>
                 );
               });
@@ -716,102 +704,9 @@ function AdditionalBarcodesSection({ audit }) {
   );
 }
 
-function hasApiPayloadComparison(items = []) {
-  return (items || []).some(v => v?.apiPayloadMatch);
-}
-
-function formatApiPayloadEvidence(match) {
-  if (!match) return '';
-  const lines = [];
-  if (match.field) lines.push(`comparison_field: ${match.field}`);
-  if (match.detail) lines.push(`comparison: ${match.detail}`);
-  if (match.evidence) {
-    lines.push('', 'json_payload_evidence:');
-    lines.push(match.evidence);
-  }
-  return lines.join('\n').trim();
-}
-
-function auditHasApiPayload(audit) {
-  return Boolean(audit?.apiPayload?.provided);
-}
-
-function auditPayloadIdentityMismatch(audit) {
-  return Boolean(audit?.apiPayload?.identityGateApplied && audit?.apiPayload?.identityMatchesLabel === false);
-}
-
-function selectedEparcelServiceRowPayloadStatus(audit, row, productCode) {
-  if (!auditHasApiPayload(audit)) return null;
-  if (auditPayloadIdentityMismatch(audit)) return 'N/A';
-  const articles = audit?.articles || [];
-  const selected = articles.some(a => a?.serviceCode === row.matchCode && a?.productCode === productCode);
-  if (!selected) return 'N/A';
-  const checks = [];
-  const payloadText = String(audit.apiPayload?.rawText || '').toUpperCase();
-  if (payloadText) {
-    checks.push(payloadText.includes(String(row.matchCode).toUpperCase()));
-    checks.push(payloadText.includes(String(productCode).toUpperCase()));
-    for (const [key, value] of Object.entries(row.apiPayload || {})) {
-      if (payloadText.includes(String(key).toUpperCase()))
-        checks.push(payloadText.includes(String(value).toUpperCase()));
-    }
-  }
-  return checks.length ? (checks.every(Boolean) ? 'Match' : 'Does not match') : 'N/A';
-}
-
-function selectedStarTrackProductPayloadStatus(audit, productCode, labelCode) {
-  if (!auditHasApiPayload(audit)) return null;
-  if (auditPayloadIdentityMismatch(audit)) return 'N/A';
-  const text = String(audit.apiPayload?.rawText || '').toUpperCase();
-  const selected =
-    (audit?.startrack?.freightParses || []).some(f => f.productCode === productCode) ||
-    (audit?.startrack?.qrParses || []).some(q => q.productCode === productCode) ||
-    (audit?.startrack?.routingParses || []).some(r => r.labelCode === labelCode) ||
-    audit?.labelFacts?.labelCode === labelCode;
-  if (!selected) return 'N/A';
-  return text.includes(String(productCode).toUpperCase()) || text.includes(String(labelCode).toUpperCase())
-    ? 'Match'
-    : 'Does not match';
-}
-
-function ApiPayloadEvidenceCell({ match }) {
-  if (!match) return <span className="muted small">No payload comparison.</span>;
-  const evidence = formatApiPayloadEvidence(match);
-  return (
-    <div className="measurement-cell payload-measurement-cell">
-      {match.field && (
-        <div>
-          <span className="measurement-label">Payload field</span>
-          <code>{match.field}</code>
-        </div>
-      )}
-      {match.detail && (
-        <div>
-          <span className="measurement-label">Payload comparison</span>
-          {match.detail}
-        </div>
-      )}
-      {evidence && (
-        <details className="payload-evidence">
-          <summary>JSON evidence</summary>
-          <pre>{evidence}</pre>
-        </details>
-      )}
-    </div>
-  );
-}
-
 function ValidationTable({ items }) {
   if (!items || !items.length) return <p className="muted small">No validation checks in this section.</p>;
-  const showPayloadColumn = hasApiPayloadComparison(items);
-  return (
-    <RuleReport
-      items={items}
-      standardFor={standardForValidation}
-      showPayload={showPayloadColumn}
-      renderPayload={match => <ApiPayloadEvidenceCell match={match} />}
-    />
-  );
+  return <RuleReport items={items} standardFor={standardForValidation} />;
 }
 
 /** Vertical section navigation + review bookmarks for the left rail. The rail is a sidebar
@@ -2092,7 +1987,6 @@ function StarTrackProductMatrix({ audit }) {
   const selectedLabelCodes = new Set(
     [...(audit?.startrack?.routingParses || []).map(r => r.labelCode), audit?.labelFacts?.labelCode].filter(Boolean)
   );
-  const showPayloadColumn = auditHasApiPayload(audit);
   return (
     <div className="table-wrap">
       <table className="compact-table startrack-matrix">
@@ -2102,12 +1996,10 @@ function StarTrackProductMatrix({ audit }) {
             <th>Product Name</th>
             <th>Group</th>
             <th>Label Code</th>
-            {showPayloadColumn && <th>Get Shipments match</th>}
           </tr>
         </thead>
         <tbody>
           {Object.entries(STARTRACK_PRODUCT_CODE_MAP).map(([code, meta]) => {
-            const payloadStatus = selectedStarTrackProductPayloadStatus(audit, code, meta.labelCode);
             return (
               <tr
                 key={code}
@@ -2125,15 +2017,6 @@ function StarTrackProductMatrix({ audit }) {
                   <strong>{meta.labelCode}</strong>
                   {selectedLabelCodes.has(meta.labelCode) && <span className="pill">selected</span>}
                 </td>
-                {showPayloadColumn && (
-                  <td>
-                    <span
-                      className={`payload-match ${payloadStatus === 'Match' ? 'payload-match-match' : payloadStatus === 'Does not match' ? 'payload-match-mismatch' : 'payload-match-not_checked'}`}
-                    >
-                      {payloadStatus}
-                    </span>
-                  </td>
-                )}
               </tr>
             );
           })}
@@ -2378,16 +2261,11 @@ function workflowReducer(state, action) {
 }
 
 function App() {
-  // Optional Get Shipments payload pasted by the user. It is never sent anywhere; it is
-  // parsed locally and compared only after the label identity appears to match.
-  const [manifestJson, setManifestJson] = useState('');
   // No carrier or label format is pre-selected: the user must consciously choose
   // both before the upload box is revealed, so a label is never audited against a
   // defaulted (and possibly wrong) rule set.
   const [selectedCarrier, setSelectedCarrier] = useState(null);
   const [selectedLabelFormat, setSelectedLabelFormat] = useState(null);
-  const [ssccExtensionDigit, setSsccExtensionDigit] = useState('');
-  const [ssccCompanyPrefix, setSsccCompanyPrefix] = useState('');
   const [workflow, dispatch] = useReducer(workflowReducer, INITIAL_WORKFLOW);
   const [zoomImage, setZoomImage] = useState(null);
   // Report view: the upload panel moves into a dismissable overlay opened from the rail.
@@ -2485,12 +2363,6 @@ function App() {
       setMessage('Choose or drop one or more PDF/image label files first.');
       return;
     }
-    if (manifestJson.length > MAX_OPTIONAL_PAYLOAD_CHARS) {
-      setMessage(
-        `Optional payload is ${formatBytes(manifestJson.length)} of text; the safe limit is ${formatBytes(MAX_OPTIONAL_PAYLOAD_CHARS)}.`
-      );
-      return;
-    }
     // A new batch replaces the report, so the "new audit" overlay's job is done here;
     // closing it without uploading keeps the existing report untouched.
     setShowUploader(false);
@@ -2535,9 +2407,6 @@ function App() {
           const auditRuleStart = performance.now();
           const nextAudit = auditLabel({
             ...data,
-            manifestJson,
-            ssccCompanyPrefix,
-            ssccExtensionDigit,
             labelFamily,
             labelFormat
           });
@@ -2566,40 +2435,6 @@ function App() {
     } finally {
       dispatch({ type: 'processing-finished' });
     }
-  }
-
-  /** Re-runs validation with current optional inputs without re-rendering or re-decoding labels. */
-  function rerunAuditWithOptionalInputs() {
-    if (!scanDatas.length) {
-      setMessage('No scanned file data is available yet. Upload and audit one or more labels first.');
-      return;
-    }
-    if (manifestJson.length > MAX_OPTIONAL_PAYLOAD_CHARS) {
-      setMessage(
-        `Optional payload is ${formatBytes(manifestJson.length)} of text; the safe limit is ${formatBytes(MAX_OPTIONAL_PAYLOAD_CHARS)}.`
-      );
-      return;
-    }
-    const refreshed = scanDatas.map((base, idx) => {
-      const nextAudit = auditLabel({
-        ...base,
-        manifestJson,
-        ssccCompanyPrefix,
-        ssccExtensionDigit,
-        labelFamily: base.labelFamily || base.fileInfo?.labelFamily || 'eparcel',
-        labelFormat: base.labelFormat || base.fileInfo?.labelFormat || selectedLabelFormat
-      });
-      nextAudit.labelImages = base.labelImages || {};
-      nextAudit.extractedText = base.extractedText || '';
-      nextAudit.scanDiagnostics = base.scanDiagnostics || [];
-      nextAudit.batchIndex = idx;
-      return nextAudit;
-    });
-    dispatch({
-      type: 'replace-audits',
-      audits: refreshed,
-      message: 'Optional payload and SSCC prefix checks refreshed for all uploaded labels.'
-    });
   }
 
   // Rendered inline on the landing view and inside the "new audit" overlay on the report
@@ -2680,78 +2515,6 @@ function App() {
           </p>
         )}
       </section>
-      {/* Temporarily disabled pending a review of the payload/SSCC comparison logic:
-          the panel stays visible but greyed out and cannot be opened. Remove the
-          additional-data-disabled class and the preventDefault to re-enable. */}
-      <details className="additional-data-panel additional-data-disabled">
-        <summary className="additional-data-summary" aria-disabled="true" onClick={e => e.preventDefault()}>
-          Additional provided data (optional) — Get Shipments payload &amp; SSCC extension/prefix
-          <span className="disabled-tag">temporarily unavailable</span>
-        </summary>
-        <div className="optional-input-grid">
-          <section className="payload-input-panel" aria-labelledby="payload-input-title">
-            <h2 id="payload-input-title">Get Shipments API payload comparison</h2>
-            <p className="muted small">
-              Optional: paste a Get Shipments response before upload, or apply it to the current report.
-            </p>
-            <textarea
-              className="api-payload-textarea"
-              rows="8"
-              placeholder={`Paste Get Shipments payload here, for example:
-{
-  "shipments": [{
-    "shipment_id": "...",
-    "items": [{ "item_id": "..." }],
-    "authority_to_leave": true,
-    "allow_partial_delivery": true,
-    "safe_drop_enabled": false
-  }]
-}`}
-              value={manifestJson}
-              onChange={e => setManifestJson(e.target.value)}
-            />
-          </section>
-          <section className="sscc-prefix-panel" aria-labelledby="sscc-prefix-title">
-            <h2 id="sscc-prefix-title">SSCC extension and prefix</h2>
-            <p className="muted small">
-              Used when SSCC article identifier is selected. The decoded AI 00 barcode is checked against the supplied
-              extension digit and GS1 Company Prefix when provided.
-            </p>
-            <label className="field-label" htmlFor="sscc-extension-digit">
-              Extension digit
-            </label>
-            <input
-              id="sscc-extension-digit"
-              className="sscc-prefix-input"
-              type="text"
-              inputMode="numeric"
-              placeholder="003"
-              value={ssccExtensionDigit}
-              onChange={e => setSsccExtensionDigit(e.target.value)}
-            />
-            <label className="field-label" htmlFor="sscc-company-prefix">
-              Company prefix
-            </label>
-            <input
-              id="sscc-company-prefix"
-              className="sscc-prefix-input"
-              type="text"
-              inputMode="numeric"
-              placeholder="9315345"
-              value={ssccCompanyPrefix}
-              onChange={e => setSsccCompanyPrefix(e.target.value)}
-            />
-            <p className="muted small">
-              Example: SSCC (00) 3 9315345 000000070 0 uses extension digit 3 and company prefix 9315345.
-            </p>
-          </section>
-          {scanDatas.length > 0 && (
-            <button className="secondary optional-input-apply" onClick={rerunAuditWithOptionalInputs}>
-              Apply optional checks to current results
-            </button>
-          )}
-        </div>
-      </details>
     </section>
   );
 

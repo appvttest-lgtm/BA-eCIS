@@ -100,7 +100,7 @@ function ProvenanceBadge({ path }) {
   return <span className={`prov-badge ${prov.cls}`}>{prov.label}</span>;
 }
 
-function RuleRow({ v, standardFor, showPayload, renderPayload }) {
+function RuleRow({ v, standardFor }) {
   // All rows start collapsed (including fails): the head line already carries the
   // status icon, badge and observed value; the panes are opt-in detail.
   const [open, setOpen] = useState(false);
@@ -203,9 +203,6 @@ function RuleRow({ v, standardFor, showPayload, renderPayload }) {
                 </p>
               )}
               <p className="rule-message">{v.message}</p>
-              {showPayload && v.apiPayloadMatch && renderPayload && (
-                <div className="rule-payload">{renderPayload(v.apiPayloadMatch)}</div>
-              )}
             </div>
           </div>
         </div>
@@ -221,7 +218,7 @@ function isIssue(v) {
 /** Rule-by-rule report: filter chips plus one expandable row per validation result.
  *  Defaults to warnings & fails only, so all-pass sections collapse to a one-line summary;
  *  the All / Passed chips expand the full rule list on demand. */
-export function RuleReport({ items, standardFor, showPayload, renderPayload }) {
+export function RuleReport({ items, standardFor }) {
   const [filter, setFilter] = useState('issues');
   const counts = useMemo(
     () => ({
@@ -254,15 +251,7 @@ export function RuleReport({ items, standardFor, showPayload, renderPayload }) {
         ))}
       </div>
       {filtered.length ? (
-        filtered.map((v, idx) => (
-          <RuleRow
-            key={`${v.id}-${idx}`}
-            v={v}
-            standardFor={standardFor}
-            showPayload={showPayload}
-            renderPayload={renderPayload}
-          />
-        ))
+        filtered.map((v, idx) => <RuleRow key={`${v.id}-${idx}`} v={v} standardFor={standardFor} />)
       ) : filter === 'issues' ? (
         <p className="muted small">
           No warnings or failures in this section — {counts.pass} rule{counts.pass === 1 ? '' : 's'} passed.

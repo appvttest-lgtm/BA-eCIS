@@ -199,63 +199,6 @@ th {
   white-space: nowrap;
   background: #eee;
 }
-/* Collapsible "additional provided data" panel hiding the payload + SSCC inputs (issue #23). */
-.additional-data-panel {
-  margin-top: 14px;
-  border: 1px solid #e4e9ef;
-  border-radius: 12px;
-  background: #fbfcfe;
-}
-.additional-data-summary {
-  cursor: pointer;
-  padding: 12px 14px;
-  font-weight: 800;
-  color: #111;
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.additional-data-summary::-webkit-details-marker {
-  display: none;
-}
-.additional-data-summary::before {
-  content: '▸';
-  color: #0d4f9b;
-  transition: transform 0.15s ease;
-}
-.additional-data-panel[open] > .additional-data-summary::before {
-  transform: rotate(90deg);
-}
-.additional-data-panel > .optional-input-grid {
-  padding: 0 14px 14px;
-}
-/* Greyed-out, inert state while the payload/SSCC comparison logic is under review. */
-.additional-data-disabled {
-  background: var(--surface-1);
-  border-style: dashed;
-}
-.additional-data-disabled > .additional-data-summary {
-  cursor: not-allowed;
-  color: var(--color-subtle);
-}
-.additional-data-disabled > .additional-data-summary::before {
-  color: var(--color-subtle);
-}
-.disabled-tag {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-subtle);
-  background: var(--color-code-bg);
-  border-radius: 999px;
-  padding: 3px 9px;
-}
-/* The grid's own display:grid overrides the UA "hide when closed" rule, so hide it explicitly. */
-.additional-data-panel:not([open]) > .optional-input-grid {
-  display: none;
-}
 
 /* Copy-to-clipboard button on barcode data strings (issue #15). */
 .segmented-code-row {
@@ -1283,9 +1226,6 @@ figcaption {
   }
 }
 
-@media (max-width: 780px) {
-}
-
 /* Batch scanning status shown while files/pages are being rendered and decoded. */
 .scan-progress {
   display: grid;
@@ -1740,45 +1680,8 @@ figcaption {
     grid-template-columns: 1fr;
   }
 
-  .optional-input-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
-/* Optional Get Shipments payload input and match/mismatch badges. */
-.payload-input-panel {
-  min-width: 0;
-  border: 1px solid #d8e6f2;
-  background: #f8fbff;
-  border-radius: 12px;
-  padding: 14px;
-}
-.payload-input-panel h2 {
-  margin-bottom: 8px;
-}
-.optional-input-grid {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
-  gap: 18px;
-  border-top: 1px solid #eef1f5;
-  padding-top: 14px;
-}
-.api-payload-textarea {
-  min-height: 210px;
-  font-family: var(--font-code);
-  font-size: 13px;
-  line-height: 1.45;
-}
-.sscc-prefix-panel {
-  border: 1px solid #d8e6f2;
-  background: #f8fbff;
-  border-radius: 12px;
-  padding: 14px;
-}
-.sscc-prefix-panel h2 {
-  margin-bottom: 8px;
-}
 .field-label {
   display: block;
   margin: 10px 0 6px;
@@ -1786,68 +1689,6 @@ figcaption {
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
-}
-.sscc-prefix-input {
-  font-family: var(--font-code);
-  letter-spacing: 0;
-}
-.optional-input-apply {
-  grid-column: 1 / -1;
-  justify-self: start;
-}
-@media (max-width: 780px) {
-  .optional-input-grid {
-    grid-template-columns: 1fr;
-  }
-}
-.payload-match {
-  display: inline-block;
-  border-radius: 999px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 900;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-.payload-match-match {
-  background: #dff5e7;
-  color: #087a2e;
-  border: 1px solid #b8e6c6;
-}
-.payload-match-mismatch {
-  background: #ffe1e5;
-  color: #a00018;
-  border: 1px solid #f4b8c1;
-}
-.payload-match-not_checked {
-  background: #eef1f5;
-  color: #53606d;
-  border: 1px solid #d7dde5;
-}
-
-.compact-table.has-payload-column th:nth-child(1),
-.compact-table.has-payload-column td:nth-child(1) {
-  width: 100px;
-}
-.compact-table.has-payload-column th:nth-child(2),
-.compact-table.has-payload-column td:nth-child(2) {
-  width: 160px;
-}
-.compact-table.has-payload-column th:nth-child(3),
-.compact-table.has-payload-column td:nth-child(3) {
-  width: 24%;
-}
-.compact-table.has-payload-column th:nth-child(4),
-.compact-table.has-payload-column td:nth-child(4) {
-  width: 22%;
-}
-.compact-table.has-payload-column th:nth-child(5),
-.compact-table.has-payload-column td:nth-child(5) {
-  width: 14%;
-}
-.compact-table.has-payload-column th:nth-child(6),
-.compact-table.has-payload-column td:nth-child(6) {
-  width: 22%;
 }
 
 /* Wide service-matrix and payload-comparison alignment overrides. */
@@ -1932,17 +1773,6 @@ figcaption {
   font-size: 10.5px;
   line-height: 1.3;
 }
-.payload-match {
-  font-size: 10px;
-  letter-spacing: 0.02em;
-  padding: 3px 7px;
-}
-
-.compact-table.has-payload-column th:nth-child(6),
-.compact-table.has-payload-column td:nth-child(6) {
-  width: 130px;
-  text-align: center;
-}
 
 /* Desktop report layout: wider app shell, two-column audit sections, and compact tables. */
 .app {
@@ -1970,45 +1800,7 @@ figcaption {
   padding: 8px 9px;
   line-height: 1.32;
 }
-.compact-table.has-payload-column {
-  min-width: 1060px;
-}
-.compact-table.has-payload-column th:nth-child(1),
-.compact-table.has-payload-column td:nth-child(1) {
-  width: 92px;
-}
-.compact-table.has-payload-column th:nth-child(2),
-.compact-table.has-payload-column td:nth-child(2) {
-  width: 190px;
-}
-.compact-table.has-payload-column th:nth-child(3),
-.compact-table.has-payload-column td:nth-child(3) {
-  width: 28%;
-}
-.compact-table.has-payload-column th:nth-child(4),
-.compact-table.has-payload-column td:nth-child(4) {
-  width: 24%;
-}
-.compact-table.has-payload-column th:nth-child(5),
-.compact-table.has-payload-column td:nth-child(5) {
-  width: 150px;
-}
-.compact-table.has-payload-column th:nth-child(6),
-.compact-table.has-payload-column td:nth-child(6) {
-  width: 150px;
-  text-align: center;
-  vertical-align: middle;
-}
 
-.payload-match-not_checked {
-  background: #eef1f5;
-  color: #53606d;
-  border: 1px solid #d7dde5;
-}
-.payload-match {
-  min-width: 54px;
-  text-align: center;
-}
 .fact-cards span,
 .facts strong:first-child {
   overflow-wrap: anywhere;
@@ -2035,31 +1827,7 @@ figcaption {
   }
 }
 
-/* Payload JSON evidence drawers, validation tables, and image zoom. */
-.payload-evidence {
-  width: 100%;
-  text-align: left;
-  font-size: 11px;
-}
-.payload-evidence summary {
-  cursor: pointer;
-  color: #475467;
-  font-weight: 700;
-  text-align: center;
-}
-.payload-evidence pre {
-  margin: 6px 0 0;
-  max-height: 180px;
-  font-size: 11px;
-  line-height: 1.35;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.compact-table.has-payload-column th:nth-child(6),
-.compact-table.has-payload-column td:nth-child(6) {
-  width: 190px;
-  vertical-align: top;
-}
+/* Validation tables and image zoom. */
 .compact-table.validation-table {
   min-width: 980px;
   font-size: 12.5px;
@@ -2077,25 +1845,6 @@ figcaption {
   width: 120px;
   text-align: center;
   vertical-align: top;
-}
-.compact-table.validation-table.has-payload-column {
-  min-width: 1180px;
-}
-.compact-table.validation-table.has-payload-column th:nth-child(1),
-.compact-table.validation-table.has-payload-column td:nth-child(1) {
-  width: 34%;
-}
-.compact-table.validation-table.has-payload-column th:nth-child(2),
-.compact-table.validation-table.has-payload-column td:nth-child(2) {
-  width: 30%;
-}
-.compact-table.validation-table.has-payload-column th:nth-child(3),
-.compact-table.validation-table.has-payload-column td:nth-child(3) {
-  width: 22%;
-}
-.compact-table.validation-table.has-payload-column th:last-child,
-.compact-table.validation-table.has-payload-column td:last-child {
-  width: 140px;
 }
 .measurement-cell {
   display: grid;
@@ -2346,11 +2095,6 @@ figcaption {
 }
 .rule-message {
   color: var(--color-muted);
-}
-.rule-payload {
-  border-top: 1px dashed #d4dae2;
-  margin-top: 6px;
-  padding-top: 6px;
 }
 @media (max-width: 760px) {
   .rule-observed {

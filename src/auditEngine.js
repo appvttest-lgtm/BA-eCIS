@@ -12,7 +12,6 @@ import {
   STARTRACK_LABEL_CODE_MAP,
   STARTRACK_UNIT_TYPE_MAP
 } from './audit/referenceData.js';
-import { attachApiPayloadComparison } from './audit/payloadComparison.js';
 
 export * from './audit/referenceData.js';
 
@@ -33,192 +32,6 @@ function result(id, title, severity, category, status, message, extra = {}) {
 
 function normalizeLabelFormat(value) {
   return value === 'sscc' ? 'sscc' : 'standard';
-}
-
-function normalizeSsccExtensionDigitInput(input) {
-  const raw = String(input || '').trim();
-  if (!raw) return { provided: false, raw: '', extensionDigit: '', reason: '' };
-  const digits = raw.replace(/\D/g, '');
-  const extensionDigit = digits.startsWith('00') ? digits.slice(2, 3) : digits.slice(0, 1);
-  if (!/^\d$/.test(extensionDigit)) {
-    return { provided: true, raw, extensionDigit: '', reason: 'Enter the SSCC extension digit, for example 3 or 003.' };
-  }
-  return { provided: true, raw, extensionDigit, reason: '' };
-}
-
-function normalizeSsccCompanyPrefixInput(input, extensionDigitInput = '') {
-  const raw = String(input || '').trim();
-  const extension = normalizeSsccExtensionDigitInput(extensionDigitInput);
-  if (!raw && !extension.provided)
-    return { provided: false, raw: '', extensionDigit: '', companyPrefix: '', reason: '' };
-  let digits = raw.replace(/\D/g, '');
-  if (digits.startsWith('00')) {
-    digits = digits.slice(2);
-    if (digits.length > 0) digits = digits.slice(1);
-  }
-  if (!raw) {
-    return {
-      provided: extension.provided,
-      raw,
-      extensionDigit: extension.extensionDigit,
-      companyPrefix: '',
-      reason: extension.reason
-    };
-  }
-  if (!digits) {
-    return {
-      provided: true,
-      raw,
-      companyPrefix: '',
-      reason: 'Enter the GS1 Company Prefix digits, for example 9315345.'
-    };
-  }
-  if (digits.length < 4 || digits.length > 12) {
-    return {
-      provided: true,
-      raw,
-      extensionDigit: extension.extensionDigit,
-      companyPrefix: digits,
-      reason: 'GS1 Company Prefix should usually be 4 to 12 digits.'
-    };
-  }
-  return {
-    provided: true,
-    raw,
-    extensionDigit: extension.extensionDigit,
-    companyPrefix: digits,
-    reason: extension.reason || ''
-  };
-}
-
-function validateExpectedSsccPrefix({
-  expectedSscc,
-  validSsccs = [],
-  invalidSsccs = [],
-  category = 'sscc',
-  idPrefix = 'SSCC_EXPECTED'
-}) {
-  if (!expectedSscc?.provided) return [];
-  const validations = [];
-  if (expectedSscc.reason) {
-    validations.push(
-      result(
-        `${idPrefix}_PREFIX_INPUT`,
-        'SSCC extension / company prefix input',
-        'ERROR',
-        category,
-        'fail',
-        expectedSscc.reason || 'The supplied SSCC GS1 Company Prefix is not usable.',
-        { actual: expectedSscc.raw }
-      )
-    );
-    return validations;
-  }
-
-  validations.push(
-    validSsccs.length
-      ? result(
-          `${idPrefix}_DECODED`,
-          'AI 00 SSCC barcode decoded',
-          'CRITICAL',
-          category,
-          'pass',
-          `${validSsccs.length} valid AI 00 SSCC barcode(s) decoded.`,
-          { actual: validSsccs.map(s => `00${s.sscc}`).join(', ') }
-        )
-      : result(
-          `${idPrefix}_DECODED`,
-          'AI 00 SSCC barcode decoded',
-          'CRITICAL',
-          category,
-          'fail',
-          invalidSsccs.length
-            ? invalidSsccs[0].reason
-            : 'SSCC assessment was selected, but no valid AI 00 SSCC barcode was decoded.',
-          {
-            expected: expectedSscc.companyPrefix
-              ? `AI 00 SSCC with GS1 Company Prefix ${expectedSscc.companyPrefix}`
-              : 'AI 00 SSCC',
-            actual:
-              invalidSsccs
-                .map(s => s.raw)
-                .filter(Boolean)
-                .join(', ') || 'not decoded'
-          }
-        )
-  );
-
-  // Make "not checked" visible: without an expected prefix/extension digit the
-  // registration checks cannot run, and that must be auditable rather than the
-  // rows silently not existing.
-  if (!expectedSscc.extensionDigit && !expectedSscc.companyPrefix) {
-    validations.push(
-      result(
-        `${idPrefix}_COMPANY_PREFIX`,
-        'SSCC GS1 Company Prefix',
-        'INFO',
-        category,
-        'not_applicable',
-        'No expected GS1 Company Prefix or extension digit was supplied, so the SSCC company prefix was not verified against merchant registration data.'
-      )
-    );
-  }
-
-  if (validSsccs.length && expectedSscc.extensionDigit) {
-    const matches = validSsccs.filter(s => s.extensionDigit === expectedSscc.extensionDigit);
-    validations.push(
-      matches.length
-        ? result(
-            `${idPrefix}_EXTENSION_DIGIT`,
-            'SSCC extension digit',
-            'ERROR',
-            category,
-            'pass',
-            `Decoded SSCC extension digit matches ${expectedSscc.extensionDigit}.`,
-            { expected: expectedSscc.extensionDigit, actual: matches.map(s => `00${s.sscc}`).join(', ') }
-          )
-        : result(
-            `${idPrefix}_EXTENSION_DIGIT`,
-            'SSCC extension digit',
-            'ERROR',
-            category,
-            'fail',
-            `No decoded SSCC uses extension digit ${expectedSscc.extensionDigit}.`,
-            { expected: expectedSscc.extensionDigit, actual: validSsccs.map(s => s.extensionDigit).join(', ') }
-          )
-    );
-  }
-
-  if (validSsccs.length && expectedSscc.companyPrefix) {
-    const matches = validSsccs.filter(
-      s =>
-        String(s.companyPrefixAndSerial || '').startsWith(expectedSscc.companyPrefix) ||
-        String(s.sscc || '').startsWith(expectedSscc.companyPrefix)
-    );
-    validations.push(
-      matches.length
-        ? result(
-            `${idPrefix}_COMPANY_PREFIX`,
-            'SSCC GS1 Company Prefix',
-            'ERROR',
-            category,
-            'pass',
-            `Decoded SSCC company prefix matches ${expectedSscc.companyPrefix}.`,
-            { expected: expectedSscc.companyPrefix, actual: matches.map(s => `00${s.sscc}`).join(', ') }
-          )
-        : result(
-            `${idPrefix}_COMPANY_PREFIX`,
-            'SSCC GS1 Company Prefix',
-            'ERROR',
-            category,
-            'fail',
-            `No decoded SSCC starts with GS1 Company Prefix ${expectedSscc.companyPrefix}.`,
-            { expected: expectedSscc.companyPrefix, actual: validSsccs.map(s => s.sscc).join(', ') }
-          )
-    );
-  }
-
-  return validations;
 }
 
 function labelFormatName(format) {
@@ -1491,16 +1304,10 @@ function auditEparcelLabel({
   manualBarcodes = '',
   extractedText = '',
   visualEvidence = null,
-  ssccCompanyPrefix = '',
-  ssccExtensionDigit = '',
   labelFormat = 'standard'
 }) {
   const validations = [];
   const selectedFormat = normalizeLabelFormat(labelFormat);
-  const expectedSscc = {
-    ...normalizeSsccCompanyPrefixInput(ssccCompanyPrefix, ssccExtensionDigit),
-    provided: selectedFormat === 'sscc'
-  };
   const facts = extractLabelFacts(extractedText);
   const manualValues = diagnosticManualValues(manualBarcodes);
   const decodedValues = decodedRawValues(detectedBarcodes);
@@ -1569,15 +1376,6 @@ function auditEparcelLabel({
       evidence: modeEvidence || decodedValues.join('\n')
     })
   );
-  validations.push(
-    ...validateExpectedSsccPrefix({
-      expectedSscc,
-      validSsccs,
-      invalidSsccs,
-      category: 'sscc',
-      idPrefix: 'SSCC_EXPECTED'
-    })
-  );
 
   for (const [i, article] of articles.entries()) {
     if (article.type === 'sscc') {
@@ -1622,7 +1420,6 @@ function auditEparcelLabel({
     visualEvidence,
     detectedBarcodes,
     manualBarcodeCount: manualValues.length,
-    expectedSscc,
     selectedAuditMode: { carrier: 'eparcel', labelFormat: selectedFormat },
     ruleSet: { id: ruleSet.id, name: ruleSet.name, variant: ruleVariant, spec: ruleSet.spec || null },
     parsed,
@@ -2283,16 +2080,10 @@ function auditStarTrackLabel({
   manualBarcodes = '',
   extractedText = '',
   visualEvidence = null,
-  ssccCompanyPrefix = '',
-  ssccExtensionDigit = '',
   labelFormat = 'standard'
 }) {
   const validations = [];
   const selectedFormat = normalizeLabelFormat(labelFormat);
-  const expectedSscc = {
-    ...normalizeSsccCompanyPrefixInput(ssccCompanyPrefix, ssccExtensionDigit),
-    provided: selectedFormat === 'sscc'
-  };
   let facts = extractStarTrackFacts(extractedText);
   const manualValues = diagnosticManualValues(manualBarcodes);
   const decodedValues = decodedRawValues(detectedBarcodes);
@@ -2398,15 +2189,6 @@ function auditStarTrackLabel({
   // parsed from linear decodes only, but the gate still keeps a coincidental "00" +
   // 18-digit linear run on a standard label from raising false CRITICAL failures.
   if (ssccOnly) {
-    validations.push(
-      ...validateExpectedSsccPrefix({
-        expectedSscc,
-        validSsccs,
-        invalidSsccs,
-        category: 'startrack-sscc',
-        idPrefix: 'ST_SSCC_EXPECTED'
-      })
-    );
     for (const [i, sscc] of validSsccs.entries()) {
       validations.push(
         result(
@@ -2479,7 +2261,6 @@ function auditStarTrackLabel({
     visualEvidence,
     detectedBarcodes,
     manualBarcodeCount: manualValues.length,
-    expectedSscc,
     selectedAuditMode: { carrier: 'startrack', labelFormat: selectedFormat },
     ruleSet: { id: ruleSet.id, name: ruleSet.name, variant: ruleVariant, spec: ruleSet.spec || null },
     parsed: [...qrParses, ...freightParses, ...routingParses, ...atlParses, ...validSsccs],
@@ -2491,13 +2272,11 @@ function auditStarTrackLabel({
   };
 }
 
-/** Entry point for one rendered label/page; dispatches to carrier rules and attaches payload comparison. */
+/** Entry point for one rendered label/page; dispatches to the carrier rule set. */
 export function auditLabel(input = {}) {
-  const baseAudit =
-    input.labelFamily === 'startrack' || input.carrier === 'startrack'
-      ? auditStarTrackLabel(input)
-      : { ...auditEparcelLabel(input), carrier: 'eparcel' };
-  return attachApiPayloadComparison(baseAudit, input.manifestJson || input.apiPayloadText || '');
+  return input.labelFamily === 'startrack' || input.carrier === 'startrack'
+    ? auditStarTrackLabel(input)
+    : { ...auditEparcelLabel(input), carrier: 'eparcel' };
 }
 
 /** Groups raw validation rows into the report sections rendered by both UI and exported HTML. */

@@ -15,7 +15,6 @@ It does not replace formal carrier certification, physical barcode grading, or p
 3. **Read** — the app scans each label for barcodes (linear, Data Matrix, QR) using three decoders, and runs OCR to read the printed text.
 4. **Check** — the audit engine works out which product the label is for (from the codes it just read), loads the matching rule set, and runs every rule: format, check digits, identity, routing, product/service combination, and printed text.
 5. **Report** — you get an overall PASS / REVIEW / FAIL verdict, a list per label, and one row per rule. Each row shows the value that was read, the rule it was checked against, and the result. Each barcode is also split into its individual fields so you can see exactly which part passed or failed.
-6. **Payload check (optional)** — paste in a Get Shipments API payload and the app compares it with the label. It first confirms the payload and the label are for the same article/consignment, and only then compares the remaining fields.
 
 One rule to remember: **the barcode is the source of truth.** Whatever the barcode decodes to is the real value. OCR text is only used to confirm that the printed label agrees with it — never the other way around.
 
@@ -30,14 +29,13 @@ One rule to remember: **the barcode is the source of truth.** Whatever the barco
 | Field checks | Each field is checked for position, length, allowed values and check digit, and shown with its own status |
 | Rule checks | Regex, equality, ranges, date formats, cross-field comparisons, check-digit maths, product/service matrix |
 | Reference data | Built-in tables of eParcel products and services, and StarTrack products, label codes and unit types |
-| Payload comparison | Compares a pasted Get Shipments payload against the label, only after identity matches |
 | Evidence | Full-label previews, a cropped image of every barcode, and a badge on every value showing where it came from (barcode, OCR, or derived) |
 
 ---
 
 ## Supported products and service codes
 
-These tables mirror the app's built-in reference data (`src/audit/referenceData.js`), which every rule check and payload comparison resolves against.
+These tables mirror the app's built-in reference data (`src/audit/referenceData.js`), which every rule check resolves against.
 
 ### eParcel products
 
@@ -102,7 +100,7 @@ src/                  The app itself
   assets/             Images used in the UI
   audit/
     referenceData.js       Carrier tables: products, services, label codes, unit types
-    payloadComparison.js   Get Shipments payload vs label comparison
+    ruleSource.js          Spec citation line for the report (document title, version, page)
   scanner/
     pipeline.js       File in → pages → labels → decoded barcodes out
     scanPlan.js       Decides which regions to scan and maps coordinates back
@@ -116,6 +114,11 @@ rules/                The validation rules — JSON, one folder per carrier
   index.js            Loads rule files and merges each variant over its base
   eparcel/            base, parcel-post, express-post, returns, metro, sscc
   startrack/          base, express, premium, fpp, sscc
+                      (base files also hold the documents registry: short source
+                      code, e.g. "PP&EP v1.4", → full document title/version/date)
+
+tests/                Node test suite (npm test): rule evaluator, barcode parsers,
+                      preprocessing, scan planning, and a rules catalogue lint
 
 scripts/              Build tooling
   build-portable.mjs      Rebuilds portable/ from dist/ (the pre-commit hook runs this)
@@ -148,6 +151,9 @@ npm run build        # build dist/ (commit it together with the source change)
 npm start            # serve the built app on 127.0.0.1:3000
 npm run build:portable   # rebuild portable/ from dist/
 npm run sync:ocr     # re-copy OCR runtime files after a tesseract.js upgrade
+npm test             # Node test suite: evaluator, parsers, preprocessing, rules lint
+npm run lint         # ESLint over the whole repo
+npm run format       # Prettier --write (format:check verifies without writing)
 ```
 
 Needs Node 20.10 or newer.
@@ -156,4 +162,4 @@ Needs Node 20.10 or newer.
 
 ## What is (and isn't) in the repo
 
-The repo tracks only what is needed to build, run and ship the app, plus this README and the `Resources/` folder of carrier specs and example labels. Everything else — tests and fixtures, docs, CI pipeline config, lint/format config, release tooling, working notes and generated reports — stays on the dev machine and is git-ignored (see `.gitignore`). Tests (`npm test`), lint and the checklist check still run locally before committing.
+The repo tracks what is needed to build, run, ship and verify the app: the source, the prebuilt `dist/` and `portable/`, this README, the `Resources/` folder of carrier specs and example labels, and (since v1.15.0) the Node test suite in `tests/` plus the ESLint/Prettier configs — so any clone can run `npm test` and `npm run lint` before shipping. Authoring docs, CI pipeline config, release tooling, working notes and generated reports stay on the dev machine and are git-ignored (see `.gitignore`).
