@@ -3,13 +3,10 @@ import { createRoot } from 'react-dom/client';
 import {
   analyzeArticleCandidate,
   auditLabel,
-  calculateEparcelCheckDigit,
   groupValidations,
-  parseSsccBarcode,
   PRODUCT_CODE_MAP,
   SERVICE_CODE_MAP,
   SERVICE_TO_PRODUCT_MAP,
-  STARTRACK_LABEL_CODE_MAP,
   STARTRACK_PRODUCT_CODE_MAP,
   STARTRACK_QR_FIELDS
 } from './auditEngine.js';
@@ -17,6 +14,7 @@ import { RuleReport, StatusIcon } from './reportView.jsx';
 import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from './scanner/barcodeTypes.js';
 import { createDetector } from './scanner/decoders.js';
 import { isStarTrackFreightItemValue, isStarTrackAtlValue, isStarTrackRoutingValue } from './scanner/labelImages.js';
+import { ARTICLE_FIELD_SPECS, fieldMetaText, fieldSpecsFor, QR_FIELD_SOURCE } from './audit/barcodeFieldSpecs.js';
 import { processImageLabels, processPdfLabels, yieldToBrowser } from './scanner/pipeline.js';
 import australiaPostLogoUrl from './assets/Australia_Post_logo_logotype.png';
 import './styles.css';
@@ -919,7 +917,7 @@ function QrFieldLine({ field, value, status, swatchClass }) {
       value={value}
       status={status}
       swatchClass={swatchClass}
-      detail={`${field.rule ? `${field.rule} · ` : ''}field ${field.num} · position ${field.pos}, length ${field.len} · ${obligation}`}
+      detail={`${field.rule ? `${field.rule} · ` : ''}field ${field.num} · position ${field.pos}, length ${field.len} · ${obligation} · ${fieldMetaText(QR_FIELD_SOURCE)}`}
     />
   );
 }
@@ -1255,154 +1253,6 @@ function rawSegments(rawValue, kind) {
   return out;
 }
 
-// --- Per-field specifications for the barcode breakdown tables. Display-only: statuses
-// re-use the same reference maps and check-digit functions the rule engine validates with
-// (PRODUCT/SERVICE maps, calculateEparcelCheckDigit, parseSsccBarcode, STARTRACK maps);
-// no new validation logic is introduced here. Keyed by the rawSegments field label.
-const pf = (spec, check, detail) => ({ spec, check, detail });
-const digitsCheck = n => t => (new RegExp(`^\\d{${n}}$`).test(t) ? 'pass' : 'fail');
-const literalCheck = lit => t => (t === lit ? 'pass' : 'fail');
-
-const ARTICLE_FIELD_SPECS = {
-  MLID: pf('Merchant location ID — 3 or 5 alphanumeric', t =>
-    /^[A-Z0-9]{3}$|^[A-Z0-9]{5}$/i.test(t) ? 'pass' : 'fail'
-  ),
-  'Consignment serial': pf('Consignment serial — 7 digits', digitsCheck(7)),
-  'Article count': pf('Article number within consignment — 2 digits', digitsCheck(2)),
-  'Product code': pf(
-    '5-digit eParcel product code',
-    t => (PRODUCT_CODE_MAP[t] ? 'pass' : 'fail'),
-    t => PRODUCT_CODE_MAP[t] || 'not in the eParcel product map'
-  ),
-  'Service code': pf(
-    '2-digit eParcel service code',
-    t => (SERVICE_CODE_MAP[t] ? 'pass' : 'fail'),
-    t => SERVICE_CODE_MAP[t]?.name || 'not in the eParcel service map'
-  ),
-  'Postage paid': pf('Postage paid indicator — 1 character'),
-  'Check digit': pf(
-    'Weighted mod-10 check digit over the preceding characters',
-    (t, ctx) => {
-      const calc = calculateEparcelCheckDigit(String(ctx.article || '').slice(0, -1));
-      return calc.validInput ? (calc.checkDigit === t ? 'pass' : 'fail') : null;
-    },
-    (t, ctx) => {
-      const calc = calculateEparcelCheckDigit(String(ctx.article || '').slice(0, -1));
-      return calc.validInput ? `expected ${calc.checkDigit}` : '';
-    }
-  )
-};
-
-const ssccFromContext = ctx => parseSsccBarcode(ctx.joined.length === 18 ? `00${ctx.joined}` : ctx.joined);
-const SSCC_FIELD_SPECS = {
-  'AI 00': pf('GS1 Application Identifier 00 — SSCC follows', literalCheck('00')),
-  'Extension digit': pf('Extension digit 0–9 (merchant assigned)', digitsCheck(1)),
-  'Company prefix + serial': pf('GS1 company prefix + serial reference — 16 digits', digitsCheck(16)),
-  'SSCC payload (malformed)': pf(
-    'SSCC — exactly 18 digits after AI 00',
-    () => 'fail',
-    t => (/\D/.test(t) ? 'contains a non-digit character' : `found ${t.length} digits, expected 18`)
-  ),
-  'SSCC payload (AI 00 missing)': pf(
-    'SSCC must be preceded by Application Identifier 00',
-    () => 'fail',
-    () => 'no AI 00 prefix on the decoded value'
-  ),
-  'Check digit': pf(
-    'GS1 mod-10 check digit',
-    (t, ctx) => (ssccFromContext(ctx).valid ? 'pass' : 'fail'),
-    (t, ctx) => {
-      const parsed = ssccFromContext(ctx);
-      return parsed.expectedCheckDigit ? `expected ${parsed.expectedCheckDigit}` : '';
-    }
-  )
-};
-
-const GS1_FIELD_SPECS = {
-  'AI 01 GTIN': pf('GS1 Application Identifier 01 — GTIN follows', literalCheck('01')),
-  'AI 01 GTIN value': pf('14-digit GTIN (99312650999998 = Australia Post eParcel)', digitsCheck(14)),
-  'AI 91 article': pf('GS1 AI 91 — eParcel article and services data follows', literalCheck('91')),
-  'AI 91 article value': pf(
-    'eParcel article ID — 21 chars (3-char MLID) or 23 chars (5-char MLID)',
-    () => 'manual_review',
-    () => 'payload did not parse as a standard eParcel article'
-  ),
-  'AI 420 postcode': pf('GS1 AI 420 — ship-to postcode follows', literalCheck('420')),
-  'AI 420 postcode value': pf('Delivery postcode — 4 digits', digitsCheck(4)),
-  'AI 92 DPID': pf('GS1 AI 92 — delivery point identifier follows', literalCheck('92')),
-  'AI 92 DPID value': pf('Delivery point identifier (DPID) — 8 digits', digitsCheck(8)),
-  'AI 8008 date/time': pf('GS1 AI 8008 — production date/time follows', literalCheck('8008')),
-  'AI 8008 date/time value': pf('Date/time — YYMMDDHHMMSS', digitsCheck(12)),
-  'AI 00 SSCC': pf('GS1 Application Identifier 00 — SSCC follows', literalCheck('00')),
-  'AI 00 SSCC value': pf('18-digit SSCC with GS1 mod-10 check digit', t =>
-    parseSsccBarcode(`00${t}`).valid ? 'pass' : 'fail'
-  ),
-  'FNC1 start': pf(
-    'GS1 symbol start: FNC1 required in the FIRST position (GS1 DataMatrix signals it as symbology identifier ]d2; GS1-128 as ]C1 — it is not a data character)',
-    t => (t === ']d2' || t === ']d5' || t === ']C1' ? 'pass' : /^\]d\d$/.test(t) ? 'fail' : null),
-    t =>
-      t === ''
-        ? 'not visible in this decode — see the "GS1 FNC1 in first position" rule row, which assesses the decoder-reported symbology identifier'
-        : /^\](d[25]|C1)$/.test(t)
-          ? `symbology identifier ${t}: FNC1 in first position (GS1 carrier)`
-          : `symbology identifier ${t}: FNC1 is NOT in first position`
-  ),
-  'FNC1 separator': pf(
-    'GS1 FNC1 group separator expected at this element boundary — encoded as ASCII 29',
-    t => (t.length ? 'pass' : null),
-    t =>
-      t.length === 0
-        ? 'separator character not visible in this decode — many scanners strip FNC1 from the reported payload'
-        : /^[\x1d\x1e\x1c\r\n]+$/.test(t)
-          ? 'control character'
-          : 'reported by the decoder as readable text; the symbol itself normally encodes ASCII 29'
-  ),
-  'GS1 element': pf('Unrecognised GS1 element', () => 'manual_review')
-};
-
-const FREIGHT_FIELD_SPECS = {
-  'Despatch ID': pf('Despatch/depot identifier — 4 alphanumeric', t => (/^[A-Z0-9]{4}$/i.test(t) ? 'pass' : 'fail')),
-  'Connote sequence': pf('Consignment note sequence — 8 digits', digitsCheck(8)),
-  'Product code': pf(
-    'StarTrack product code — 3 characters',
-    t => (STARTRACK_PRODUCT_CODE_MAP[t] ? 'pass' : 'fail'),
-    t => STARTRACK_PRODUCT_CODE_MAP[t]?.name || 'not in the StarTrack product map'
-  ),
-  'Item sequence': pf('Freight item sequence — 5 digits', digitsCheck(5))
-};
-
-const ROUTING_FIELD_SPECS = {
-  'Label code': pf(
-    'StarTrack service label code (e.g. EXP / PRM / ARL)',
-    t => (STARTRACK_LABEL_CODE_MAP[t] ? 'pass' : 'manual_review'),
-    t =>
-      STARTRACK_LABEL_CODE_MAP[t]
-        ? `products: ${STARTRACK_LABEL_CODE_MAP[t].join(', ')}`
-        : 'not a known StarTrack label code'
-  ),
-  Postcode: pf('Destination postcode — 4 digits', digitsCheck(4)),
-  'Depot/port': pf('Destination depot/port — 2–3 characters', t => (/^[A-Z0-9]{2,3}$/i.test(t) ? 'pass' : 'fail')),
-  'AI 421': pf('GS1 AI 421 — postal code with ISO country follows', literalCheck('421')),
-  'Country code': pf('ISO 3166 numeric country code (036 = Australia)', digitsCheck(3)),
-  'AI 403': pf('GS1 AI 403 — routing code follows', literalCheck('403'))
-};
-
-const ATL_FIELD_SPECS = {
-  Prefix: pf('Literal character C', literalCheck('C')),
-  Counter: pf('Nine-digit sequential counter (starts 000000001)', digitsCheck(9))
-};
-
-/** Picks the field-spec map for a segmented barcode. SSCC-split segments can surface under
- *  several kinds (freight, linear, sscc), so their labels take precedence over the kind. */
-function fieldSpecsFor(kind, segments) {
-  if (segments.some(s => s.label === 'Extension digit' || String(s.label).startsWith('SSCC payload')))
-    return { ...GS1_FIELD_SPECS, ...SSCC_FIELD_SPECS };
-  if (kind === 'freight') return FREIGHT_FIELD_SPECS;
-  if (kind === 'routing') return ROUTING_FIELD_SPECS;
-  if (kind === 'atl') return ATL_FIELD_SPECS;
-  return { ...GS1_FIELD_SPECS, ...ARTICLE_FIELD_SPECS };
-}
-
 /** QR-style per-field breakdown for a colour-segmented barcode value: one expandable line
  *  per field with its specification and status check, colour-matched to the raw string above
  *  (same segment order, so seg-cN indexes line up). */
@@ -1436,7 +1286,11 @@ function SegmentedFields({ segments, kind }) {
         const text = String(s.text);
         const start = starts[i];
         const def = specs[s.label];
-        const detail = [`position ${start}, length ${text.length}`, def?.detail ? def.detail(text, ctx) : '']
+        const detail = [
+          `position ${start}, length ${text.length}`,
+          fieldMetaText(def),
+          def?.detail ? def.detail(text, ctx) : ''
+        ]
           .filter(Boolean)
           .join(' · ');
         return (
