@@ -1,5 +1,5 @@
 ﻿// Loads the carrier rule sets and resolves variant files over their base file.
-// Rule files are the source of truth for label validation; see docs/checklists.
+// Rule files are the source of truth for label validation; tests/rulesCatalogue.test.mjs guards them.
 import { mergeRuleSets } from '../src/ruleEngine.js';
 import eparcelBase from './eparcel/base.json' with { type: 'json' };
 import eparcelParcelPost from './eparcel/parcel-post.json' with { type: 'json' };

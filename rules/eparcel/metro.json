@@ -7,6 +7,13 @@
   "constants": {
     "allowedProducts": ["00121", "00120"]
   },
+  "documents": {
+    "Metro V2.0": {
+      "title": "Australia Post Metro Service Integration Specification",
+      "version": "V2.0",
+      "date": "2024-05-17"
+    }
+  },
   "rules": [
     {
       "id": "EP-MET-01",

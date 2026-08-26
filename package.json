@@ -1,6 +1,6 @@
 {
   "name": "ecommerce-integration-label-auditor-local",
-  "version": "1.14.4",
+  "version": "1.15.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,11 +12,9 @@
     "build": "vite build",
     "build:portable": "node scripts/build-portable.mjs",
     "sync:ocr": "node scripts/sync-ocr-assets.mjs",
-    "checklist": "node scripts/checklist-coverage.mjs",
-    "golden:fixtures": "node scripts/make-golden-fixtures.mjs",
-    "golden:update": "node scripts/golden-update.mjs",
     "test": "node --test",
     "lint": "eslint .",
+    "presbom": "node -e \"require('fs').mkdirSync('docs/security',{recursive:true})\"",
     "sbom": "npm sbom --sbom-format cyclonedx > docs/security/sbom.cyclonedx.json",
     "format": "prettier --write \"src/**/*.{js,jsx}\" \"tests/**/*.mjs\" server.mjs rules/index.js eslint.config.mjs",
     "format:check": "prettier --check \"src/**/*.{js,jsx}\" \"tests/**/*.mjs\" server.mjs rules/index.js eslint.config.mjs",

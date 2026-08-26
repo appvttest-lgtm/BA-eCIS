@@ -100,6 +100,8 @@ const DATE_FORMATS = {
   }
 };
 
+export const DATE_FORMAT_NAMES = Object.keys(DATE_FORMATS);
+
 function isValidDatePart(kind, num) {
   if (kind === 'month') return num >= 1 && num <= 12;
   if (kind === 'day') return num >= 1 && num <= 31;
@@ -258,7 +260,7 @@ function formatMessage(template, parts) {
   });
 }
 
-/** Merges a variant rule set over its base: constants shallow-merge, rules merge by id. */
+/** Merges a variant rule set over its base: constants and documents shallow-merge, rules merge by id. */
 export function mergeRuleSets(base, variant) {
   if (!base) return variant;
   const byId = new Map();
@@ -271,7 +273,28 @@ export function mergeRuleSets(base, variant) {
     ...base,
     ...variant,
     constants: { ...(base.constants || {}), ...(variant.constants || {}) },
+    documents: { ...(base.documents || {}), ...(variant.documents || {}) },
     rules: [...byId.values()].filter(rule => !rule.disabled)
+  };
+}
+
+/**
+ * Resolves a rule's spec citation against the rule set's `documents` registry so results
+ * carry the full document title and version alongside the short doc code and page/ref.
+ * Sources are optional on rules; a rule without one falls back to the rule set's `spec`.
+ */
+export function resolveRuleSource(rule, ruleSet) {
+  const source = rule.source || null;
+  if (!source) {
+    const spec = ruleSet.spec;
+    return spec ? { doc: spec.doc, title: spec.doc, ...(spec.date ? { date: spec.date } : {}) } : null;
+  }
+  const documentInfo = (ruleSet.documents || {})[source.doc];
+  return {
+    ...source,
+    title: documentInfo?.title || source.doc,
+    ...(documentInfo?.version ? { version: documentInfo.version } : {}),
+    ...(documentInfo?.date ? { date: documentInfo.date } : {})
   };
 }
 
@@ -308,7 +331,7 @@ function buildResult(rule, ruleSet, status, assertRes, inputPath, inputValue, co
       title: rule.title,
       description: rule.description || '',
       obligation: rule.obligation || 'mandatory',
-      source: rule.source || ruleSet.spec || null,
+      source: resolveRuleSource(rule, ruleSet),
       logic: {
         when: rule.when,
         forEach: rule.forEach,

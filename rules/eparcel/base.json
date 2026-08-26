@@ -9,6 +9,15 @@
     "productCodes": ["00093", "00096", "00065", "00068", "00091", "00087", "00121", "00120"],
     "allowedProducts": ["00093", "00096", "00065", "00068", "00091", "00087", "00121", "00120"]
   },
+  "documents": {
+    "PP&EP v1.4": {
+      "title": "Parcel Post and Express Post - Label & Barcode Specification",
+      "version": "v1.4",
+      "date": "2025-06-05"
+    },
+    "GS1 DataMatrix Guideline": { "title": "GS1 DataMatrix Guideline" },
+    "Auditor rule": { "title": "Auditor built-in rule" }
+  },
   "rules": [
     {
       "id": "EP-LAY-01",
@@ -437,8 +446,7 @@
       "source": { "doc": "PP&EP v1.4", "page": 28 },
       "forEach": "barcodes.datamatrix",
       "input": "item.invalidLiteralSeparators",
-      "evidence": ["item.literalSeparatorMarker", "item.normalized"],
-      "evidence": ["item.raw"],
+      "evidence": ["item.literalSeparatorMarker", "item.normalized", "item.raw"],
       "assert": { "op": "equals", "value": false },
       "messages": {
         "pass": "No invalid literal FNC1/group separator markers were found.",

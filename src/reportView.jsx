@@ -1,8 +1,9 @@
 // Rule-by-rule report view. Each validation row expands into three panes:
 // the input data scraped from the label, the validation rule (plain English
 // plus the executable JSON rule logic), and the outcome. Designed for the
-// ECIS in-browser report; see docs/checklists for the rule catalogue.
+// ECIS in-browser report; tests/rulesCatalogue.test.mjs guards the rule catalogue.
 import React, { useMemo, useState } from 'react';
+import { formatRuleSource } from './audit/ruleSource.js';
 
 const STATUS_LABELS = {
   pass: 'PASS',
@@ -105,10 +106,7 @@ function RuleRow({ v, standardFor, showPayload, renderPayload }) {
   const [open, setOpen] = useState(false);
   const [showLogic, setShowLogic] = useState(false);
   const rule = v.rule || null;
-  const source = rule?.source || null;
-  const sourceText = source
-    ? [source.doc, source.page ? `p${source.page}` : null, source.ref || null].filter(Boolean).join(' · ')
-    : '';
+  const sourceText = formatRuleSource(rule?.source);
   const description = rule?.description || (standardFor ? standardFor(v) : '') || '';
   const inputValue = formatInputValue(v.input?.value);
   const observed = v.actual || inputValue;

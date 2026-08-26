@@ -59,22 +59,14 @@ ehthumbs.db
 ~$*
 *.orig
 
-# Local-only development material - tests, fixtures and docs run on the dev machine
-# but are not part of the shipped application (CI runs lint/format/build/dist-drift only)
-tests/
+# Authoring docs stay local; tests are tracked so any clone can verify the app
 docs/
 
 # CI pipeline config - none yet for the GitLab transfer (kept locally for reference)
 .github/
 .gitlab-ci.yml
 
-# Ultra-lean repo: dev-only tooling stays on the dev machine
-eslint.config.mjs
-.prettierrc.json
-.prettierignore
-scripts/checklist-coverage.mjs
-scripts/golden-update.mjs
-scripts/make-golden-fixtures.mjs
+# Dev-only material that stays on the dev machine (lint/format configs and tests are tracked)
 wrapper/
 build-dev-only.bat
 build-portable-release.bat

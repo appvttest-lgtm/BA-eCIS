@@ -8,6 +8,15 @@
     "labelCodes": ["TSE", "RET", "RE2", "APT", "PRM", "ARL", "EXP"],
     "allowedProducts": ["TSE", "RET", "RE2", "APT", "PRM", "FPP", "ARL", "FPA", "EXP"]
   },
+  "documents": {
+    "MOS v9": {
+      "title": "StarTrack Label Specifications - Modify Your Own System (MOS)",
+      "version": "v9",
+      "date": "2020-10-14"
+    },
+    "StarTrack business rule": { "title": "StarTrack business rule" },
+    "Auditor rule": { "title": "Auditor built-in rule" }
+  },
   "rules": [
     {
       "id": "ST-LAY-01",
