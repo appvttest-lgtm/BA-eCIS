@@ -18,6 +18,7 @@ import {
   useDialogFocus
 } from './report/common.jsx';
 import { ServiceArticleBreakdownSection, getAuditSections } from './report/sections.jsx';
+import { PrintReportHead, printAuditReport } from './report/printReport.jsx';
 import { DataMatrixSection, LinearBarcodeSection } from './carriers/eparcel/sections.jsx';
 import {
   StarTrackAtlSection,
@@ -508,22 +509,8 @@ function App() {
                 : activeAudit.ruleSet?.name || 'carrier defaults';
               return (
                 <section className="single-audit-view" key={`${h.articleNumber}-${activeIndex}`}>
-                  {/* Printed-report header: identifies the label, verdict and spec version on paper. */}
-                  <div className="print-only print-report-head">
-                    <strong>{APP_TITLE}</strong>
-                    <span>
-                      Barcode audit report — {h.articleNumber} · {h.displayFile || h.filename}
-                    </span>
-                    <span>
-                      Result: {activeAudit.summary?.overallStatus} — {activeAudit.summary?.passed} passed ·{' '}
-                      {activeAudit.summary?.manualReview} review · {activeAudit.summary?.failed} fail
-                      {activeAudit.summary?.failed === 1 ? '' : 's'}
-                    </span>
-                    <span>
-                      Automated digital check against {specLine}. Does not replace carrier certification or physical
-                      barcode grading. Text analysis is not included in this printed report.
-                    </span>
-                  </div>
+                  {/* Printed-report header (print-only); layout lives in report/printReport.jsx + print.css. */}
+                  <PrintReportHead appTitle={APP_TITLE} header={h} audit={activeAudit} specLine={specLine} />
                   <section className="card compact-card selected-label-header">
                     <button
                       type="button"
@@ -562,7 +549,7 @@ function App() {
                       <button
                         type="button"
                         className="copy-btn copy-btn-labeled print-report-btn"
-                        onClick={() => window.print()}
+                        onClick={() => printAuditReport(h.articleNumber)}
                         title="Print this label's barcode findings, or choose 'Save as PDF' in the print dialog"
                       >
                         Print / Save PDF

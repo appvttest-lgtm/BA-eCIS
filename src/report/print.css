@@ -1,0 +1,367 @@
+/* ============================================================================
+   Printed report stylesheet - the single home for ALL print styling.
+   Imported by printReport.jsx, which also owns the print-only header component
+   and the print trigger. Design: professional A4 output - page 1 carries the
+   report header, verdict, input-quality gauge and the full label image; then
+   one page per barcode reading top-to-bottom as evidence image, colour-coded
+   decoded string, the field parameters whose swatches match that colour
+   coding, and the rule outcomes. Rule rows print as single summary lines;
+   only warnings and fails add their outcome detail.
+   ========================================================================= */
+
+/* Print-only elements (the report header block) stay hidden on screen. */
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* Deliberately small page margins do double duty: they are the print
+     margins AND they suppress the browser's own date/title header and
+     URL/page-number footer, which are only drawn when the margin box is tall
+     enough to fit them. If a browser still adds them, unticking "Headers and
+     footers" in the print dialog removes them. */
+  @page {
+    size: A4 portrait;
+    margin: 6mm 11mm 7mm;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+  :root {
+    background: #fff;
+  }
+  body {
+    font-size: 11px;
+  }
+  .app {
+    max-width: none;
+    padding: 0;
+  }
+
+  /* App chrome and interactive controls have no place on paper. The on-screen
+     label header card is replaced by the purpose-built print header below. */
+  .rail,
+  .scan-progress,
+  .message,
+  .skeleton-report,
+  .uploader-overlay,
+  .scan-debug-card,
+  .image-zoom-overlay,
+  .app-version,
+  .new-audit-btn,
+  .copy-btn,
+  .rule-filters,
+  .rule-chevron,
+  .rule-logic-toggle,
+  .rule-logic,
+  .label-preview-hint,
+  .print-report-btn,
+  .selected-label-header,
+  .qr-chev,
+  .qr-drawer,
+  /* Text analysis is excluded from the printed report for now: barcode findings only. */
+  #text-content-section,
+  /* The service-code reference matrix is a lookup chart, not a finding, and is wider than a page. */
+  .service-matrix-card {
+    display: none !important;
+  }
+  .report-shell {
+    display: block;
+  }
+  .report-main {
+    width: 100%;
+  }
+  .print-only {
+    display: block;
+  }
+
+  /* Section anchors print as plain titles - no on-screen ' #' affordance. */
+  .section-link::after {
+    content: none;
+  }
+
+  /* Cards flatten into clean report sections: headings carry the structure. */
+  .card {
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    break-inside: avoid;
+  }
+  section.card.audit-section {
+    break-inside: auto;
+    font-size: 10.5px;
+    padding: 0;
+    margin: 0 0 12px;
+  }
+  section.card.audit-section .section-heading {
+    border-bottom: 2px solid #26251f;
+    padding-bottom: 3px;
+    margin-bottom: 6px;
+  }
+  section.card.audit-section h2 {
+    font-size: 15px;
+    margin: 0;
+  }
+  section.card.audit-section h3 {
+    font-size: 11.5px;
+    margin: 8px 0 3px;
+  }
+  section.card.audit-section figcaption,
+  section.card.audit-section .small,
+  section.card.audit-section .muted {
+    font-size: 8.5px;
+  }
+  section.card.audit-section .raw-code {
+    font-size: 9.5px;
+    line-height: 1.5;
+  }
+  .status-key-legend {
+    font-size: 9px;
+    gap: 10px;
+    margin: 2px 0 4px;
+  }
+  .standard-line {
+    font-size: 9.5px;
+    margin: 4px 0;
+  }
+  .decoded-panel {
+    margin-top: 4px;
+  }
+
+  /* ---------- Page 1: report header ---------- */
+  .print-report-head {
+    border-bottom: 3px solid #26251f;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+    break-after: avoid;
+  }
+  .print-head-brand {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 10px;
+    color: #5b5a52;
+    margin-bottom: 6px;
+  }
+  .print-head-brand strong {
+    font-size: 12px;
+    color: #26251f;
+  }
+  .print-head-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+  }
+  .print-head-article {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .print-head-verdict {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 3px 14px;
+    border-radius: 4px;
+    border: 2px solid;
+  }
+  .print-verdict-pass {
+    color: #3b6d11;
+    border-color: #3b6d11;
+    background: #eaf3de;
+  }
+  .print-verdict-review {
+    color: #854f0b;
+    border-color: #854f0b;
+    background: #faeeda;
+  }
+  .print-verdict-fail {
+    color: #a32d2d;
+    border-color: #a32d2d;
+    background: #fceaea;
+  }
+  .print-head-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2px 14px;
+    margin: 8px 0 0;
+  }
+  .print-head-meta > div {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+  .print-head-meta dt {
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #5b5a52;
+    white-space: nowrap;
+  }
+  .print-head-meta dd {
+    margin: 0;
+    font-size: 10px;
+    overflow-wrap: anywhere;
+  }
+  .print-head-disclaimer {
+    font-size: 8.5px;
+    color: #5b5a52;
+    margin: 6px 0 0;
+  }
+  .print-report-head .input-quality-gauge {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #d9d7ce;
+  }
+  .print-report-head .q-chip,
+  .print-report-head .iq-overall {
+    font-size: 9px;
+    padding: 1.5px 8px;
+  }
+
+  /* ---------- Page 1: full label image and facts ---------- */
+  #full-label-image .label-preview-large {
+    max-height: 118mm;
+    width: auto;
+    max-width: 100%;
+  }
+  .fact-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 6px;
+    break-inside: avoid;
+  }
+  .fact-cards > div {
+    padding: 4px 7px;
+    border-radius: 4px;
+  }
+  .fact-cards span {
+    font-size: 8.5px;
+    margin-bottom: 1px;
+  }
+  .fact-cards strong {
+    font-size: 10px;
+  }
+
+  /* ---------- One page per barcode ---------- */
+  #datamatrix-section,
+  #linear-section,
+  #routing-section,
+  #atl-section,
+  #freight-section {
+    break-before: page;
+  }
+  /* Each barcode page reads top-to-bottom: evidence image, then the
+     colour-coded decoded string, then the field parameters whose swatches
+     match the colour coding, then the rule outcomes. */
+  #datamatrix-section .two-col,
+  #linear-section .two-col,
+  #routing-section .two-col,
+  #atl-section .two-col,
+  #freight-section .two-col {
+    display: block;
+  }
+  #datamatrix-section .category-crop,
+  #linear-section .category-crop,
+  #routing-section .category-crop,
+  #atl-section .category-crop,
+  #freight-section .category-crop {
+    margin: 0 auto 6px;
+    text-align: center;
+  }
+  section.card.audit-section .category-crop img {
+    max-height: 48mm;
+    width: auto;
+    max-width: 100%;
+    border-radius: 4px;
+  }
+
+  /* ---------- Field parameter lines: swatch + name, value, status ----------
+     The long specification column is on-screen detail; on paper the swatch ties
+     each line to the colour-coded string above, so name + raw value + status
+     reads cleanly and a full breakdown fits one page. */
+  .qr-lines {
+    margin-top: 6px;
+  }
+  .qr-lines-head,
+  .qr-line > summary {
+    grid-template-columns: 1.4fr 1fr 16px;
+    gap: 8px;
+    padding: 2.5px 2px;
+  }
+  .qr-lines-head {
+    font-size: 8.5px;
+    padding-bottom: 4px;
+  }
+  .qr-lines-head > span:nth-child(1),
+  .qr-lines-head > span:nth-child(3),
+  .qr-spec {
+    display: none !important;
+  }
+  .qr-name {
+    font-size: 10px;
+  }
+  .qr-val code {
+    font-size: 9.5px;
+  }
+  .qr-line {
+    break-inside: avoid;
+  }
+  .qr-line .status-ico {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* ---------- Rule rows: one summary line each ----------
+     The head line already carries status icon, rule id, title and observed
+     value. Only warnings and fails additionally print their outcome pane
+     (expected / actual / message); input and citation panes stay on screen. */
+  .rule-row {
+    break-inside: avoid;
+    padding: 0;
+  }
+  .rule-row-head {
+    padding: 2.5px 0;
+    font-size: 10px;
+  }
+  .rule-row .rule-row-body {
+    display: none !important;
+  }
+  .rule-row.tone-fail .rule-row-body,
+  .rule-row.tone-warning .rule-row-body,
+  .rule-row.tone-manual_review .rule-row-body {
+    display: block !important;
+    padding: 0 0 4px 26px;
+  }
+  .rule-panes {
+    display: block;
+  }
+  .rule-panes .rule-pane {
+    display: none;
+  }
+  .rule-panes .rule-pane:last-child {
+    display: block;
+    padding: 0;
+    border: none;
+    background: none;
+  }
+  .rule-pane-title {
+    display: none;
+  }
+  .rule-pane p,
+  .rule-kv {
+    margin: 1px 0;
+    font-size: 9.5px;
+  }
+  .rule-message {
+    font-size: 9.5px;
+  }
+}
