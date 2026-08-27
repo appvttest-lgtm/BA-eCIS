@@ -18,7 +18,7 @@ import {
   useDialogFocus
 } from './report/common.jsx';
 import { ServiceArticleBreakdownSection, getAuditSections } from './report/sections.jsx';
-import { PrintReportHead, printAuditReport } from './report/printReport.jsx';
+import { PrintReport, printAuditReport } from './report/printReport.jsx';
 import { DataMatrixSection, LinearBarcodeSection } from './carriers/eparcel/sections.jsx';
 import {
   StarTrackAtlSection,
@@ -509,8 +509,9 @@ function App() {
                 : activeAudit.ruleSet?.name || 'carrier defaults';
               return (
                 <section className="single-audit-view" key={`${h.articleNumber}-${activeIndex}`}>
-                  {/* Printed-report header (print-only); layout lives in report/printReport.jsx + print.css. */}
-                  <PrintReportHead appTitle={APP_TITLE} header={h} audit={activeAudit} specLine={specLine} />
+                  {/* Dedicated printed document (print-only); the screen UI never prints.
+                      Layout lives in report/printReport.jsx + print.css. */}
+                  <PrintReport appTitle={APP_TITLE} header={h} audit={activeAudit} specLine={specLine} />
                   <section className="card compact-card selected-label-header">
                     <button
                       type="button"

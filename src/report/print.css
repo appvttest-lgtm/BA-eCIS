@@ -1,15 +1,14 @@
 /* ============================================================================
    Printed report stylesheet - the single home for ALL print styling.
-   Imported by printReport.jsx, which also owns the print-only header component
-   and the print trigger. Design: professional A4 output - page 1 carries the
-   report header, verdict, input-quality gauge and the full label image; then
-   one page per barcode reading top-to-bottom as evidence image, colour-coded
-   decoded string, the field parameters whose swatches match that colour
-   coding, and the rule outcomes. Rule rows print as single summary lines;
-   only warnings and fails add their outcome detail.
+   The Print / Save-as-PDF export prints the dedicated .print-report document
+   built by printReport.jsx; the entire on-screen application is hidden. Page 1
+   carries the header, verdict, quality gauge, full label image and overall
+   findings; then one page per barcode: evidence crop left, colourised raw
+   value right, field table beneath. All selectors are print-document-scoped
+   (prefixed pr- or print-), so screen styles can never override them.
    ========================================================================= */
 
-/* Print-only elements (the report header block) stay hidden on screen. */
+/* Print-only elements (the entire printed document) stay hidden on screen. */
 .print-only {
   display: none;
 }
@@ -34,111 +33,36 @@
   :root {
     background: #fff;
   }
-  body {
-    font-size: 11px;
-  }
   .app {
     max-width: none;
     padding: 0;
   }
 
-  /* App chrome and interactive controls have no place on paper. The on-screen
-     label header card is replaced by the purpose-built print header below. */
-  .rail,
-  .scan-progress,
-  .message,
-  .skeleton-report,
-  .uploader-overlay,
-  .scan-debug-card,
-  .image-zoom-overlay,
-  .app-version,
-  .new-audit-btn,
-  .copy-btn,
-  .rule-filters,
-  .rule-chevron,
-  .rule-logic-toggle,
-  .rule-logic,
-  .label-preview-hint,
-  .print-report-btn,
-  .selected-label-header,
-  .qr-chev,
-  .qr-drawer,
-  /* Text analysis is excluded from the printed report for now: barcode findings only. */
-  #text-content-section,
-  /* The service-code reference matrix is a lookup chart, not a finding, and is wider than a page. */
-  .service-matrix-card {
+  /* The screen UI never prints: only the .print-report document survives on
+     each level of the tree down to it. */
+  .app > *:not(.report-shell),
+  .report-shell > *:not(.report-main),
+  .report-main > *:not(.single-audit-view),
+  .single-audit-view > *:not(.print-report) {
     display: none !important;
-  }
-  .report-shell {
-    display: block;
-  }
-  .report-main {
-    width: 100%;
   }
   .print-only {
     display: block;
   }
-
-  /* Section anchors print as plain titles - no on-screen ' #' affordance. */
-  .section-link::after {
-    content: none;
-  }
-
-  /* Cards flatten into clean report sections: headings carry the structure. */
-  .card {
-    box-shadow: none;
-    border: none;
-    border-radius: 0;
-    padding: 0;
-    break-inside: avoid;
-  }
-  section.card.audit-section {
-    break-inside: auto;
+  .print-report {
+    color: #26251f;
     font-size: 10.5px;
-    padding: 0;
-    margin: 0 0 12px;
+    line-height: 1.45;
   }
-  section.card.audit-section .section-heading {
-    border-bottom: 2px solid #26251f;
-    padding-bottom: 3px;
-    margin-bottom: 6px;
-  }
-  section.card.audit-section h2 {
-    font-size: 15px;
-    margin: 0;
-  }
-  section.card.audit-section h3 {
-    font-size: 11.5px;
-    margin: 8px 0 3px;
-  }
-  section.card.audit-section figcaption,
-  section.card.audit-section .small,
-  section.card.audit-section .muted {
-    font-size: 8.5px;
-  }
-  section.card.audit-section .raw-code {
-    font-size: 9.5px;
-    line-height: 1.5;
-  }
-  .status-key-legend {
-    font-size: 9px;
-    gap: 10px;
-    margin: 2px 0 4px;
-  }
-  .standard-line {
-    font-size: 9.5px;
-    margin: 4px 0;
-  }
-  .decoded-panel {
-    margin-top: 4px;
+  .print-report .copy-btn {
+    display: none !important;
   }
 
   /* ---------- Page 1: report header ---------- */
   .print-report-head {
     border-bottom: 3px solid #26251f;
     padding-bottom: 8px;
-    margin-bottom: 10px;
-    break-after: avoid;
+    margin-bottom: 8px;
   }
   .print-head-brand {
     display: flex;
@@ -160,7 +84,8 @@
     gap: 14px;
   }
   .print-head-article {
-    font-size: 21px;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 20px;
     font-weight: 700;
     letter-spacing: 0.03em;
   }
@@ -216,152 +141,159 @@
     color: #5b5a52;
     margin: 6px 0 0;
   }
-  .print-report-head .input-quality-gauge {
+  .print-report .input-quality-gauge {
     margin-top: 6px;
     padding-top: 6px;
     border-top: 1px solid #d9d7ce;
   }
-  .print-report-head .q-chip,
-  .print-report-head .iq-overall {
+  .print-report .q-chip,
+  .print-report .iq-overall {
     font-size: 9px;
     padding: 1.5px 8px;
   }
 
-  /* ---------- Page 1: full label image and facts ---------- */
-  #full-label-image .label-preview-large {
-    max-height: 118mm;
-    width: auto;
-    max-width: 100%;
+  /* ---------- Page 1: label overview ---------- */
+  .pr-overview {
+    text-align: center;
   }
-  .fact-cards {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px;
-    margin-bottom: 6px;
+  .pr-label-img {
+    max-width: 100%;
+    max-height: 128mm;
+    border: 1px solid #ccc;
+  }
+
+  /* Overall and per-section findings: one line per warning/fail. */
+  .pr-issues {
+    text-align: left;
+    margin: 4px 0;
+  }
+  .pr-issues p {
+    margin: 2px 0;
+    font-size: 9.5px;
     break-inside: avoid;
   }
-  .fact-cards > div {
-    padding: 4px 7px;
-    border-radius: 4px;
+  .pr-issues .status-ico {
+    width: 12px;
+    height: 12px;
+    vertical-align: -2px;
+    margin-right: 3px;
   }
-  .fact-cards span {
+  .pr-issues code {
     font-size: 8.5px;
-    margin-bottom: 1px;
-  }
-  .fact-cards strong {
-    font-size: 10px;
+    color: #5b5a52;
+    margin-right: 3px;
   }
 
   /* ---------- One page per barcode ---------- */
-  #datamatrix-section,
-  #linear-section,
-  #routing-section,
-  #atl-section,
-  #freight-section {
+  .pr-barcode {
     break-before: page;
   }
-  /* Each barcode page reads top-to-bottom: evidence image, then the
-     colour-coded decoded string, then the field parameters whose swatches
-     match the colour coding, then the rule outcomes. */
-  #datamatrix-section .two-col,
-  #linear-section .two-col,
-  #routing-section .two-col,
-  #atl-section .two-col,
-  #freight-section .two-col {
-    display: block;
+  .pr-sec-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 2px solid #26251f;
+    padding-bottom: 3px;
+    margin-bottom: 8px;
   }
-  #datamatrix-section .category-crop,
-  #linear-section .category-crop,
-  #routing-section .category-crop,
-  #atl-section .category-crop,
-  #freight-section .category-crop {
-    margin: 0 auto 6px;
+  .pr-sec-head h2 {
+    font-size: 15px;
+    margin: 0;
+  }
+  .pr-status {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 2px 10px;
+    border-radius: 4px;
+    border: 1.5px solid;
+  }
+
+  /* Evidence crop left, colourised raw value right. */
+  .pr-side {
+    display: flex;
+    gap: 8mm;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+  .pr-crop {
+    flex: 0 0 44%;
+    margin: 0;
     text-align: center;
   }
-  section.card.audit-section .category-crop img {
-    max-height: 48mm;
-    width: auto;
+  .pr-crop img {
     max-width: 100%;
-    border-radius: 4px;
+    max-height: 52mm;
+    border: 1px solid #ccc;
   }
-
-  /* ---------- Field parameter lines: swatch + name, value, status ----------
-     The long specification column is on-screen detail; on paper the swatch ties
-     each line to the colour-coded string above, so name + raw value + status
-     reads cleanly and a full breakdown fits one page. */
-  .qr-lines {
-    margin-top: 6px;
+  .pr-raw {
+    flex: 1;
+    min-width: 0;
   }
-  .qr-lines-head,
-  .qr-line > summary {
-    grid-template-columns: 1.4fr 1fr 16px;
-    gap: 8px;
-    padding: 2.5px 2px;
-  }
-  .qr-lines-head {
+  .pr-raw .barcode-meta,
+  .pr-raw .muted {
     font-size: 8.5px;
-    padding-bottom: 4px;
+    color: #5b5a52;
   }
-  .qr-lines-head > span:nth-child(1),
-  .qr-lines-head > span:nth-child(3),
-  .qr-spec {
-    display: none !important;
-  }
-  .qr-name {
-    font-size: 10px;
-  }
-  .qr-val code {
-    font-size: 9.5px;
-  }
-  .qr-line {
-    break-inside: avoid;
-  }
-  .qr-line .status-ico {
-    width: 13px;
-    height: 13px;
+  .pr-raw .segmented-code {
+    font-size: 10.5px;
+    line-height: 1.8;
+    word-break: break-all;
   }
 
-  /* ---------- Rule rows: one summary line each ----------
-     The head line already carries status icon, rule id, title and observed
-     value. Only warnings and fails additionally print their outcome pane
-     (expected / actual / message); input and citation panes stay on screen. */
-  .rule-row {
+  /* Field breakdown table: swatch, field, requirement, obligation, length,
+     value, status - swatches match the colourised string above. */
+  .pr-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4px 0 6px;
+  }
+  .pr-table th {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #5b5a52;
+    text-align: left;
+    padding: 2px 5px;
+    border-bottom: 1.5px solid #26251f;
+  }
+  .pr-table td {
+    font-size: 9.5px;
+    padding: 2.5px 5px;
+    border-bottom: 1px solid #e2e0d8;
+    vertical-align: top;
+  }
+  .pr-table tr {
     break-inside: avoid;
-    padding: 0;
   }
-  .rule-row-head {
-    padding: 2.5px 0;
+  .pr-table .pr-spec {
+    color: #45443d;
+  }
+  .pr-table code {
+    font-size: 9.5px;
+    overflow-wrap: anywhere;
+  }
+  .pr-table .seg-swatch {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+  }
+  .pr-table .status-ico {
+    width: 12px;
+    height: 12px;
+  }
+
+  .pr-missing {
     font-size: 10px;
+    color: #854f0b;
+    font-weight: 600;
   }
-  .rule-row .rule-row-body {
-    display: none !important;
-  }
-  .rule-row.tone-fail .rule-row-body,
-  .rule-row.tone-warning .rule-row-body,
-  .rule-row.tone-manual_review .rule-row-body {
-    display: block !important;
-    padding: 0 0 4px 26px;
-  }
-  .rule-panes {
-    display: block;
-  }
-  .rule-panes .rule-pane {
-    display: none;
-  }
-  .rule-panes .rule-pane:last-child {
-    display: block;
-    padding: 0;
-    border: none;
-    background: none;
-  }
-  .rule-pane-title {
-    display: none;
-  }
-  .rule-pane p,
-  .rule-kv {
-    margin: 1px 0;
-    font-size: 9.5px;
-  }
-  .rule-message {
-    font-size: 9.5px;
+  .pr-summary {
+    font-size: 9px;
+    color: #5b5a52;
+    margin: 4px 0 0;
   }
 }
