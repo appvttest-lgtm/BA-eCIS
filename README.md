@@ -98,6 +98,81 @@ The routing barcode's label code must match the product's expected label code. U
 
 ---
 
+## How a label is processed
+
+```text
+                    +----------------------------------+
+                    |     Upload label file(s)         |
+                    |  PDF / PNG / JPG / WEBP / BMP    |
+                    +----------------+-----------------+
+                                     |
+            +------------------------+-------------------------+
+            v                                                  v
++---------------------------+          +----------------------------------------+
+| IMAGE path                |          | PDF path (per page, max 40)            |
+|  decode to canvas         |          |  read selectable text layer            |
+|  (max 50M pixels)         |          |  text sparse = scanned page?           |
++------------+--------------+          |   yes -> find embedded scan image,     |
+             |                         |          render 1:1 at its native DPI  |
+             |                         |   no  -> render at 4x (~288 DPI)       |
+             |                         +-------------------+--------------------+
+             +--------------------+----------------------+
+                                  v
+   ========= DOCUMENT PREPARATION - scanner/inputPrep.js (non-audit) =========
+     1 contrast   : faded scan? stretch 2-98% luminance range
+     2 orientation: barcode probe -> rotate 90/180/270 upright
+     3 deskew     : symbol angle (re-probe verified) or projection
+                    profile -> straighten 0.6-12 degree scan tilt
+     4 segment    : white gutters -> one canvas per label on a sheet
+                    (upright PDF text layer split per label region)
+                                  |
+                 . . . . . . per label from here . . . . . .
+                                  v
+   ============== BARCODE DECODE (source of truth for values) ==============
+     targets : carrier crop zones + full-page safety scan
+     variants: original | trim+border | 2x | 4x | threshold 150/185 |
+               sharpen | square   (each records its transform)
+               + 90/270 rotated rescue for linear misses
+     engines : BarcodeDetector -> ZXing-WASM -> ZXing-JS fallback
+     per hit : measure true bar height, count bars, map box back
+               to page coordinates through the transform, dedupe
+                                  v
+   ===================== EVIDENCE IMAGES =====================
+     label preview with green/red/amber outlines
+     per-barcode crops from decoded page boxes
+     (fixed template crops only as last resort)
+                                  v
+   ============= TEXT EXTRACTION (one-way cross-check only) =============
+     PDF text layer sufficient? -> use it, skip OCR
+     else full-label OCR: decoded barcodes masked white,
+          uneven photo lighting flattened, text rebuilt from
+          word boxes -> noise dropped, side-by-side columns
+          kept as separate contiguous groups
+     + aggressive OCR pass on each barcode crop (HRI digits)
+     merge and dedupe lines
+                                  v
+   ===================== QUALITY GAUGE =====================
+     sharpness | DPI or px/module (barcode as ruler) |
+     contrast | OCR confidence   -> rated good / fair / poor
+                                  v
+   ======================== AUDIT ========================
+     facts from barcodes + text -> carrier rule set
+     (eParcel / StarTrack packs, per label type)
+     -> pass / fail / manual review per rule, with evidence
+                                  v
+   ======================== REPORT ========================
+     header + input-quality gauge
+     full label image with barcode outlines
+     per-barcode sections and field breakdowns
+     visible-text checks | print / save as PDF
+```
+
+Everything above the "per label" line runs once per uploaded page; everything below
+runs once per detected label. Barcodes always decode before OCR runs: decoded values
+are the source of truth, and extracted text is only ever a one-way cross-check.
+
+---
+
 ## Layout of the repo
 
 ```
@@ -139,6 +214,8 @@ src/                  The app itself
   ocrText.js          OCR of the printed label text
   scanner/
     pipeline.js       File in → pages → labels → decoded barcodes out
+    inputPrep.js      Document preparation and quality gauge: contrast, deskew,
+                      illumination flattening, sharpness/DPI assessment (non-audit)
     scanPlan.js       Decides which regions to scan and maps coordinates back
     decoders.js       The three decode engines (BarcodeDetector, ZXing-WASM, ZXing-JS)
     labelImages.js    Label previews and per-barcode evidence crops
