@@ -6,6 +6,18 @@ It runs entirely on your own machine. No label data ever leaves the workstation.
 
 It does not replace formal carrier certification, physical barcode grading, or production print testing — it is a fast digital check before those steps.
 
+## Where the computation happens
+
+Every stage runs in the user's browser. The bundled server (or any static web host) only delivers the files — there is no cloud compute, no upload, and no external service: label data never leaves the machine.
+
+| Stage | What does it | Where it runs |
+| --- | --- | --- |
+| PDF rendering | pdf.js | Browser (web worker) |
+| Barcode decoding | ZXing WebAssembly + ZXing-JS fallback | Browser |
+| OCR | tesseract.js — WASM cores and language data shipped in `public/`, no CDN | Browser |
+| Rule evaluation | ruleEngine + carrier rule packs, plain JS | Browser |
+| Report | React | Browser |
+
 ---
 
 ## How it works, step by step
