@@ -299,6 +299,7 @@ function selectEparcelVariant(selectedFormat, articles, facts) {
   if (products.some(code => code === '00121' || code === '00120')) return 'metro';
   if (products.length) return 'parcel-post';
   if (/m2m|metro/i.test(facts?.labelType || '')) return 'metro';
+  if (/return/i.test(facts?.labelType || '')) return 'returns';
   if (/express/i.test(facts?.labelType || '')) return 'express-post';
   if (/parcel/i.test(facts?.labelType || '')) return 'parcel-post';
   return 'base';

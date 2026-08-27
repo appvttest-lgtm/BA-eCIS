@@ -9,7 +9,7 @@
     {
       "id": "EP-SS-01",
       "title": "AI 00 SSCC decoded",
-      "description": "The linear barcode must contain FNC1 + AI 00 + the 20-digit SSCC and nothing else.",
+      "description": "The linear barcode must contain FNC1 + AI 00 + the 18-digit SSCC (20 digits including AI 00) and nothing else.",
       "obligation": "mandatory",
       "severity": "CRITICAL",
       "category": "sscc",
@@ -87,7 +87,7 @@
     {
       "id": "EP-ART-08",
       "title": "Visible article ID matches barcode",
-      "description": "The human-readable article identifier (the 20-digit SSCC on SSCC labels) must equal the decoded barcode article once spacing is removed. Text extraction is heuristic and may be affected by watermarks or label overlays.",
+      "description": "The human-readable article identifier (on SSCC labels: the 20-digit AI 00 + SSCC string) must equal the decoded barcode article once spacing is removed. Text extraction is heuristic and may be affected by watermarks or label overlays.",
       "obligation": "mandatory",
       "severity": "ERROR",
       "category": "barcode-structure",
@@ -101,6 +101,25 @@
       "messages": {
         "pass": "Visible article identifier matches the decoded barcode article.",
         "fail": "Visible article identifier does not match the decoded barcode article. Confirm visually — text extraction may be affected by watermarks or overlays."
+      }
+    },
+    {
+      "id": "EP-SS-06",
+      "title": "SSCC not permitted on returns labels",
+      "description": "The standard Parcel Post/Express Post barcode is mandatory for returns services; SSCC barcodes cannot be used for eParcel Returns. Fires when an SSCC audit's label header text reads as a returns label.",
+      "obligation": "mandatory",
+      "severity": "ERROR",
+      "category": "sscc",
+      "source": { "doc": "PP&EP v1.4", "page": 26 },
+      "when": { "path": "text.labelType", "op": "notEmpty" },
+      "reportWhenSkipped": true,
+      "input": "text.labelType",
+      "assert": { "op": "notIn", "value": ["Parcel Post Return", "Express Post Return"] },
+      "failStatus": "manual_review",
+      "messages": {
+        "pass": "The label header does not read as a returns label.",
+        "fail": "The label header reads as a returns label ({actual}); SSCC barcodes cannot be used for eParcel Returns. Confirm the label type and numbering.",
+        "skipped": "No label header text was extracted, so the returns prohibition could not be assessed."
       }
     },
     {

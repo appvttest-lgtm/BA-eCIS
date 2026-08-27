@@ -84,7 +84,16 @@ export function extractLabelFacts(extractedText) {
   const articleCountLine = extractArticleCountLine(lines);
 
   let labelType = null;
-  if (/EXPRESS\s+POST/.test(upper)) labelType = 'Express Post';
+  // Returns branding must be checked first: "PARCEL POST RETURNS" also contains "PARCEL POST".
+  // The match stays on ONE line ([^\S\r\n] = space/tab only) and excludes "RETURN TO ..." /
+  // "RETURN ADDRESS ..." so a sender block or undeliverable endorsement printed after the
+  // header can never re-classify an outbound label as a returns label.
+  const returnsWord = 'RETURNS?\\b(?![^\\S\\r\\n]+(?:TO|ADDRESS)\\b)';
+  if (new RegExp(`\\bEXPRESS[^\\S\\r\\n]+POST[^\\S\\r\\n]+${returnsWord}`).test(upper)) {
+    labelType = 'Express Post Return';
+  } else if (new RegExp(`\\bPARCEL[^\\S\\r\\n]+POST[^\\S\\r\\n]+${returnsWord}`).test(upper)) {
+    labelType = 'Parcel Post Return';
+  } else if (/EXPRESS\s+POST/.test(upper)) labelType = 'Express Post';
   else if (/PARCEL\s+POST/.test(upper)) labelType = 'Parcel Post';
   else if (/\bM2M\b/.test(upper)) labelType = 'Metro (M2M)';
   else if (/EPARCEL/.test(upper)) labelType = 'eParcel';

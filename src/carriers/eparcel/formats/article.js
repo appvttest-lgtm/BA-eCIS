@@ -120,6 +120,19 @@ function trimArticleCandidate(candidate) {
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '');
   if (!cleaned) return null;
+  // A separator-bounded field of exactly 21/23 chars that fully validates as a standard
+  // article IS the article - never truncate it. Without this, an all-numeric article whose
+  // MLID starts "00" can be mis-read as an SSCC when its first 20 digits pass mod-10.
+  if ((cleaned.length === 21 || cleaned.length === 23) && analyzeArticleCandidate(cleaned)?.valid) {
+    return cleaned;
+  }
+  // An SSCC in the article position is exactly 20 digits (AI 00 + 18-digit SSCC). Try that
+  // shape before the 21/23-character standard slices: its GS1 check digit gates false
+  // matches, and without it a separator-less decode lets the 21-character slice swallow the
+  // first digit of the NEXT field (the spec's own SSCC DataMatrix example fails that way).
+  if (/^00\d{18}/.test(cleaned) && analyzeArticleCandidate(cleaned.slice(0, 20))?.valid) {
+    return cleaned.slice(0, 20);
+  }
   // Standard eParcel article IDs are 21 chars with a 3-char MLID or 23 chars with a 5-char MLID.
   for (const len of [21, 23]) {
     const slice = cleaned.slice(0, len);
@@ -130,7 +143,9 @@ function trimArticleCandidate(candidate) {
 
 /** Extracts the article carried under GS1 AI 91 (Application Identifier, the numeric field prefix). */
 function extractArticleCandidateFromGs1Normalized(normalized, compact) {
-  const n = String(normalized || '');
+  // A leading FNC1 normalizes to '|'; strip it so the AusPost-GTIN fast path (which
+  // correctly bounds the article at the next separator) still recognises the payload.
+  const n = String(normalized || '').replace(/^\|+/, '');
   const c = String(compact || '');
 
   if (n.startsWith('0199312650999998') && n.slice(16, 18) === '91') {

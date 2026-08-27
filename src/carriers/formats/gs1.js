@@ -62,8 +62,9 @@ export function parseSsccBarcode(raw) {
   const match = compact.match(/^00(\d{18})(.*)$/);
   if (!match) return { valid: false, raw, reason: 'No AI 00 + 18 digit SSCC found.' };
   const sscc = match[1];
-  // The spec requires FNC1 (the GS1 start control character) + AI 00 + the 20-digit SSCC and
-  // NOTHING else in the linear symbol; trailing payload means the symbol is not a conforming SSCC.
+  // The spec requires FNC1 (the GS1 start control character) + AI 00 + the 18-digit SSCC
+  // (20 digits in total) and NOTHING else in the linear symbol; trailing payload means the
+  // symbol is not a conforming SSCC.
   if (match[2]) {
     return {
       valid: false,
@@ -72,7 +73,7 @@ export function parseSsccBarcode(raw) {
       ai: '00',
       sscc,
       articleId: `00${sscc}`,
-      reason: `SSCC barcode carries unexpected data after the 20-digit SSCC ("${match[2].slice(0, 24)}${match[2].length > 24 ? '...' : ''}"). The symbol must contain AI 00 + SSCC and nothing else.`
+      reason: `SSCC barcode carries unexpected data after the 20 digits of AI 00 + SSCC ("${match[2].slice(0, 24)}${match[2].length > 24 ? '...' : ''}"). The symbol must contain AI 00 + SSCC and nothing else.`
     };
   }
   const body = sscc.slice(0, -1);

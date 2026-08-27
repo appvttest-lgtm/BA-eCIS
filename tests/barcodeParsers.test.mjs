@@ -195,3 +195,50 @@ test('normalizeBarcode strips symbology prefixes, spaces and bracketed AIs', () 
   assert.equal(normalizeBarcode(`00123${GS}456`), '00123|456');
   assert.equal(normalizeBarcode('  \t '), '');
 });
+
+// PP&EP v1.4 p26 worked example: the SSCC DataMatrix must yield the 20-digit AI 00 + SSCC
+// as its article, not a 21-character slice that swallows the first digit of AI 420.
+test('SSCC DataMatrix (spec p26 example) extracts the 20-digit SSCC article', () => {
+  const FNC1 = String.fromCharCode(29);
+  const dm = `${FNC1}01993126509999989100123456789123456789${FNC1}4203195${FNC1}8008200625101021`;
+  const parsed = parseGs1DataMatrix(dm);
+  assert.equal(parsed.article?.type, 'sscc');
+  assert.equal(parsed.article?.articleId, '00123456789123456789');
+  assert.equal(parsed.article?.valid, true);
+});
+
+test('SSCC DataMatrix still extracts the SSCC when a scanner drops all separators', () => {
+  const parsed = parseGs1DataMatrix('01993126509999989100123456789123456789420319580082006251010 21'.replace(/ /g, ''));
+  assert.equal(parsed.article?.type, 'sscc');
+  assert.equal(parsed.article?.articleId, '00123456789123456789');
+});
+
+test('standard-article DataMatrix extraction is unchanged by the SSCC-first trim', () => {
+  const FNC1 = String.fromCharCode(29);
+  const dm = `${FNC1}0199312650999998912JD545583901000938305${FNC1}4203121${FNC1}8008250604201510`;
+  const parsed = parseGs1DataMatrix(dm);
+  assert.equal(parsed.article?.type, 'eparcel-standard');
+  assert.equal(parsed.article?.articleId, '2JD545583901000938305');
+});
+
+// Adversarial-verify vector: an all-numeric 21-char standard article whose MLID starts "00"
+// and whose first 20 digits coincidentally pass GS1 mod-10 must NOT be truncated to an SSCC.
+test('exact 21-char numeric standard article with 00-prefix MLID stays a standard article', () => {
+  const FNC1 = String.fromCharCode(29);
+  const dm = `${FNC1}019931265099999891001123450601000935000${FNC1}4203121${FNC1}8008250604201510`;
+  const parsed = parseGs1DataMatrix(dm);
+  assert.equal(parsed.article?.type, 'eparcel-standard');
+  assert.equal(parsed.article?.articleId, '001123450601000935000');
+});
+
+// Returns branding must classify only from a genuine single-line returns header; sender
+// blocks and undeliverable endorsements on following lines must not re-classify the label.
+test('labelType returns detection is single-line and ignores RETURN TO / RETURN ADDRESS', async () => {
+  const { extractLabelFacts } = await import('../src/carriers/eparcel/facts.js');
+  assert.equal(extractLabelFacts('PARCEL POST RETURNS\nTO John Smith').labelType, 'Parcel Post Return');
+  assert.equal(extractLabelFacts('EXPRESS POST RETURN\nAP Article Id').labelType, 'Express Post Return');
+  assert.equal(extractLabelFacts('PARCEL POST\nRETURNS DEPT\n1 MAIN ST').labelType, 'Parcel Post');
+  assert.equal(extractLabelFacts('Parcel Post\nReturn to sender if undeliverable').labelType, 'Parcel Post');
+  assert.equal(extractLabelFacts('EXPRESS POST\nReturn address: 1 Main St').labelType, 'Express Post');
+  assert.equal(extractLabelFacts('PARCEL POST RETURN TO SENDER').labelType, 'Parcel Post');
+});
