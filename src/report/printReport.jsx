@@ -279,10 +279,7 @@ function PrintReportHead({ appTitle, header, audit, specLine }) {
         </div>
       </dl>
       <InputQualityGauge fileInfo={audit?.fileInfo} />
-      <p className="print-head-disclaimer">
-        Automated digital check against {specLine}. Does not replace carrier certification or physical barcode
-        grading. On-screen text analysis is not included in this printed report.
-      </p>
+      <p className="print-head-disclaimer">Automated digital check against {specLine}.</p>
     </header>
   );
 }
