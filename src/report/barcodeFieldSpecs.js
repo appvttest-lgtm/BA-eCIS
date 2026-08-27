@@ -89,13 +89,31 @@ export const ARTICLE_FIELD_SPECS = {
       const calc = calculateEparcelCheckDigit(String(ctx.article || '').slice(0, -1));
       return calc.validInput ? (calc.checkDigit === t ? 'pass' : 'fail') : null;
     },
+    // The drawer shows the full working (conversion, weighted terms, sum) so a reviewer
+    // can verify the expected digit by hand.
     (t, ctx) => {
       const calc = calculateEparcelCheckDigit(String(ctx.article || '').slice(0, -1));
-      return calc.validInput ? `expected ${calc.checkDigit}` : '';
+      return calc.validInput ? `expected ${calc.checkDigit} · ${calc.steps}` : '';
     },
     cite('mandatory', EP_SPEC, 22)
   )
 };
+
+/** Human-readable GS1 mod-10 working for the check-digit drawer: each digit×weight term,
+ *  the weighted sum, and the final subtraction that yields the expected digit. */
+function gs1Mod10Steps(body) {
+  const digits = String(body || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const terms = [];
+  let sum = 0;
+  let weight = 3;
+  for (let i = digits.length - 1; i >= 0; i -= 1) {
+    sum += Number(digits[i]) * weight;
+    terms.unshift(`${digits[i]}×${weight}`);
+    weight = weight === 3 ? 1 : 3;
+  }
+  return `${terms.join(' + ')} = ${sum}; (10 − ${sum % 10}) mod 10 = ${(10 - (sum % 10)) % 10}`;
+}
 
 // Re-parse the full SSCC from the joined segments, tolerating a decode that dropped the AI 00 prefix.
 const ssccFromContext = ctx => parseSsccBarcode(ctx.joined.length === 18 ? `00${ctx.joined}` : ctx.joined);
@@ -124,9 +142,13 @@ const ssccFieldSpecs = kind => {
     'Check digit': pf(
       'GS1 mod-10 check digit',
       (t, ctx) => (ssccFromContext(ctx).valid ? 'pass' : 'fail'),
+      // The drawer shows the full mod-10 working over the 17 digits before the check
+      // digit, so a reviewer can verify the expected digit by hand.
       (t, ctx) => {
         const parsed = ssccFromContext(ctx);
-        return parsed.expectedCheckDigit ? `expected ${parsed.expectedCheckDigit}` : '';
+        if (!parsed.expectedCheckDigit) return '';
+        const working = gs1Mod10Steps(String(parsed.sscc || '').slice(0, -1));
+        return `expected ${parsed.expectedCheckDigit}${working ? ` · ${working}` : ''}`;
       },
       src
     )

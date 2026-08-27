@@ -80,3 +80,18 @@ test('field checks still behave (spot checks)', () => {
   assert.equal(fieldSpecsFor('atl', []).Prefix.check('C'), 'pass');
   assert.equal(fieldSpecsFor('routing', [])['Label code'].check('EXP'), 'pass');
 });
+
+test('article check-digit drawer shows the full weighted-sum working', () => {
+  const detail = ARTICLE_FIELD_SPECS['Check digit'].detail('5', { article: '2JD545583901000938305' });
+  assert.match(detail, /^expected 5 /);
+  assert.match(detail, /Converted=/);
+  assert.match(detail, /sum=175/);
+});
+
+test('SSCC check-digit drawer shows the full mod-10 working (spec p26 example)', () => {
+  const specs = fieldSpecsFor('eparcel-linear-sscc', [{ label: 'Extension digit' }]);
+  const detail = specs['Check digit'].detail('9', { joined: '00123456789123456789' });
+  assert.match(detail, /^expected 9 /);
+  assert.match(detail, /= 171;/);
+  assert.match(detail, /mod 10 = 9$/);
+});
