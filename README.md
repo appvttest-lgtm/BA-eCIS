@@ -207,7 +207,7 @@ src/                  The app itself
     sections.jsx      Maps an audit to its report sections (dispatches by carrier)
     auditInfo.js      Pure helpers over the audit result: headers, summaries, copy-all text
     segments.js       Colour-coded barcode field segmentation for display
-    printReport.jsx   Print / Save-as-PDF export: print-only header + print trigger
+    printReport.jsx   Print / Save-as-PDF export: the dedicated printed document + print trigger
     print.css         The printed report's entire stylesheet (A4, one page per barcode)
     standards.js      Merges the carriers' spec example texts
     barcodeFieldSpecs.js   Barcode field breakdown specs: per-field check, obligation, citation

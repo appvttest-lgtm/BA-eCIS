@@ -130,7 +130,6 @@ function fieldRows(segments, kind) {
     return {
       swatch: s.display ? 'seg-sep' : `seg-c${i % SEG_PALETTE}`,
       name: s.label,
-      spec: def?.spec || '—',
       obligation: def?.obligation ? def.obligation[0].toUpperCase() + def.obligation.slice(1) : '',
       length: text.length,
       value: text.length ? (s.display ?? text) : '',
@@ -183,7 +182,6 @@ function PrintBarcodeSection({ group, items }) {
               <tr>
                 <th aria-label="colour" />
                 <th>Field</th>
-                <th>Requirement</th>
                 <th>Obligation</th>
                 <th>Len</th>
                 <th>Value</th>
@@ -198,7 +196,6 @@ function PrintBarcodeSection({ group, items }) {
                   .map((s, i) => ({
                     swatch: `seg-c${i % SEG_PALETTE}`,
                     name: s.label,
-                    spec: '—',
                     obligation: '',
                     length: String(s.text).length,
                     value: String(s.text),
@@ -210,7 +207,6 @@ function PrintBarcodeSection({ group, items }) {
                     <span className={`seg-swatch ${r.swatch}`} aria-hidden="true" />
                   </td>
                   <td>{r.name}</td>
-                  <td className="pr-spec">{r.spec}</td>
                   <td>{r.obligation}</td>
                   <td>{r.length}</td>
                   <td>
