@@ -17,12 +17,14 @@ import { calculateEparcelCheckDigit, parseEparcelBarcode } from './formats/artic
 import { dataMatrixComplianceEvidence, looksLikeDataMatrix, parseGs1DataMatrix } from './formats/dataMatrix.js';
 import { SERVICE_CODE_MAP, SERVICE_TO_PRODUCT_MAP } from './referenceData.js';
 import { ruleSetFor } from './ruleSets.js';
-// The SSCC is an article identifier that, per spec, must be carried by the linear
-// (Code 128 / GS1-128) barcode. A GS1 Data Matrix on the same label legitimately
-// repeats AI (00) SSCC, so parsing SSCC from any decoded symbol would let the Data
-// Matrix stand in for an absent or unreadable linear barcode. Classify by decoded
-// symbology only (never by payload content - a real SSCC's digits can coincidentally
-// contain "8008"/"420") so the SSCC check reflects the linear scan being to spec.
+// The SSCC (Serial Shipping Container Code) is an article identifier that, per spec,
+// must be carried by the linear (Code 128 / GS1-128) barcode. A GS1 Data Matrix on the
+// same label legitimately repeats the SSCC under AI (00) (AI = GS1 Application
+// Identifier, the numeric prefix that names a field), so parsing SSCC from any decoded
+// symbol would let the Data Matrix stand in for an absent or unreadable linear barcode.
+// Classify by decoded symbology only (never by payload content - a real SSCC's digits
+// can coincidentally contain "8008"/"420") so the SSCC check reflects the linear scan
+// being to spec.
 function decodedLinearRawValues(detectedBarcodes) {
   return detectedBarcodes
     .filter(b => {
@@ -34,6 +36,7 @@ function decodedLinearRawValues(detectedBarcodes) {
     .filter(Boolean);
 }
 
+// True only when a linear (1D) symbol decoded in its own right; 2D symbols never count.
 function decodedLinearPresent(detectedBarcodes) {
   return detectedBarcodes.some(b => {
     const fmt = String(b.format || b.symbology || '');
@@ -50,6 +53,8 @@ function decodedDataMatrixPresent(detectedBarcodes) {
   return detectedBarcodes.some(b => looksLikeDataMatrix(b.rawValue || '', b.format || b.symbology || ''));
 }
 
+// Reports what the label's text layer exposed (text, header, IDs, weight) as
+// informational validation rows, so reviewers can see what fact extraction found.
 function validateLabelFacts(facts) {
   const validations = [];
   validations.push(
@@ -159,6 +164,8 @@ function validateLabelFacts(facts) {
 
   return validations;
 }
+// The rule functions below are referenced by name from the variant rules.json files
+// and run by the rule engine; they cover checks a declarative rule cannot express.
 registerRuleFunction('eparcelCheckDigit', article => {
   if (!article?.withoutCheckDigit) {
     return { pass: false, status: 'manual_review', message: 'Article body unavailable for check digit calculation.' };
@@ -210,6 +217,8 @@ registerRuleFunction('linearDmAgreement', derived => {
   };
 });
 
+// Assembles the evidence context (page, text, barcodes, derived values) that the
+// declarative rule set evaluates against.
 function buildEparcelRuleContext({
   fileInfo,
   facts,
@@ -280,6 +289,8 @@ function buildEparcelRuleContext({
   };
 }
 
+// Picks the rule-set variant. Decoded product codes are authoritative; the label's
+// header text is only a fallback when no article decoded to a product.
 function selectEparcelVariant(selectedFormat, articles, facts) {
   if (selectedFormat === 'sscc') return 'sscc';
   const products = articles.filter(a => a.type === 'eparcel-standard').map(a => a.productCode);
@@ -293,6 +304,8 @@ function selectEparcelVariant(selectedFormat, articles, facts) {
   return 'base';
 }
 
+// Entry point for a full eParcel audit of one label: extracts text facts, parses the
+// decoded symbols, evaluates the variant rule set, and returns the report payload.
 export function auditEparcelLabel({
   fileInfo,
   detectedBarcodes = [],

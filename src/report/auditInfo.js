@@ -12,6 +12,8 @@ export function selectedProductCodes(audit) {
   return [...new Set((audit?.articles || []).map(a => a.productCode).filter(Boolean))];
 }
 
+/** True when the label carries only SSCC data (SSCC = the GS1 Serial Shipping Container Code):
+ *  the user selected the SSCC format, or an SSCC parsed and no standard eParcel article did. */
 export function auditHasSsccOnly(audit) {
   const articles = audit?.articles || [];
   return (
@@ -23,6 +25,7 @@ export function auditHasSsccOnly(audit) {
 function isSsccArticle(article) {
   return article?.type === 'sscc';
 }
+/** Decoded barcodes of one symbol family; 'linear' means strictly 1D (DataMatrix/QR excluded). */
 export function decodedBarcodeList(audit, type) {
   const all = audit?.detectedBarcodes || [];
   if (type === 'datamatrix') return all.filter(isDataMatrixBarcode);
@@ -43,6 +46,7 @@ export function starTrackFreightBarcodeList(audit) {
   return decodedBarcodeList(audit, 'linear').filter(b => isStarTrackFreightItemValue(b.rawValue));
 }
 
+/** Human-readable symbology name, tolerant of the varied format/symbology strings decoders emit. */
 export function barcodeDisplayName(b) {
   const value = String(b?.format || b?.symbology || '').toLowerCase();
   if (value.includes('data')) return 'GS1 DataMatrix';
@@ -90,10 +94,12 @@ export function allBarcodesCopyText(audit) {
   for (const b of audit?.detectedBarcodes || []) push(barcodeDisplayName(b), b);
   return blocks.join('\n\n');
 }
+/** The article that drives the header: prefer a standard eParcel article over SSCC entries. */
 function getPrimaryArticle(audit) {
   return (audit?.articles || []).find(a => a?.type === 'eparcel-standard') || (audit?.articles || [])[0] || null;
 }
 
+/** Coarse family name ('Express Post' / 'Parcel Post') via description keywords - display only. */
 function productFamilyForArticle(article) {
   if (isSsccArticle(article)) return 'SSCC label';
   const desc = String(article?.productDescription || '').toLowerCase();
@@ -102,6 +108,11 @@ function productFamilyForArticle(article) {
   return article?.productDescription || 'Product not parsed';
 }
 
+/**
+ * Header/summary strings for one audit (article number, product, service, file line,
+ * tab text). Each value walks a fallback chain because any individual parse - QR,
+ * freight, routing, SSCC, article - can be missing on a damaged or partial decode.
+ */
 export function auditDisplayHeader(audit, index = 0) {
   if (audit?.carrier === 'startrack') {
     const article = getPrimaryArticle(audit);
@@ -165,6 +176,7 @@ export function auditDisplayHeader(audit, index = 0) {
     tabText: `${articleNumber} · ${product} · ${serviceCode || 'no service'}`
   };
 }
+/** Batch totals across all labels; the combined verdict is worst-of: FAIL beats REVIEW beats PASS. */
 export function combinedAuditSummary(audits = []) {
   const totals = audits.reduce(
     (acc, audit) => {

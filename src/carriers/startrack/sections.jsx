@@ -53,6 +53,7 @@ function qrFieldStatus(items, ruleId) {
   const prefixed = rows.find(it => String(it.id || '').startsWith(`${ruleId}_`));
   return prefixed ? prefixed.status : null;
 }
+/** QR section: crop image, raw payload colour-coded by field, and per-field parse rows. */
 export function StarTrackQrSection({ audit, items }) {
   const images = audit?.labelImages || {};
   const qrBarcodes = decodedBarcodeList(audit, 'qr');
@@ -138,6 +139,7 @@ export function StarTrackQrSection({ audit, items }) {
     </section>
   );
 }
+/** Routing barcode section: crop, decoded values, and parsed label-code/postcode/depot cards. */
 export function StarTrackRoutingSection({ audit, items }) {
   const images = audit?.labelImages || {};
   const routingBarcodes = starTrackRoutingBarcodeList(audit);
@@ -205,6 +207,7 @@ export function StarTrackRoutingSection({ audit, items }) {
   );
 }
 
+/** ATL (Authority To Leave) barcode section: crop, decoded values, and counter details. */
 export function StarTrackAtlSection({ audit, items }) {
   const images = audit?.labelImages || {};
   const atlBarcodes = starTrackAtlBarcodeList(audit);
@@ -272,6 +275,7 @@ export function StarTrackAtlSection({ audit, items }) {
   );
 }
 
+/** Freight item barcode section, covering both the 20-char Code 128 and SSCC forms. */
 export function StarTrackFreightItemSection({ audit, items }) {
   const images = audit?.labelImages || {};
   const freightBarcodes = starTrackFreightBarcodeList(audit);
@@ -374,6 +378,7 @@ export function StarTrackFreightItemSection({ audit, items }) {
     </section>
   );
 }
+/** Cross-barcode summary: products, freight/SSCC ids, routing codes, plus the reference matrix. */
 export function StarTrackProductArticleSection({ audit, items }) {
   const st = audit?.startrack || {};
   const products = [
@@ -441,6 +446,7 @@ export function StarTrackProductArticleSection({ audit, items }) {
   );
 }
 
+/** Reference table of all StarTrack products, highlighting rows matching decoded product/label codes. */
 function StarTrackProductMatrix({ audit }) {
   const selectedProducts = new Set(
     [

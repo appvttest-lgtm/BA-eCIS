@@ -1,7 +1,8 @@
 // The eParcel article barcode format: the alpha-substitution check digit, the
-// 21/23-character article ID structure (MLID + consignment + product/service),
-// and the GS1-128 article parser. Code exists here because of the eParcel
-// article layout; SSCC/GS1 primitives come from ../../formats/gs1.js.
+// 21/23-character article ID structure (MLID - the merchant location ID Australia
+// Post assigns - plus consignment, product and service fields), and the GS1-128
+// article parser. Code exists here because of the eParcel article layout;
+// SSCC/GS1 primitives come from ../../formats/gs1.js.
 import { gs1Mod10CheckDigit, normalizeBarcode } from '../../formats/gs1.js';
 import { getProductCodeDescription, getServiceCodeDescription } from '../referenceData.js';
 
@@ -127,7 +128,7 @@ function trimArticleCandidate(candidate) {
   return cleaned;
 }
 
-/** Extracts the eParcel article component from normalized GS1 AI 91 content. */
+/** Extracts the article carried under GS1 AI 91 (Application Identifier, the numeric field prefix). */
 function extractArticleCandidateFromGs1Normalized(normalized, compact) {
   const n = String(normalized || '');
   const c = String(compact || '');

@@ -19,6 +19,7 @@ import { resolveRuleSource } from '../ruleEngine.js';
 import { getRuleSet } from '../carriers/index.js';
 import { formatRuleSource } from './ruleSource.js';
 
+// Short document keys into FIELD_DOCUMENTS below; citations resolve them to full spec titles.
 const EP_SPEC = 'PP&EP v1.4';
 const ST_SPEC = 'MOS v9';
 
@@ -50,6 +51,7 @@ export function fieldMetaText(def) {
 /** Citation shared by every StarTrack QR field: the fixed-width layout table (MOS v9 p16). */
 export const QR_FIELD_SOURCE = { source: { doc: ST_SPEC, page: 16 } };
 
+/** Field spec shape: display string, status check(text, ctx), optional detail text, citation meta. */
 const pf = (spec, check, detail, meta) => ({ spec, check, detail, ...meta });
 const digitsCheck = n => t => (new RegExp(`^\\d{${n}}$`).test(t) ? 'pass' : 'fail');
 const literalCheck = lit => t => (t === lit ? 'pass' : 'fail');
@@ -95,10 +97,12 @@ export const ARTICLE_FIELD_SPECS = {
   )
 };
 
+// Re-parse the full SSCC from the joined segments, tolerating a decode that dropped the AI 00 prefix.
 const ssccFromContext = ctx => parseSsccBarcode(ctx.joined.length === 18 ? `00${ctx.joined}` : ctx.joined);
 
-/** SSCC structure fields. The citation is carrier-aware: StarTrack freight decodes cite the
- *  MOS SSCC section (p13), everything else the Parcel Post SSCC section (p26). */
+/** SSCC (GS1 serial shipping container code) structure fields. The citation is carrier-aware:
+ *  StarTrack freight decodes cite the MOS SSCC section (p13), everything else the Parcel Post
+ *  SSCC section (p26). */
 const ssccFieldSpecs = kind => {
   const src = kind === 'freight' ? cite('mandatory', ST_SPEC, 13) : cite('mandatory', EP_SPEC, 26);
   return {

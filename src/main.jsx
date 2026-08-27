@@ -39,6 +39,8 @@ const APP_TITLE = 'Australia Post - eCommerce Integration Label Auditor';
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'v?';
 const ACCEPTED_LABEL_FILE_TYPES = 'application/pdf,image/png,image/jpeg,image/webp,image/bmp';
 const LABEL_FAMILY_NAMES = { eparcel: 'eParcel', startrack: 'StarTrack' };
+// 'sscc' = labels whose article ID is an SSCC (Serial Shipping Container Code, the GS1 AI 00
+// 18-digit logistics-unit identifier) rather than a standard article number.
 const LABEL_FORMAT_NAMES = { standard: 'Standard article format', sscc: 'SSCC article identifier' };
 const MAX_FILES_PER_BATCH = 20;
 const MAX_LABEL_FILE_BYTES = 50 * 1024 * 1024;
@@ -46,7 +48,7 @@ const MAX_LABEL_FILE_BYTES = 50 * 1024 * 1024;
 function labelFamilyName(labelFamily) {
   return LABEL_FAMILY_NAMES[labelFamily] || LABEL_FAMILY_NAMES.eparcel;
 }
-// Newest-first cap for the on-screen scan timing log.
+// Cap for the on-screen scan timing log: newest lines are kept, the oldest fall off.
 const MAX_SCAN_DEBUG_LINES = 220;
 
 const INITIAL_WORKFLOW = {
@@ -103,6 +105,7 @@ function workflowReducer(state, action) {
   }
 }
 
+/** Root component: audit-mode selection, upload, the scan/audit pipeline, and the report view. */
 function App() {
   // No carrier or label format is pre-selected: the user must consciously choose
   // both before the upload box is revealed, so a label is never audited against a
@@ -184,6 +187,7 @@ function App() {
     await auditSelectedFiles(selected, { carrier: selectedCarrier, labelFormat: selectedLabelFormat });
   }
 
+  /** Adds a wall-clock-stamped line (with optional elapsed time) to the on-screen timing log. */
   function appendScanDebug(message, durationMs = null) {
     const now = new Date();
     const time = now.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -272,6 +276,7 @@ function App() {
       }
       appendScanDebug('Completed audit batch', performance.now() - auditStart);
       dispatch({ type: 'batch-complete' });
+      // Deferred so React has rendered the finished report before we scroll to the verdict.
       setTimeout(() => document.getElementById('audit-result')?.scrollIntoView({ block: 'start' }), 0);
     } catch (error) {
       console.error(error);

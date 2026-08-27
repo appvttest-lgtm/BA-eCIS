@@ -21,6 +21,8 @@ function carrierName(carrier) {
   return carrier === 'startrack' ? 'StarTrack' : 'eParcel';
 }
 
+/** CRITICAL cross-check that the selected carrier and label format match the decoded evidence,
+ *  so a label audited under the wrong mode is flagged rather than silently scored. */
 export function validateSelectedAuditMode({
   selectedCarrier = 'eparcel',
   selectedFormat = 'standard',
@@ -94,6 +96,7 @@ export function diagnosticManualValues(manualBarcodes) {
     .filter(Boolean);
 }
 
+/** Rolls validation rows up into severity/status counts and the overall PASS/FAIL/REVIEW verdict. */
 export function summarizeValidations(validations) {
   const summary = {
     overallStatus: 'PASS',
@@ -124,6 +127,8 @@ export function summarizeValidations(validations) {
   return summary;
 }
 
+// The page must match one of the allowed label sizes (either orientation) within a small
+// tolerance for PDF rounding; files with no physical size defer to manual review.
 registerRuleFunction('pageSizeWithin', (page, { args }) => {
   const widthMm = page?.widthMm;
   const heightMm = page?.heightMm;
@@ -148,6 +153,8 @@ registerRuleFunction('pageSizeWithin', (page, { args }) => {
   };
 });
 
+// A spec-required barcode did not decode. The message separates "visible but not decoded"
+// from "absent", and for low-DPI raster uploads explains that the narrow bars are unrecoverable.
 registerRuleFunction('requiredDecode', (value, { context, args }) => {
   if (value === true) return { pass: true };
   const visible = args?.visiblePath ? Boolean(resolvePath(args.visiblePath, context)) : false;
@@ -166,6 +173,8 @@ registerRuleFunction('requiredDecode', (value, { context, args }) => {
   return { pass: false, message: parts.join(' ') };
 });
 
+// Membership check: passes when the value equals any normalized value found at args.path in
+// the context; with nothing to compare against it defers to manual review instead of failing.
 registerRuleFunction('inPathList', (value, { context, item, args }) => {
   const raw = resolvePath(args?.path, context, item);
   const list = (Array.isArray(raw) ? raw : raw === undefined || raw === null || raw === '' ? [] : [raw])
@@ -184,13 +193,13 @@ registerRuleFunction('inPathList', (value, { context, item, args }) => {
   return { pass: list.includes(needle), expected: list.join(', '), actual: needle || 'missing' };
 });
 
-/** Page geometry context shared by both carriers, including raster-image DPI estimation. */
 // Raster uploads carry no physical size: DPI is estimated against the standard
 // 100mm short edge, and linear barcodes are typically unrecoverable below
 // about 200 DPI (narrow bars collapse to under a pixel).
 const ASSUMED_LABEL_SHORT_EDGE_MM = 100;
 const MIN_LINEAR_DECODE_DPI = 200;
 
+/** Page geometry context shared by both carriers, including raster-image DPI estimation. */
 export function buildPageContext(fileInfo) {
   const pixelWidth = fileInfo?.pixelWidth || null;
   const pixelHeight = fileInfo?.pixelHeight || null;

@@ -1,8 +1,12 @@
-// GS1 barcode primitives shared across carriers: scanner-output normalization,
-// the GS1 mod-10 check digit, and the AI 00 SSCC parser. SSCC symbols appear on
-// both eParcel and StarTrack labels, so this module must stay carrier-neutral.
+// GS1 barcode primitives shared across carriers: scanner-output normalization, the GS1 mod-10
+// check digit, and the SSCC parser. SSCC (Serial Shipping Container Code) is the GS1 article
+// identifier carried under AI 00 (AI: the numeric Application Identifier prefix that names a
+// GS1 field). SSCC symbols appear on both eParcel and StarTrack labels, so this module must
+// stay carrier-neutral.
 
-/** Normalizes scanner output before parsing GS1 application identifiers and separators. */
+/** Normalizes scanner output for GS1 parsing: strips symbology prefixes, maps FNC1/group
+ *  separators (the GS1 control characters between fields) and newlines to "|", and unwraps
+ *  printed "(AI)" brackets. */
 export function normalizeBarcode(raw) {
   return String(raw || '')
     .trim()
@@ -37,6 +41,8 @@ export function gs1Mod10CheckDigit(numberWithoutCheckDigit) {
   return String((10 - (sum % 10)) % 10);
 }
 
+/** Flattens a decoded value for pattern matching: symbology prefixes, separators and
+ *  whitespace removed, uppercased. */
 export function stripAiDecorations(raw) {
   return String(raw || '')
     .replace(/^\]C1/, '')
@@ -56,8 +62,8 @@ export function parseSsccBarcode(raw) {
   const match = compact.match(/^00(\d{18})(.*)$/);
   if (!match) return { valid: false, raw, reason: 'No AI 00 + 18 digit SSCC found.' };
   const sscc = match[1];
-  // The spec requires FNC1 + AI 00 + the 20-digit SSCC and NOTHING else in the
-  // linear symbol; trailing payload means the symbol is not a conforming SSCC.
+  // The spec requires FNC1 (the GS1 start control character) + AI 00 + the 20-digit SSCC and
+  // NOTHING else in the linear symbol; trailing payload means the symbol is not a conforming SSCC.
   if (match[2]) {
     return {
       valid: false,

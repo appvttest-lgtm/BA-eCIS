@@ -1,5 +1,6 @@
-// StarTrack routing barcodes: the SSS9999DD/DDD form and the GS1 421/403
-// routing form used on AU Domestic SSCC labels.
+// StarTrack routing barcodes: the SSS9999DD/DDD form (3-char label code + 4-digit receiver
+// postcode + 2-3 char depot/port) and the GS1 421/403 routing form used on AU Domestic
+// SSCC labels.
 import { stripAiDecorations } from '../../formats/gs1.js';
 import { STARTRACK_LABEL_CODE_MAP } from '../referenceData.js';
 

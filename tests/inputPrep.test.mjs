@@ -22,13 +22,14 @@ test('residualSkewDegrees ignores noise below the floor and rotations above the 
   assert.equal(residualSkewDegrees([]), 0);
 });
 
+// Synthetic luminance (pixel brightness) plane: a white page with dark stripes every 12 px, tilted by tiltDegrees.
 function stripedLum(width, height, tiltDegrees) {
   const slope = Math.tan((tiltDegrees * Math.PI) / 180);
   const cx = width / 2;
   const lum = new Uint8Array(width * height).fill(255);
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
-      const phase = ((y - slope * (x - cx)) % 12 + 12) % 12;
+      const phase = (((y - slope * (x - cx)) % 12) + 12) % 12;
       if (phase < 3) lum[y * width + x] = 20;
     }
   }

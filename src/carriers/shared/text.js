@@ -34,6 +34,9 @@ export function firstLineValue(lines, regex) {
   return null;
 }
 
+// PDF extraction can merge the address column with neighbouring text: a run of 3+ spaces marks
+// a column break, and known dangerous-goods declaration phrases are stripped so address blocks
+// stay address-only.
 function cleanAddressLine(line) {
   return String(line || '')
     .replace(/\s{3,}.*$/, '')
@@ -45,18 +48,22 @@ function cleanAddressLine(line) {
     .trim();
 }
 
+// Matches lines belonging to the DG (dangerous goods) / aviation security declaration.
 function isDgText(line) {
   return /Aviation\s+Security|Dangerous\s+Goods|Declaration|sender acknowledges|sender declares|carried by air|clearing procedures|does not contain|not contain|prohibited goods|explosive|incendiary|criminal offence/i.test(
     String(line || '')
   );
 }
 
+// Operational label fields (weights, phone, article numbers) that mark the end of an address block.
 function isOperationalLine(line) {
   return /^(DELIVERY\s+INSTRUCTIONS|Delivery\s+features|Signature\b|Con(?:s(?:ignment)?)?\s*No\b|PARCEL\b|AP\s*Article|Postage\s*Paid|Dead\s*weight|Weight\b|Ph\b|PHONE\b)/i.test(
     String(line || '').trim()
   );
 }
 
+/** Collects the receiver ("To"/"Deliver To") address lines, stopping at operational fields
+ *  or the sender block. */
 export function extractToBlock(lines) {
   const out = [];
   let inBlock = false;
@@ -79,6 +86,7 @@ export function extractToBlock(lines) {
   return out.filter(Boolean);
 }
 
+/** Collects the sender ("From") address lines, stopping at the postcode line or the next label zone. */
 export function extractFromBlock(lines) {
   const out = [];
   let inBlock = false;
@@ -104,6 +112,7 @@ export function extractFromBlock(lines) {
   return out.filter(Boolean);
 }
 
+/** Collects the aviation security / dangerous goods declaration lines used as DG evidence. */
 export function extractDgBlock(lines) {
   const out = [];
   let inBlock = false;
@@ -131,6 +140,7 @@ export function extractDgBlock(lines) {
   return out.filter(Boolean);
 }
 
+/** Finds every distinct "SUBURB STATE POSTCODE" line as address evidence for the rules. */
 export function extractPostcodeLines(lines) {
   const found = [];
   for (const line of lines) {
@@ -148,6 +158,7 @@ export function addressState(line) {
   return match ? match[1].toUpperCase() : null;
 }
 
+/** Last line ending in a 4-digit postcode (the suburb/state/postcode line), else the final line. */
 export function lastAddressLine(block = []) {
   return [...block].reverse().find(line => /\d{4}\s*$/.test(String(line))) || block[block.length - 1] || '';
 }

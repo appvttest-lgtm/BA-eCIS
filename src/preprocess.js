@@ -66,6 +66,10 @@ export function pickRotationCandidates(symbols = []) {
   return vertical ? [90, 270] : [];
 }
 
+/**
+ * Fraction of dark ("ink") pixels in each 1px slice of a region, sliced along `axis`
+ * ('y' = one value per row, 'x' = one per column). Input for gutter detection below.
+ */
 function inkProfile(lum, width, height, region, axis, inkThreshold) {
   const length = axis === 'y' ? region.h : region.w;
   const breadth = axis === 'y' ? region.w : region.h;
@@ -82,6 +86,11 @@ function inkProfile(lum, width, height, region, axis, inkThreshold) {
   return profile;
 }
 
+/**
+ * Finds gutters (blank strips wide enough to cut the sheet along) in an ink profile:
+ * runs at or below maxInkFrac, not counting the outer edgeMarginPx of the region,
+ * that still span at least minGutterPx. Returns each qualifying run's midpoint.
+ */
 function findGutters(profile, options) {
   const { maxInkFrac, minGutterPx, edgeMarginPx } = options;
   const gutters = [];
@@ -102,6 +111,7 @@ function findGutters(profile, options) {
   return gutters;
 }
 
+/** Tight bounding box of the dark pixels inside a region, plus their count; null when the region is blank. */
 function inkBounds(lum, width, height, region, inkThreshold) {
   let minX = region.x + region.w;
   let minY = region.y + region.h;
@@ -129,7 +139,7 @@ function inkBounds(lum, width, height, region, inkThreshold) {
  * fully cross the content, then keeps splits only when every resulting region
  * still looks like a label (substantial ink share, label-like aspect ratio).
  *
- * `lum` is a row-major Uint8 luminance array for a DOWNSCALED page. Returns
+ * `lum` is a row-major Uint8 luminance (pixel brightness) array for a DOWNSCALED page. Returns
  * regions as fractions of the page ({x, y, w, h} in 0..1), or [] when the page
  * should be treated as a single label.
  */

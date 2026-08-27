@@ -90,14 +90,21 @@ export function unrotateBoxQuarter(box, degrees, rotatedWidth, rotatedHeight) {
   const d = ((degrees % 360) + 360) % 360;
   if (d === 0) return { ...box };
   if (d === 90) {
-    // rotate 90 CW mapped (x0, y0) -> (H0 - y0, x0); H0 = rotatedWidth.
+    // The forward 90 CW rotation mapped (x0, y0) -> (H0 - y0, x0), where H0 (the original
+    // canvas height) equals rotatedWidth; solve that back for the box's top-left corner.
     return { x: box.y, y: rotatedWidth - box.x - box.width, width: box.height, height: box.width };
   }
   if (d === 180) {
-    return { x: rotatedWidth - box.x - box.width, y: rotatedHeight - box.y - box.height, width: box.width, height: box.height };
+    return {
+      x: rotatedWidth - box.x - box.width,
+      y: rotatedHeight - box.y - box.height,
+      width: box.width,
+      height: box.height
+    };
   }
   if (d === 270) {
-    // rotate 270 CW mapped (x0, y0) -> (y0, W0 - x0); W0 = rotatedHeight.
+    // The forward 270 CW rotation mapped (x0, y0) -> (y0, W0 - x0), where W0 (the original
+    // canvas width) equals rotatedHeight; solve that back for the box's top-left corner.
     return { x: rotatedHeight - box.y - box.height, y: box.x, width: box.height, height: box.width };
   }
   return null;
@@ -168,7 +175,7 @@ export function mapBarcodeToPage(barcode, target, variantLabel = '', transform =
   return base;
 }
 
-/** Extracts positioned text entries (PDF user units, y-up) from pdf.js text items. Pure. */
+/** Extracts positioned text entries (PDF user units, y-up: origin at bottom-left) from pdf.js items. Pure. */
 export function textEntriesFromItems(items) {
   const entries = [];
   for (const item of items || []) {
@@ -211,6 +218,7 @@ export function linesFromTextEntries(sourceEntries) {
   entries.sort((a, b) => b.y - a.y || a.x - b.x);
 
   const groups = [];
+  // Entries whose baselines sit within 3.5 PDF units of each other count as one visual line.
   const yTolerance = 3.5;
   const yBuckets = new Map();
   for (const entry of entries) {
@@ -238,6 +246,7 @@ export function linesFromTextEntries(sourceEntries) {
       const parts = [];
       let lastRight = null;
       for (const item of group.items) {
+        // A wide horizontal gap marks a column break; ~5 units/char approximates each entry's right edge.
         if (lastRight !== null && item.x - lastRight > 18) parts.push('   ');
         parts.push(item.text);
         lastRight = item.x + item.text.length * 5;

@@ -1,5 +1,5 @@
 // Visible-text fact extraction for eParcel labels: article IDs, consignment
-// numbers, address blocks, weight, and the DG declaration.
+// numbers, address blocks, weight, and the DG (dangerous goods) declaration.
 import {
   extractDgBlock,
   extractFromBlock,
@@ -19,11 +19,13 @@ function extractArticleCountLine(lines) {
   return /^\d+\s+of\s+\d+$/i.test(next) ? next.replace(/\s+/g, ' ') : null;
 }
 
-// Matches a visible article ID: AI 00 SSCC (00 + 18 digits), or an eParcel article
-// (3- or 5-char MLID followed by exactly 18 digits). This is tighter than a generic
-// [A-Z0-9]{21|23} and avoids capturing watermark text.
+// Matches a visible article ID: an AI 00 SSCC (the GS1 serial shipping container code,
+// 00 + 18 digits), or an eParcel article (3- or 5-char MLID - the merchant location ID
+// Australia Post assigns - followed by exactly 18 digits). This is tighter than a
+// generic [A-Z0-9]{21|23} and avoids capturing watermark text.
 const EPARCEL_ARTICLE_RE = /\b(00\d{18}|[A-Z0-9]{3}\d{18}|[A-Z0-9]{5}\d{18})\b/g;
 
+/** Finds visible article IDs, preferring labelled "Article Id" lines over loose digit runs. */
 function extractArticleIdsFromLines(lines) {
   const ids = [];
   // Primary pass: labelled lines are most reliable (avoids watermark false-positives).

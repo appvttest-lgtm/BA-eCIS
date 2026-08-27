@@ -10,6 +10,8 @@ import {
   canvasToDataUrl
 } from './canvasUtils.js';
 
+// Fractional label regions where each StarTrack barcode belongs; drawn on the preview
+// as dashed candidate boxes when the matching barcode has not been decoded.
 export const STARTRACK_PREVIEW_BOXES = {
   atl: { x: 0.56, y: 0.05, w: 0.38, h: 0.1, label: 'ATL zone' },
   routing: { x: 0.04, y: 0.4, w: 0.6, h: 0.2, label: 'Routing zone' },
@@ -36,6 +38,8 @@ const PREVIEW_CROPS = {
   rightLinear: { x: 0.68, y: 0.18, w: 0.31, h: 0.68 }
 };
 
+// Fractional scan crops for the StarTrack linear barcodes; `sweep` is a wide catch-all
+// band spanning the routing and freight zones for labels that drift off-template.
 export const STARTRACK_LINEAR_TARGETS = {
   atl: { x: 0.52, y: 0.02, w: 0.46, h: 0.16 },
   routing: { x: 0.03, y: 0.36, w: 0.62, h: 0.25 },
@@ -313,7 +317,7 @@ export function createLabelImages(canvas, detectedBarcodes = [], labelFamily = '
     atlBarcodeCrop: canvasToDataUrl(starTrackAtlLocated?.canvas || starTrackAtlCrop, 620),
     atlBarcodeBox: starTrackAtlLocated?.box || null,
     atlBarcodeBoxSource: starTrackAtlLocated?.barcode
-      ? `${starTrackAtlLocated.barcode.source || 'scanner'} Â· ${starTrackAtlLocated.barcode.regionLabel || ''} Â· ${starTrackAtlLocated.barcode.variantLabel || ''}`
+      ? `${starTrackAtlLocated.barcode.source || 'scanner'} · ${starTrackAtlLocated.barcode.regionLabel || ''} · ${starTrackAtlLocated.barcode.variantLabel || ''}`
       : 'fallback heuristic crop only',
     freightBarcodeCrop: canvasToDataUrl(starTrackFreightLocated?.canvas || starTrackFreightCrop, 780),
     freightBarcodeBox: starTrackFreightLocated?.box || null,

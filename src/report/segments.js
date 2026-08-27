@@ -3,8 +3,6 @@
 import { analyzeArticleCandidate } from '../carriers/eparcel/formats/article.js';
 import { STARTRACK_QR_FIELDS } from '../carriers/startrack/formats/qr.js';
 
-/** Best-effort GS1 DataMatrix segmentation: split on group separators, else match the
- *  Australia Post AI pattern (01 GTIN, 91 article, 420 postcode, 92 DPID, 8008 date/time). */
 /** Splits an eParcel article number into its individual spec elements (MLID + 7-digit
  *  consignment serial + article count + product + service + postage-paid + check digit).
  *  Structure and field lengths come from the audit engine's article parser (the single
@@ -27,11 +25,13 @@ function articleSegments(article) {
   return fields.map(([len, label]) => ({ text: c.slice(i, (i += len)), label }));
 }
 
-/** Length of the eParcel article ID at the front of an AI 91 payload. AusPost sometimes appends
- *  further AIs (420 postcode, 92 DPID, 8008 date) after the article with no separator, so prefer
- *  the shortest valid article length whose remainder is empty or begins with a known trailing AI.
- *  Also accepts the 20-char SSCC-as-article form (AI 00 + 18-digit SSCC in the AI 91 position,
- *  Parcel Post spec v1.4 p26); otherwise consume the whole payload (rendered as a single block). */
+/** Length of the eParcel article ID at the front of an AI 91 payload (AI = GS1 Application
+ *  Identifier, the numeric prefix that names a field). AusPost sometimes appends further AIs
+ *  (420 postcode, 92 DPID, 8008 date) after the article with no separator, so prefer the
+ *  shortest valid article length whose remainder is empty or begins with a known trailing AI.
+ *  Also accepts the 20-char SSCC-as-article form (SSCC = GS1 serial shipping container code:
+ *  AI 00 + 18-digit SSCC in the AI 91 position, Parcel Post spec v1.4 p26); otherwise consume
+ *  the whole payload (rendered as a single block). */
 function eparcelArticleLength(payload) {
   const c = String(payload || '');
   const remainderOk = len => {
@@ -45,6 +45,9 @@ function eparcelArticleLength(payload) {
   return c.length;
 }
 
+/** Best-effort GS1 DataMatrix segmentation: split on FNC1 group separators (FNC1 is the GS1
+ *  control character used as a field delimiter) where the decoder reports them, then walk the
+ *  Australia Post AI pattern (01 GTIN, 91 article, 420 postcode, 92 DPID, 8008 date/time). */
 function dataMatrixSegments(value, symbologyIdent = '') {
   const seg = (text, label) => ({ text, label });
   const AI_LABEL = {

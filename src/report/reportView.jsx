@@ -61,6 +61,8 @@ export function StatusIcon({ status }) {
   );
 }
 
+/** Display form of any rule input value: scalars as-is, string arrays one per line, anything
+ *  else pretty-printed JSON (String() fallback when it cannot be serialised). */
 function formatInputValue(value) {
   if (value === null || value === undefined || value === '') return '';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -100,6 +102,8 @@ function ProvenanceBadge({ path }) {
   return <span className={`prov-badge ${prov.cls}`}>{prov.label}</span>;
 }
 
+/** One validation row: a collapsed head line (status icon, rule id, title, observed value)
+ *  that expands into the three detail panes — input data, validation rule, outcome. */
 function RuleRow({ v, standardFor }) {
   // All rows start collapsed (including fails): the head line already carries the
   // status icon, badge and observed value; the panes are opt-in detail.
@@ -110,6 +114,7 @@ function RuleRow({ v, standardFor }) {
   const description = rule?.description || (standardFor ? standardFor(v) : '') || '';
   const inputValue = formatInputValue(v.input?.value);
   const observed = v.actual || inputValue;
+  // JSON shown by "View rule logic": drop empty entries so only the active constraints print.
   const logic = rule?.logic
     ? {
         id: rule.id,

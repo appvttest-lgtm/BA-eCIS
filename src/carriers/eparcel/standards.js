@@ -1,4 +1,5 @@
-// Specification standard / example text for the eParcel validation ids.
+// Spec-derived "standard / example" text keyed by eParcel validation id, shown under
+// each rule row in the report so reviewers can compare the finding with the spec.
 export const EPARCEL_STANDARD_EXAMPLES = {
   A6_SIZE:
     'eParcel labels should be supplied as an A6-style PDF page. The audit accepts either true A6 sizing (105mm x 148mm) or common thermal-label sizing (100mm x 150mm), in portrait or landscape, with tolerance for PDF rounding.',

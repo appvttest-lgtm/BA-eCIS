@@ -1,5 +1,7 @@
-// The Australia Post GS1 DataMatrix payload: AI 420/92/8008 extraction, FNC1
-// separator forensics, and ISO symbology-identifier compliance evidence.
+// The Australia Post GS1 DataMatrix payload: extraction of AIs 420/92/8008 (AI = GS1
+// Application Identifier, the numeric prefix that names a field), forensics on FNC1
+// separators (the GS1 control character that ends a variable-length field), and ISO
+// symbology-identifier compliance evidence.
 import { normalizeBarcode } from '../../formats/gs1.js';
 import { parseEparcelBarcode } from './article.js';
 

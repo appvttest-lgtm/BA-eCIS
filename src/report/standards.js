@@ -4,6 +4,8 @@ import { STARTRACK_STANDARD_EXAMPLES } from '../carriers/startrack/standards.js'
 
 const STANDARD_EXAMPLES = { ...EPARCEL_STANDARD_EXAMPLES, ...STARTRACK_STANDARD_EXAMPLES };
 
+/** Spec standard/example line for one validation row: exact id match first, then a prefix match
+ *  so derived per-instance ids inherit their family's text; else the rule's own `expected`. */
 export function standardForValidation(v) {
   const id = String(v?.id || '');
   const direct = STANDARD_EXAMPLES[id];

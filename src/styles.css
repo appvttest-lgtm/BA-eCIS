@@ -12,7 +12,7 @@
   --weight-bold: 800;
   --color-text: #26251f;
   --color-muted: #5f5e57;
-  --color-subtle: #6d6b62; /* darkened from #8a887f to meet WCAG AA 4.5:1 for small text */
+  --color-subtle: #6d6b62; /* darkened from #8a887f to meet the WCAG AA 4.5:1 contrast minimum for small text */
   --color-code-bg: #f3f1ea;
   --surface-1: #faf9f5;
   --surface-2: #ffffff;
@@ -1554,6 +1554,7 @@ figcaption {
   text-align: center;
   font-weight: 600;
 }
+/* Visually hidden but still real and focusable, so keyboard/screen-reader users can operate the dropzone. */
 .file-input-hidden {
   position: absolute;
   width: 1px;

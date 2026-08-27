@@ -19,6 +19,8 @@ import { parseStarTrackAtlBarcode } from './formats/atl.js';
 import { parseStarTrackQrBarcode, ST_QR_MANDATORY_FIELDS } from './formats/qr.js';
 import { STARTRACK_PRODUCT_CODE_MAP, STARTRACK_UNIT_TYPE_MAP } from './referenceData.js';
 import { ruleSetFor } from './ruleSets.js';
+// The routing barcode's label code must match the code the decoded product maps to
+// (e.g. product FPP routes under label code PRM); a product with no mapping asserts nothing.
 registerRuleFunction('routeProductMatch', (route, { context }) => {
   const product = resolvePath('derived.primaryProductCode', context);
   const expectedLabelCode = STARTRACK_PRODUCT_CODE_MAP[product]?.labelCode;
@@ -56,6 +58,7 @@ registerRuleFunction('receiverLocationCodesShown', (codes, { context }) => {
   };
 });
 
+// Every field the QR spec marks mandatory must decode non-blank (list defined in formats/qr.js).
 registerRuleFunction('qrMandatoryFields', fields => {
   const missing = ST_QR_MANDATORY_FIELDS.filter(([key]) => !String(fields?.[key] || '').trim()).map(
     ([, label]) => label
@@ -70,6 +73,8 @@ registerRuleFunction('qrMandatoryFields', fields => {
   };
 });
 
+// The QR unit type (the packaging unit, e.g. carton or pallet) must be an Appendix A unit the
+// spec permits for the decoded product; an unknown unit or unlisted pairing cannot be confirmed.
 registerRuleFunction('startrackUnitPermitted', fields => {
   const unitType = fields?.unitType;
   const allowed = STARTRACK_UNIT_TYPE_MAP[unitType] || [];
@@ -84,6 +89,8 @@ registerRuleFunction('startrackUnitPermitted', fields => {
   };
 });
 
+// Assembles the context object the JSON rule sets resolve their paths against:
+// page geometry, visible-text facts, classified barcode parses, and derived cross-check values.
 function buildStarTrackRuleContext({
   fileInfo,
   facts,
@@ -183,6 +190,7 @@ function buildStarTrackRuleContext({
   };
 }
 
+/** Picks the rule-set variant from the selected format or the decoded product codes. */
 function selectStarTrackVariant(selectedFormat, productCodes) {
   if (selectedFormat === 'sscc') return 'sscc';
   const codes = productCodes.filter(Boolean);
@@ -232,8 +240,9 @@ export function auditStarTrackLabel({
   let facts = extractStarTrackFacts(extractedText);
   const manualValues = diagnosticManualValues(manualBarcodes);
   const decodedValues = decodedRawValues(detectedBarcodes);
-  // 2D formats are excluded outright: "qr_code" would otherwise match /code/, letting
-  // a QR payload that starts with "00" + 18 digits masquerade as the SSCC linear symbol.
+  // 2D formats are excluded outright: "qr_code" would otherwise match /code/, letting a QR
+  // payload starting with "00" + 18 digits masquerade as the SSCC (Serial Shipping Container
+  // Code, the GS1 article identifier) linear symbol.
   const linearBarcodes = detectedBarcodes.filter(b => {
     const fmt = String(b.format || b.symbology || '');
     if (/qr|data[_\s-]?matrix|aztec|pdf417/i.test(fmt)) return false;
@@ -282,6 +291,8 @@ export function auditStarTrackLabel({
       .filter(Boolean)
       .join('\n')
   }));
+  // ATL (Authority To Leave) evidence: printed ATL text/numbers or a QR ATL number
+  // mean an ATL barcode is expected on the label.
   const expectedAtlNumbers = uniqueNonEmpty([
     ...(facts.visibleAtlNumbers || []),
     ...qrParses.map(q => q.fields?.atlNumber).filter(Boolean)

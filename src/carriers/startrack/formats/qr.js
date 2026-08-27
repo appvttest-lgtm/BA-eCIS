@@ -3,10 +3,12 @@
 // validation and the report's field-by-field breakdown.
 import { STARTRACK_PRODUCT_CODE_MAP } from '../referenceData.js';
 
+// 1-based fixed-position slice, matching the spec's character positions.
 function fixed(raw, start, length) {
   return String(raw || '').slice(start - 1, start - 1 + length);
 }
 
+// [field key, report label] pairs for every field the spec marks obligation M (mandatory).
 export const ST_QR_MANDATORY_FIELDS = [
   ['receiverSuburb', 'Receiver suburb'],
   ['receiverPostcode', 'Receiver postcode'],

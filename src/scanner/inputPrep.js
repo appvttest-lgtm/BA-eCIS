@@ -14,8 +14,9 @@ import { canvasLuminanceSample } from './canvasUtils.js';
 // ---------------------------------------------------------------------------
 
 /**
- * Gentle, colour-preserving contrast stretch (2nd-98th luminance percentile),
- * applied in place. Only stretches when the dynamic range is compressed, so a clean
+ * Gentle, colour-preserving contrast stretch over the 2nd-98th percentile of
+ * luminance (pixel brightness), applied in place. Only stretches when the dynamic
+ * range is compressed, so a clean
  * full-range scan (or a crisp PDF render) is left untouched. Content is preserved -
  * the remap is monotonic, so bar/space and glyph relationships are never inverted.
  */
@@ -101,7 +102,7 @@ export function residualSkewDegrees(symbols = []) {
   return Math.abs(median) >= DESKEW_MIN_DEGREES && Math.abs(median) <= DESKEW_MAX_DEGREES ? median : 0;
 }
 
-/** Row-ink profile variance for luminance sampled along lines tilted by `degrees`. Pure. */
+/** Variance of the per-row ink fraction (share of dark pixels), sampled along lines tilted by `degrees`. Pure. */
 function tiltedProfileScore(lum, width, height, degrees) {
   const slope = Math.tan((degrees * Math.PI) / 180);
   const cx = width / 2;
@@ -184,6 +185,7 @@ export function rotateCanvasFine(sourceCanvas, degrees) {
 // Illumination flattening (camera photos)
 // ---------------------------------------------------------------------------
 
+// Tiles per axis in the background-brightness grid (a 6x6 map of the page).
 const FLATTEN_TILES = 6;
 // Background brightness must vary by more than this ratio across the page
 // before flattening is worth applying; flat scans skip it entirely.
@@ -270,10 +272,10 @@ export function flattenGrayPlane(gray, width, height, tiles = FLATTEN_TILES) {
 // ---------------------------------------------------------------------------
 
 /**
- * Edge statistics over a luminance window: the 95th-percentile absolute
- * Laplacian response relative to the window's tonal spread. Crisp print jumps
- * the full tonal range within a pixel (ratio near 1); blur spreads the step
- * over several pixels (ratio well below). Pure; exported for tests.
+ * Edge statistics over a luminance window: the 95th-percentile absolute response
+ * of a Laplacian (a second-derivative edge filter) relative to the window's tonal
+ * spread. Crisp print jumps the full tonal range within a pixel (ratio near 1);
+ * blur spreads the step over several pixels (ratio well below). Pure; exported for tests.
  */
 export function laplacianEdgeStats(lum, width, height) {
   const responses = [];
@@ -356,7 +358,11 @@ export function summarizeInputQuality({ sharpnessRatio, spread, dpi, pxPerModule
         ? { kind: 'pxPerModule', value: Math.round(pxPerModule * 10) / 10, rating: rate(pxPerModule, 2.5, 1.8) }
         : null;
   const ratings = [sharpness?.rating, contrast?.rating, resolution?.rating].filter(Boolean);
-  const overall = ratings.includes(RATING.poor) ? RATING.poor : ratings.includes(RATING.fair) ? RATING.fair : RATING.good;
+  const overall = ratings.includes(RATING.poor)
+    ? RATING.poor
+    : ratings.includes(RATING.fair)
+      ? RATING.fair
+      : RATING.good;
   return {
     sharpness,
     contrast,
@@ -406,7 +412,10 @@ function sharpnessRatioFromCanvas(canvas) {
  * size) yields a true DPI; otherwise the decoded Code 128 bar count acts as an
  * on-label ruler and quality is expressed as pixels per barcode module.
  */
-export function assessLabelQuality(canvas, { widthMm = null, barcodes = [], deskewDegrees = 0, contrastApplied = false } = {}) {
+export function assessLabelQuality(
+  canvas,
+  { widthMm = null, barcodes = [], deskewDegrees = 0, contrastApplied = false } = {}
+) {
   const sharpnessRatio = sharpnessRatioFromCanvas(canvas);
   const { lum } = canvasLuminanceSample(canvas, 720);
   const spread = luminanceSpread(lum);

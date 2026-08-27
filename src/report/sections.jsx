@@ -8,6 +8,12 @@ import { auditHasSsccOnly } from './auditInfo.js';
 import { ServiceCodeMatrix } from '../carriers/eparcel/sections.jsx';
 import { StarTrackProductArticleSection } from '../carriers/startrack/sections.jsx';
 
+/**
+ * Buckets an audit's validations into the fixed section keys the screen and print
+ * layouts render in order. Carrier-specific group names map onto shared keys
+ * (StarTrack's three linear barcodes also merge into `linear` for shared UI), and
+ * `other` catches any group the layout does not know so no finding is ever dropped.
+ */
 export function getAuditSections(audit) {
   const grouped = audit ? groupValidations(audit.validations || []) : {};
   if (audit?.carrier === 'startrack') {
@@ -61,6 +67,11 @@ export function getAuditSections(audit) {
       .flatMap(([, items]) => items)
   };
 }
+/**
+ * "Article and barcode data" section. StarTrack labels get their own variant; for
+ * SSCC-only labels (SSCC = the GS1 Serial Shipping Container Code) an explainer
+ * replaces the product/service fields, which SSCC barcodes do not encode.
+ */
 export function ServiceArticleBreakdownSection({ audit, items }) {
   if (audit?.carrier === 'startrack') return <StarTrackProductArticleSection audit={audit} items={items} />;
   const ssccOnly = auditHasSsccOnly(audit);

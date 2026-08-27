@@ -88,17 +88,17 @@ export function dedupeBarcodes(items) {
     // through a variant transform), because that drives crop evidence.
     const locationUpgrade =
       clean.pageBoundingBox &&
-      (!existing.pageBoundingBox || locationQualityRank(clean.locationQuality) > locationQualityRank(existing.locationQuality));
+      (!existing.pageBoundingBox ||
+        locationQualityRank(clean.locationQuality) > locationQualityRank(existing.locationQuality));
     map.set(key, {
       ...existing,
-      ...(locationUpgrade
-        ? { pageBoundingBox: clean.pageBoundingBox, locationQuality: clean.locationQuality }
-        : {}),
+      ...(locationUpgrade ? { pageBoundingBox: clean.pageBoundingBox, locationQuality: clean.locationQuality } : {}),
       ...(!existing.boundingBox && clean.boundingBox ? { boundingBox: clean.boundingBox } : {}),
       ...(!existing.targetBox && clean.targetBox ? { targetBox: clean.targetBox } : {}),
       ...(existing.barCount == null && clean.barCount != null ? { barCount: clean.barCount } : {}),
-      // The ISO/IEC 15424 symbology identifier proves GS1 carrier compliance
-      // (]d2 = ECC 200 + FNC1 first); keep it from whichever decoder reported it.
+      // The ISO/IEC 15424 symbology identifier proves GS1 carrier compliance (]d2 means
+      // ECC 200 DataMatrix led by FNC1, the GS1 control character); keep it from
+      // whichever decoder reported it.
       ...(!existing.symbologyIdentifier && clean.symbologyIdentifier
         ? { symbologyIdentifier: clean.symbologyIdentifier }
         : {}),
@@ -238,6 +238,8 @@ export async function wasmDecodeCanvas(
       tryDenoise: kind === FORMAT_KIND.datamatrix,
       maxNumberOfSymbols: 0,
       minLineCount: kind === FORMAT_KIND.linear ? 1 : 2,
+      // 'HRI' returns the human-readable interpretation (the text printed beside a
+      // barcode), so GS1 values arrive with their AIs in parentheses, e.g. (420).
       textMode: 'HRI',
       binarizer: options.binarizer || 'LocalAverage',
       isPure: Boolean(options.isPure),

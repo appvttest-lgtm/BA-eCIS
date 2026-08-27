@@ -43,6 +43,8 @@ export function extractStarTrackFacts(extractedText) {
   const joined = lines.join('\n');
   const upper = joined.toUpperCase();
   const labelCode = (joined.match(/\b(TSE|RET|RE2|APT|PRM|FPP|ARL|FPA|EXP)\b/i) || [])[1]?.toUpperCase() || null;
+  // The connote (consignment note number) may print beside its heading, on the following
+  // line, or a few lines below it - each placement is tried in confidence order.
   const sameLineConnote =
     (joined.match(/(?:CONNOTE|CON\s*NO|CONSIGNMENT(?:\s+NUMBER)?)\s*:?\s*([A-Z0-9]{8,20})/i) || [])[1]?.toUpperCase() ||
     null;
@@ -84,8 +86,9 @@ export function extractStarTrackFacts(extractedText) {
   const dgPresent = /DANGEROUS\s+GOODS|DG\s*[:-]|AVIATION\s+SECURITY|IATA|UN\s?\d{4}/i.test(joined);
   const authorityToLeavePresent = /AUTHORITY\s+TO\s+LEAVE|\bATL\b/i.test(joined);
   const visibleAtlNumbers = [...new Set((joined.match(/\bC\d{9}\b/gi) || []).map(v => v.toUpperCase()))];
-  // Human-readable SSCC digits are printed beneath the AI 00 symbol, often space-grouped
-  // (e.g. "(00) 3 9312650 00000123 4"), so match on each line with spacing removed.
+  // The human-readable SSCC digits (SSCC: the GS1 Serial Shipping Container Code) print
+  // beneath the AI 00 barcode, often space-grouped (e.g. "(00) 3 9312650 00000123 4"),
+  // so match on each line with spacing removed.
   const visibleSsccIds = [
     ...new Set(
       lines
@@ -119,6 +122,8 @@ export function extractStarTrackFacts(extractedText) {
   };
 }
 
+// Reduces the fixed-width QR weight field to a plain numeric string (padding and units
+// removed) so it compares cleanly with the printed weight.
 function normalizeQrWeight(value) {
   const text = String(value || '').trim();
   if (!text) return null;
@@ -127,6 +132,9 @@ function normalizeQrWeight(value) {
   return String(Number(numeric));
 }
 
+// The QR encodes cube as cubic metres x 1000 (an integer); convert an all-digit value back
+// to m3 for comparison with the printed cube. A value already carrying a decimal point is
+// taken as m3 as-is.
 function normalizeQrCube(value) {
   const text = String(value || '').trim();
   if (!text) return null;

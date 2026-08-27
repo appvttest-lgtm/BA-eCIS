@@ -36,6 +36,7 @@ export function resolvePath(path, context, item) {
   return cur;
 }
 
+/** Resolves an assert's `value`: $constants./$context./item. prefixes are lookups, other strings literals. */
 function resolveValueRef(ref, context, item, constants) {
   if (typeof ref !== 'string') return ref;
   if (ref.startsWith('$constants.')) return resolvePath(ref.slice(11), constants);
@@ -43,6 +44,7 @@ function resolveValueRef(ref, context, item, constants) {
   return ref;
 }
 
+/** Shared definition of "missing" across the engine: null/undefined, blank string, or empty array. */
 function isEmptyValue(value) {
   if (value === undefined || value === null) return true;
   if (typeof value === 'string') return value.trim() === '';
@@ -62,6 +64,7 @@ const NORMALIZE_STEPS = {
 
 export const NORMALIZE_STEP_NAMES = Object.keys(NORMALIZE_STEPS);
 
+/** Applies the named normalize steps in order; unknown step names are ignored rather than failing the rule. */
 export function applyNormalize(value, normalize = []) {
   let out = value === undefined || value === null ? '' : String(value);
   for (const step of normalize) {
@@ -71,6 +74,8 @@ export function applyNormalize(value, normalize = []) {
   return out;
 }
 
+// Date layouts accepted by the `dateFormat` op. Each part is [digit offset, field kind]: the
+// 2-digit slice at that offset must be a plausible calendar value (see isValidDatePart).
 const DATE_FORMATS = {
   YYMMDDHHMMSS: {
     length: 12,
@@ -126,8 +131,9 @@ function checkDateFormat(value, format) {
 }
 
 /**
- * Evaluates one assert node against a value. Returns { pass, expected, actual,
- * message?, evidence? }. Combinators: { all: [...] } and { any: [...] }.
+ * Evaluates one assert node against a value, returning { pass, expected, actual,
+ * message?, evidence? }. Combinator { all } stops at its first failing child;
+ * { any } passes on the first passing child and otherwise reports its first failure.
  */
 export function evalAssert(assert, value, context, item, constants) {
   if (!assert) return { pass: true, actual: value };
@@ -244,6 +250,7 @@ export function evalAssert(assert, value, context, item, constants) {
   }
 }
 
+/** Evaluates a rule's `when`/`itemWhen` guard tree; a rule with no guard always applies. */
 function evalWhen(when, context, item, constants) {
   if (!when) return true;
   if (Array.isArray(when.all)) return when.all.every(w => evalWhen(w, context, item, constants));
@@ -252,6 +259,7 @@ function evalWhen(when, context, item, constants) {
   return evalAssert(when, value, context, item, constants).pass;
 }
 
+/** Fills the {value}/{expected}/{actual}/{path} placeholders in a rule's custom message template. */
 function formatMessage(template, parts) {
   if (!template) return '';
   return template.replace(/\{(value|expected|actual|path)\}/g, (_, key) => {
@@ -298,6 +306,11 @@ export function resolveRuleSource(rule, ruleSet) {
   };
 }
 
+/**
+ * Shapes one rule outcome into a report row. Message precedence: assert-supplied message,
+ * then the rule's pass/fail template, then a generic fallback. forEach items get index-suffixed
+ * ids so repeated rows stay unique in the report.
+ */
 function buildResult(rule, ruleSet, status, assertRes, inputPath, inputValue, context, item, index, multiple) {
   const expected = assertRes.expected;
   const actual = assertRes.actual !== undefined ? assertRes.actual : inputValue;
@@ -348,6 +361,7 @@ function buildResult(rule, ruleSet, status, assertRes, inputPath, inputValue, co
   };
 }
 
+// Memoizes template resolution per rule-set object (WeakMap, so replaced rule sets stay collectable).
 const TEMPLATE_CACHE = new WeakMap();
 
 /**
@@ -432,6 +446,8 @@ export function evaluateRuleSet(inputRuleSet, context) {
     items.forEach((item, index) => {
       if (rule.itemWhen && !evalWhen(rule.itemWhen, context, item, constants)) return;
       const inputValue = rule.input ? resolvePath(rule.input, context, item) : item;
+      // Presence-style ops judge emptiness themselves, so empty input must reach the assert
+      // rather than being short-circuited by the onMissing handling below.
       const wantsAbsence =
         rule.assert &&
         (rule.assert.op === 'absent' ||

@@ -242,8 +242,8 @@
     word-break: break-all;
   }
 
-  /* Field breakdown table: swatch, field, requirement, obligation, length,
-     value, status - swatches match the colourised string above. */
+  /* Field breakdown table: swatch, field, obligation, length, value, status -
+     swatches match the colourised string above. */
   .pr-table {
     width: 100%;
     border-collapse: collapse;

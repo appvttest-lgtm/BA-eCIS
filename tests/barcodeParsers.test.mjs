@@ -19,7 +19,7 @@ import {
   STARTRACK_QR_FIELDS
 } from '../src/auditEngine.js';
 
-const GS = String.fromCharCode(29); // GS1 FNC1 group separator as transmitted by scanners
+const GS = String.fromCharCode(29); // FNC1 (GS1's field-separator control character) as scanners transmit it
 const VALID_ARTICLE = 'ABC123456701000930304';
 const AUSPOST_GTIN_PREFIX = '0199312650999998';
 

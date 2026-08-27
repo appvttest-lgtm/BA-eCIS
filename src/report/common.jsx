@@ -17,6 +17,8 @@ export function formatBytes(bytes) {
   return `${bytes} B`;
 }
 
+/** Caption for a barcode evidence image: names the symbol and its detected page location
+ *  (box x,y width×height in pixels), or notes that only a fallback crop was available. */
 export function imageBoxCaption(images = {}, kind = FORMAT_KIND.datamatrix) {
   if (kind === FORMAT_KIND.qr) {
     const box = images.qrBarcodeBox;
@@ -75,6 +77,7 @@ export function StandardLine({ children }) {
   );
 }
 
+/** Worst-first status rollup for a section: fail > review (warning/manual) > pass > neutral. */
 function sectionTone(items = []) {
   if (items.some(v => v.status === 'fail')) return 'fail';
   if (items.some(v => v.status === 'manual_review' || v.status === 'warning')) return 'review';
@@ -110,6 +113,11 @@ export function AuditModeSection({ items }) {
   );
 }
 
+/** Decoded linear barcodes that fill none of the label's required roles — for StarTrack, not
+ *  routing/ATL/freight and not an SSCC (the AI 00, 18-digit consignment code); for eParcel, not
+ *  an AI 01 article code or an SSCC (AI = GS1 Application Identifier, the numeric prefix that
+ *  names a field; "]C1" is the symbology-identifier prefix some decoders keep on GS1-128 values).
+ *  Only returned once more barcodes decoded than the audit mode expects, as evidence only. */
 function additionalBarcodeCandidates(audit) {
   const all = audit?.detectedBarcodes || [];
   if (!all.length) return [];
@@ -286,6 +294,8 @@ export function useDialogFocus(active) {
   return dialogRef;
 }
 
+/** Full-screen overlay for a zoomed label image. Escape or a backdrop click closes it; clicks
+ *  on the image stage are stopped so clicking the image itself does not dismiss. */
 export function ImageZoomModal({ image, onClose }) {
   const dialogRef = useDialogFocus(Boolean(image));
   useEffect(() => {
@@ -318,6 +328,8 @@ export function ImageZoomModal({ image, onClose }) {
   );
 }
 
+/** Whole-label evidence: the annotated preview (click to zoom) beside the key facts read off
+ *  the label, plus this section's validation rows. */
 export function FullLabelImageSection({ audit, items, onZoomLabel }) {
   const facts = audit?.labelFacts || {};
   const images = audit?.labelImages || {};
@@ -378,7 +390,8 @@ export function FullLabelImageSection({ audit, items, onZoomLabel }) {
   );
 }
 const QUALITY_ADVICE = {
-  sharpness: 'Blurry input limits barcode decode and OCR accuracy. Rescan flat at 300 DPI, or hold the camera steady and closer.',
+  sharpness:
+    'Blurry input limits barcode decode and OCR accuracy. Rescan flat at 300 DPI, or hold the camera steady and closer.',
   resolution: 'Low input resolution limits what the audit can read. Rescan or export at 300 DPI or higher.',
   contrast: 'Faded print or a washed-out scan. Reprint the label or rescan with normal brightness settings.',
   ocr: 'The OCR engine had low confidence in the visible text; text-based checks may be incomplete.'
@@ -397,9 +410,10 @@ function QualityChip({ label, value, rating, advice }) {
 /**
  * Input-quality gauge shown at the top of each label's results: sharpness,
  * effective resolution (true DPI when the document declares physical size,
- * otherwise pixels per barcode module measured off the decoded symbol), tonal
- * contrast and OCR confidence, each rated good/fair/poor. Poor input is the most
- * common cause of weak audit results, so it is called out before the findings.
+ * otherwise pixels per module — the narrowest bar unit of a barcode — measured
+ * off the decoded symbol), tonal contrast and OCR confidence, each rated
+ * good/fair/poor. Poor input is the most common cause of weak audit results,
+ * so it is called out before the findings.
  */
 export function InputQualityGauge({ fileInfo }) {
   const q = fileInfo?.quality;
@@ -408,7 +422,12 @@ export function InputQualityGauge({ fileInfo }) {
   const sharpnessWord = { good: 'crisp', fair: 'soft', poor: 'blurry' };
   const chips = [];
   if (q.sharpness) {
-    chips.push({ label: 'Sharpness', value: sharpnessWord[q.sharpness.rating] || '—', rating: q.sharpness.rating, advice: QUALITY_ADVICE.sharpness });
+    chips.push({
+      label: 'Sharpness',
+      value: sharpnessWord[q.sharpness.rating] || '—',
+      rating: q.sharpness.rating,
+      advice: QUALITY_ADVICE.sharpness
+    });
   }
   if (q.resolution) {
     chips.push({
@@ -493,12 +512,9 @@ export function FieldLine({ name, spec, value, status, detail, swatchClass }) {
     </details>
   );
 }
+// Number of distinct seg-cN colour classes in the stylesheet; segment colours repeat modulo this.
 export const SEG_PALETTE = 8;
 
-/** Renders a decoded barcode value with each data element highlighted in a distinct colour,
- *  plus a legend mapping colour -> field, so reviewers can see which character ranges map to
- *  which validated field. `segments` is an ordered [{ text, label }]; concatenated text equals
- *  the decoded value (padding preserved for fixed-width payloads). */
 /** Small copy-to-clipboard icon button for barcode data strings (issue #15). Shows a clipboard
  *  glyph, swapping to a check mark for a moment after a successful copy. */
 export function CopyButton({ value, label = 'Copy barcode value', text }) {
@@ -558,6 +574,10 @@ export function CopyButton({ value, label = 'Copy barcode value', text }) {
   );
 }
 
+/** Renders a decoded barcode value with each data element highlighted in a distinct colour,
+ *  plus a legend mapping colour -> field, so reviewers can see which character ranges map to
+ *  which validated field. `segments` is an ordered [{ text, label }]; concatenated text equals
+ *  the decoded value (padding preserved for fixed-width payloads). */
 export function SegmentedCode({ segments, title = 'Barcode field map (colour-coded)', showLegend = true }) {
   const segs = (segments || []).filter(s => s && ((s.text != null && String(s.text).length > 0) || s.display));
   if (!segs.length) return null;
@@ -700,6 +720,8 @@ function describeTextSource(fileInfo) {
   return 'Text source: none.';
 }
 
+/** Visible-text evidence: the TO / FROM / DG (dangerous goods) declaration blocks and the raw
+ *  extracted text, each with its expected form, plus the text-based validation rows. */
 export function TextContentSection({ audit, items, otherItems }) {
   const facts = audit?.labelFacts || {};
   return (

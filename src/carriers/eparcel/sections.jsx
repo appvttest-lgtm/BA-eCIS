@@ -90,6 +90,7 @@ function servicePayloadText(row) {
   const payload = `"authority_to_leave": ${row.apiPayload.authority_to_leave},\n"allow_partial_delivery": ${row.apiPayload.allow_partial_delivery},\n"safe_drop_enabled": ${row.apiPayload.safe_drop_enabled}`;
   return row.apiNote ? `${payload}\n\n${row.apiNote}` : payload;
 }
+/** Prints the full service/product reference matrix, highlighting the label's decoded combination. */
 export function ServiceCodeMatrix({ audit }) {
   const selectedServices = selectedServiceCodes(audit);
   const selectedProducts = selectedProductCodes(audit);
@@ -183,6 +184,7 @@ export function ServiceCodeMatrix({ audit }) {
     </section>
   );
 }
+/** Report section for the GS1 DataMatrix: cropped image, colour-coded decode, and validation rows. */
 export function DataMatrixSection({ audit, items }) {
   const images = audit?.labelImages || {};
   const dataMatrixBarcodes = decodedBarcodeList(audit, 'datamatrix');
@@ -233,6 +235,7 @@ export function DataMatrixSection({ audit, items }) {
   );
 }
 
+/** Report section for the GS1-128 linear barcode: cropped image, decoded values, and validation rows. */
 export function LinearBarcodeSection({ audit, items }) {
   const images = audit?.labelImages || {};
   const linearBarcodes = (audit?.detectedBarcodes || []).filter(

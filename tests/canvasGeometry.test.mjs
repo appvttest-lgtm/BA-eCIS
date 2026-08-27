@@ -7,7 +7,17 @@ const barRow = bars => ({ bars, contrast: 200 });
 const blankRow = () => ({ bars: 0, contrast: 10 });
 
 test('extendRowRange grows to the contiguous rows matching the reference bar count', () => {
-  const rows = [blankRow(), barRow(60), barRow(61), barRow(61), barRow(62), barRow(61), blankRow(), blankRow(), blankRow()];
+  const rows = [
+    blankRow(),
+    barRow(60),
+    barRow(61),
+    barRow(61),
+    barRow(62),
+    barRow(61),
+    blankRow(),
+    blankRow(),
+    blankRow()
+  ];
   const { start, end } = extendRowRange(rows, 3, 61);
   assert.equal(start, 1);
   assert.equal(end, 5);

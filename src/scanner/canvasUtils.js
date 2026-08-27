@@ -1,7 +1,9 @@
 // Pure canvas/geometry helpers shared by the scan pipeline and preview crops.
 
+// Margin added around a decoded barcode's box when cropping evidence images.
 export const BARCODE_BOX_MARGIN_PX = 36;
 
+// Tighter margin for the outline boxes drawn on the full-page preview image.
 export const PREVIEW_BARCODE_BOX_MARGIN_PX = 8;
 
 /** Converts ZXing result points into the rectangular evidence box used by crops and overlays. */
@@ -82,7 +84,7 @@ export function scaleCanvas(sourceCanvas, factor = 2) {
   return out;
 }
 
-/** Returns a black/white binarized copy using a fixed luminance threshold. */
+/** Returns a binarized (pure black/white) copy using a fixed luminance (pixel-brightness) threshold. */
 export function thresholdCanvas(sourceCanvas, threshold = BINARY_THRESHOLD_DEFAULT) {
   const out = document.createElement('canvas');
   out.width = sourceCanvas.width;
@@ -103,10 +105,11 @@ export function thresholdCanvas(sourceCanvas, threshold = BINARY_THRESHOLD_DEFAU
 }
 
 /**
- * Returns a smoothly-upscaled, unsharp-masked grayscale copy. Used as an extra decode
- * variant to recover crisp bar edges on blurry or low-resolution barcode crops. This
- * copy is only ever fed to the decoder; the original canvas still backs every evidence
- * crop, so the report image stays true to the source document.
+ * Returns a smoothly-upscaled grayscale copy with an unsharp mask (an edge-sharpening
+ * filter) applied. Used as an extra decode variant to recover crisp bar edges on blurry
+ * or low-resolution barcode crops. This copy is only ever fed to the decoder; the
+ * original canvas still backs every evidence crop, so the report image stays true to
+ * the source document.
  */
 export function sharpenCanvas(sourceCanvas, factor = 2, amount = 1.0) {
   const out = document.createElement('canvas');
@@ -152,7 +155,7 @@ export function sharpenCanvas(sourceCanvas, factor = 2, amount = 1.0) {
   return out;
 }
 
-/** Returns a copy with a white quiet-zone border added on all sides, plus the border size. */
+/** Adds a white quiet-zone border (the blank margin a scanner needs) on all sides; also returns the size. */
 export function addWhiteBorderWithInfo(sourceCanvas, borderRatio = 0.1) {
   const border = Math.max(12, Math.round(Math.min(sourceCanvas.width, sourceCanvas.height) * borderRatio));
   const out = document.createElement('canvas');
@@ -268,9 +271,10 @@ export function canvasLuminanceSample(canvas, maxDim = SEGMENT_LUMINANCE_MAX_DIM
   return { lum, width: sample.width, height: sample.height };
 }
 
-// A Code 128 symbol's bar count is fixed by its encodation (3 bars per symbol
-// character + 4 stop bars), so counting the bars of a decoded crop verifies
-// the spec-mandated subset compression without access to the codeword stream.
+// A Code 128 symbol's bar count is fixed by its encodation - how the data was
+// packed into symbol characters (3 bars per character + 4 stop bars). Counting
+// the bars of a decoded crop therefore verifies the spec-mandated subset
+// compression without access to the underlying codeword stream.
 const BAR_COUNT_SCANLINE_FRACTIONS = [0.35, 0.5, 0.65];
 const BAR_COUNT_MIN_CONTRAST = 60;
 const BAR_COUNT_MAX_SPREAD = 2;
@@ -327,9 +331,9 @@ export function countLinearBars(canvas, box) {
  * Walks outward from a reference row through per-row bar measurements and returns
  * the contiguous index range whose bar count stays close to the reference count.
  * `rows` is an array of `{ bars, contrast }`; rows below the contrast floor or
- * with a diverging bar count end the walk (after a small tolerance of misses,
- * because HRI digits or noise can interrupt a single sampled row). Pure; exported
- * for tests.
+ * with a diverging bar count end the walk, after a small tolerance of misses -
+ * HRI (the human-readable digits printed beside a barcode) or noise can interrupt
+ * a single sampled row. Pure; exported for tests.
  */
 export function extendRowRange(rows, centerIndex, refBars, { minContrast = 50, maxMisses = 2, barTolerance = 4 } = {}) {
   const qualifies = row =>
@@ -404,9 +408,10 @@ export function measureLinearBarExtent(canvas, box) {
   return { y, height };
 }
 
-/** Encodes the canvas as a bounded-width JPEG/PNG data URL for report embedding. */
+// Cap on the nearest-neighbour magnification applied to small evidence crops below.
 export const CROP_MAX_DISPLAY_UPSCALE = 4;
 
+/** Encodes the canvas as a bounded-width JPEG/PNG data URL for report embedding. */
 export function canvasToDataUrl(sourceCanvas, maxWidth = 700, mime = 'image/jpeg', quality = 0.86) {
   if (!sourceCanvas?.width || !sourceCanvas?.height) return '';
   // Scale evidence crops up to fill the display width so low-resolution barcodes/text stay

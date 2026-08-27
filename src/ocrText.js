@@ -6,8 +6,8 @@ const OCR_MIN_USEFUL_CHARS = 12;
 // Small label scans need to be magnified more than barcode decoding would tolerate;
 // this only governs the OCR copy, so a generous zoom is safe here.
 const OCR_MAX_UPSCALE = 3.5;
-// Unsharp-mask strength for the FULL-LABEL text pass. Deliberately gentle: heavy
-// sharpening fractures thin glyph strokes and hurts general text recognition.
+// Unsharp mask (edge-sharpening filter) strength for the FULL-LABEL text pass. Deliberately
+// gentle: heavy sharpening fractures thin glyph strokes and hurts general text recognition.
 const OCR_SHARPEN_AMOUNT = 0.5;
 
 // Barcode-crop OCR profile: the human-readable digits printed with a barcode are
@@ -23,8 +23,9 @@ const CROP_OCR_PROFILE = {
   highFrac: 0.99,
   flatten: false
 };
-// HRI lines are uppercase alphanumerics (plus GS1 AI parentheses); constraining the
-// engine to that set sharply reduces digit/letter confusions on barcode crops.
+// HRI (the human-readable digits printed beside a barcode) lines are uppercase alphanumerics,
+// plus the parentheses around GS1 AIs (Application Identifiers, the numeric prefixes that name
+// each field); constraining the engine to that set sharply reduces digit/letter confusions.
 const CROP_OCR_WHITELIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789() ';
 const CROP_OCR_MIN_USEFUL_CHARS = 6;
 
@@ -39,10 +40,12 @@ let createOcrWorkerPromise = null;
 // transform, which returns undefined for public/ paths and breaks the OCR worker.
 const BUNDLE_URL = import.meta.url;
 
+/** Absolute URL for a static app asset (worker scripts, language data), resolved per the note above. */
 export function appAssetUrl(path) {
   return new URL(`../${path}`, BUNDLE_URL).href;
 }
 
+/** Lazily creates the one shared Tesseract worker (cached); a failed start clears the cache so retries work. */
 async function getOcrWorker() {
   if (!ocrWorkerPromise) {
     if (!createOcrWorkerPromise) {
@@ -72,7 +75,7 @@ async function getOcrWorker() {
   return ocrWorkerPromise;
 }
 
-/** Black/white box-blur (separable 3x3) over a grayscale plane; used by the unsharp mask. */
+/** 3x3 box blur (neighborhood average, done as two 1D passes) over a grayscale plane; feeds the unsharp mask. */
 function boxBlur3(src, width, height) {
   const tmp = new Float32Array(src.length);
   for (let y = 0; y < height; y += 1) {
@@ -95,7 +98,7 @@ function boxBlur3(src, width, height) {
   return out;
 }
 
-/** Finds the low/high luminance bounds at the given percentiles for a contrast stretch. */
+/** Finds the low/high luminance (pixel brightness) bounds at the given percentiles for a contrast stretch. */
 function percentileBounds(gray, lowFrac, highFrac) {
   const hist = new Uint32Array(256);
   for (let i = 0; i < gray.length; i += 1) hist[gray[i] | 0] += 1;
@@ -227,7 +230,7 @@ export function splitLineIntoRuns(words, gapThreshold) {
 
 /**
  * Regroups one layout block's lines into columns so side-by-side content (the
- * address block next to the DG declaration, for example) comes out as separate
+ * address block next to the DG (dangerous goods) declaration, for example) comes out as separate
  * contiguous line groups instead of interleaved half-lines the fact extractors
  * cannot safely un-merge. Lines whose runs overlap a column's x-range join that
  * column; columns are emitted left-to-right, each top-to-bottom. Single-column
@@ -294,6 +297,7 @@ export function textFromTesseractBlocks(blocks, minWordConfidence = OCR_MIN_WORD
   return outLines.join('\n');
 }
 
+/** Collapses runs of whitespace and drops blank lines so downstream text matching sees stable input. */
 function normaliseOcrText(text) {
   return String(text || '')
     .split(/\r?\n/)
@@ -302,7 +306,7 @@ function normaliseOcrText(text) {
     .join('\n');
 }
 
-/** Merges text from multiple extraction sources, deduplicating repeated lines. */
+/** Merges text from multiple extraction sources, deduplicating repeated lines (case-insensitively). */
 export function mergeExtractedText(...texts) {
   const lines = [];
   const seen = new Set();

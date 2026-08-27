@@ -12,6 +12,7 @@ import {
   linesFromTextEntries
 } from '../src/scanner/scanPlan.js';
 
+// Minimal pdf.js text item: the transform matrix's last two entries are the item's x/y page position.
 const textItem = (str, x, y) => ({ str, transform: [1, 0, 0, 1, x, y] });
 
 test('textContentItemsToLines groups items into reading-order lines', () => {

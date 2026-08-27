@@ -191,6 +191,7 @@ test('resolveRuleSource resolves the documents registry with sensible fallbacks'
   assert.equal(resolveRuleSource({}, {}), null);
 });
 
+// Miniature rule set exercising every result path: messages, skips, per-item rules, missing inputs, downgrades.
 const REPORT_RULE_SET = {
   id: 'test-set',
   spec: { doc: 'Test spec' },

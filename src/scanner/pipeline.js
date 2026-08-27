@@ -42,16 +42,21 @@ import {
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-// PDF pages are rendered at high scale so small barcode modules survive
-// rasterization. Raising this improves decode odds but costs memory and CPU.
+// PDF pages are rendered at high scale so small barcode modules (the narrowest
+// bar/cell units of a barcode) survive rasterization. Raising this improves
+// decode odds but costs memory and CPU.
 export const PDF_RENDER_SCALE = 4.0;
 
+// Safety cap: refuse PDFs beyond this page count rather than exhaust browser memory.
 export const MAX_PDF_PAGES = 40;
 
+// Pixel budget: oversized images are rejected, and PDF render scale is clamped to stay under it.
 export const MAX_IMAGE_PIXELS = 50_000_000;
 
+// Below this many alphanumeric chars the PDF text layer is too sparse to audit and OCR runs instead.
 export const PDF_TEXT_LAYER_MIN_USEFUL_CHARS = 80;
 
+// Per-kind allowlist of makeScanVariants labels to run; variants not listed here are skipped.
 export const SCAN_VARIANT_LABELS = {
   linear: ['original', 'trimmed + border', '2x nearest', '4x nearest', 'threshold 150', 'threshold 185', 'sharpen 2x'],
   qr: ['original', 'trimmed + border', '2x nearest', 'square pure 2x', 'sharpen 2x'],
@@ -67,13 +72,17 @@ export const SCAN_VARIANT_LABELS = {
   mixed: ['original', 'trimmed + border', '2x nearest', 'sharpen 2x']
 };
 
+// Trim/border tuning per kind. borderRatio restores the quiet zone (the blank margin
+// a scanner needs around a barcode); DataMatrix trims tighter and gets a wider one.
 export const SCAN_TRIM_SETTINGS = {
   datamatrix: { padding: 8, threshold: 220, borderRatio: 0.18 },
   default: { padding: 18, threshold: 210, borderRatio: 0.08 }
 };
 
+// Orientation/deskew probes decode a downscale capped at this dimension to stay fast.
 export const ORIENTATION_PROBE_MAX_DIM = 1500;
 
+// Extra margin (fraction of the shorter side) kept around each segmented label so crops do not clip edges.
 export const SEGMENT_MARGIN_FRAC = 0.012;
 
 /** Yields to the event loop so long scans keep the UI responsive. */
@@ -121,7 +130,7 @@ export function makeScanVariants(baseCanvas, kind, labels = null) {
   add('threshold 185', () => ({ canvas: thresholdCanvas(getBordered2x(), 185), transform: borderedTransform(2) }), {
     binarizer: 'FixedThreshold'
   });
-  // Smooth-upscale + unsharp: recovers crisp bar edges on blurry/low-resolution input.
+  // Smooth-upscale + unsharp mask (an edge-sharpening filter): recovers crisp bar edges on blurry input.
   add('sharpen 2x', () => ({ canvas: sharpenCanvas(bordered, 2, 1.0), transform: borderedTransform(2) }));
   if (kind === FORMAT_KIND.datamatrix || kind === FORMAT_KIND.qr) {
     add(
@@ -216,7 +225,7 @@ export function scanDiagnostic(target, decoded, pageNumber, durationMs, extra = 
   };
 }
 
-/** Measures ink density and transition stats for a canvas region. */
+/** Samples ink density and black/white transition rate - the texture signature of barcode-like regions. */
 export function imageStats(canvas, label) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const { width, height } = canvas;
@@ -311,9 +320,10 @@ export function detectVisualBarcodeEvidence(canvas) {
  * Refines a linear hit while the canvas it decoded from is still in hand:
  * 1D result points sit on a single scanline, so the reported box height is
  * unreliable - measure the true bar extent before the box drives outlines,
- * evidence crops and the HRI OCR crop. Then attach the measured bar count
- * (encodation evidence, e.g. the compressed StarTrack freight barcode always
- * has 61 bars) using the corrected box.
+ * evidence crops and the OCR crop for the HRI (the human-readable digits
+ * printed beside a barcode). Then attach the measured bar count (encodation
+ * evidence, e.g. the compressed StarTrack freight barcode always has 61 bars)
+ * using the corrected box.
  */
 function refineLinearHit(hit, canvas) {
   let out = hit;
@@ -424,9 +434,10 @@ export async function detectOnCanvas(canvas, detector, pageNumber = 1, onDebug =
   const targets = buildCategorizedScanTargets(canvas, labelFamily);
 
   // The full-page safety scan now always runs (never skipped): a barcode that a
-  // targeted per-role crop misses - like an ATL that reads from the whole label but
-  // not its tight crop - must still be captured, so value capture never depends on
-  // crop alignment. Each target's own variants already include a sharpen+upscale pass.
+  // targeted per-role crop misses - like an ATL (Authority To Leave) barcode that
+  // reads from the whole label but not its tight crop - must still be captured, so
+  // value capture never depends on crop alignment. Each target's own variants
+  // already include a sharpen+upscale pass.
   for (const target of targets) {
     const scanStart = performance.now();
     const decoded = await scanTargetWithAllEngines(target, detector, pageNumber);
@@ -507,10 +518,10 @@ export async function normalizeCanvasOrientation(canvas, mark = null, contextLab
  * pass cannot see. The residual angle comes from decoded symbol orientation when
  * available (verified by re-probing a rotated downscale, so the decoder's angle
  * sign convention is never assumed); when nothing decoded, a projection-profile
- * estimate on the luminance sample covers scans too degraded to read yet - the
- * exact case where straightening most helps the retry and the OCR. Residuals
- * mod 90 are invariant under the quarter-turn fix, so the original probe
- * symbols stay valid here.
+ * estimate on the luminance (pixel brightness) sample covers scans too degraded
+ * to read yet - the exact case where straightening most helps the retry and the
+ * OCR. Residuals mod 90 are invariant under the quarter-turn fix, so the
+ * original probe symbols stay valid here.
  */
 export async function fineDeskewCanvas(canvas, symbols = [], mark = null, contextLabel = 'input') {
   const start = performance.now();

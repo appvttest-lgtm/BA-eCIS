@@ -52,6 +52,7 @@ const mimeTypes = new Map([
   ['.txt', 'text/plain; charset=utf-8']
 ]);
 
+/** Sends a short in-memory response; every response, errors included, carries the security headers. */
 function send(res, statusCode, body, contentType = 'text/plain; charset=utf-8') {
   res.writeHead(statusCode, {
     'Content-Type': contentType,
@@ -61,6 +62,7 @@ function send(res, statusCode, body, contentType = 'text/plain; charset=utf-8') 
   res.end(body);
 }
 
+/** Streams a file to the client. HTML is never cached so a rebuilt app shows on reload; assets cache 1h. */
 function serveFile(res, filePath, stat) {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = mimeTypes.get(ext) || 'application/octet-stream';

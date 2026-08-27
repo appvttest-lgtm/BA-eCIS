@@ -3,8 +3,8 @@
 // Layout: page 1 = header, verdict, quality gauge and the full label image with
 // any overall findings; then one page per barcode - evidence crop on the left,
 // the colourised raw value on the right, and a field table beneath (field,
-// requirement, obligation, length, value, status), reusing the exact same
-// segment and field-spec data the on-screen breakdown validates with.
+// obligation, length, value, status), reusing the exact same segment and
+// field-spec data the on-screen breakdown validates with.
 import React from 'react';
 import { getAuditSections } from './sections.jsx';
 import { InputQualityGauge, SegmentedCode, SEG_PALETTE } from './common.jsx';
@@ -41,6 +41,7 @@ export function printAuditReport(articleNumber) {
 
 const isIssue = v => v.status === 'fail' || v.status === 'warning' || v.status === 'manual_review';
 
+/** Worst status across a section's checks: any fail => FAIL, any warning/review => REVIEW, else PASS. */
 function sectionTone(items = []) {
   if (items.some(v => v.status === 'fail')) return 'fail';
   if (items.some(isIssue)) return 'review';
@@ -138,6 +139,7 @@ function fieldRows(segments, kind) {
   });
 }
 
+/** One line per warning/fail/manual-review finding; renders nothing when the section is clean. */
 function IssueLines({ items }) {
   const issues = items.filter(isIssue);
   if (!issues.length) return null;
@@ -154,6 +156,11 @@ function IssueLines({ items }) {
   );
 }
 
+/**
+ * One printed page per barcode role: evidence crop and colourised raw value side by
+ * side, field table beneath. Only the first decode of the role is detailed; kinds
+ * with no field specs fall back to a plain segment table (no obligation/status).
+ */
 function PrintBarcodeSection({ group, items }) {
   const barcode = group.barcodes[0] || null;
   const segments = barcode ? rawSegments(barcode.rawValue, group.kind) : [];
@@ -314,6 +321,8 @@ export function PrintReport(props) {
   );
 }
 
+/** Assembles the document: page-1 head and overview, then a section per barcode role.
+ *  Roles with nothing decoded AND no findings are omitted rather than printed empty. */
 function PrintReportBody({ appTitle, header, audit, specLine }) {
   const sections = getAuditSections(audit);
   const groups = barcodeGroups(audit).filter(g => g.barcodes.length || (sections[g.key] || []).some(isIssue));
@@ -328,7 +337,9 @@ function PrintReportBody({ appTitle, header, audit, specLine }) {
     <div className="print-only print-report">
       <PrintReportHead appTitle={appTitle} header={header} audit={audit} specLine={specLine} />
       <section className="pr-overview">
-        {labelPreview ? <img className="pr-label-img" src={labelPreview} alt="Full label with barcode outlines" /> : null}
+        {labelPreview ? (
+          <img className="pr-label-img" src={labelPreview} alt="Full label with barcode outlines" />
+        ) : null}
         <IssueLines items={overviewItems} />
       </section>
       {groups.map(group => (

@@ -1,4 +1,5 @@
-// Specification standard / example text for the StarTrack validation ids.
+// Specification standard / example text per StarTrack validation id, shown in the report
+// beneath each rule row (looked up via src/report/standards.js).
 export const STARTRACK_STANDARD_EXAMPLES = {
   ST_LABEL_SIZE:
     'StarTrack despatch labels are normally 100mm x 150mm. Optional extended despatch labels may be 100mm x 200mm. Controlled Returns/Transfer labels may be 150mm x 100mm. The audit allows tolerance for PDF rounding.',

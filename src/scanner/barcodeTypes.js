@@ -15,6 +15,7 @@ export const LOCATION_QUALITY = {
   none: 'decoded-no-page-box'
 };
 
+/** Orders LOCATION_QUALITY values numerically so callers can compare evidence strength. */
 export function locationQualityRank(quality) {
   if (quality === LOCATION_QUALITY.decoded) return 2;
   if (quality === LOCATION_QUALITY.mapped) return 1;
@@ -35,7 +36,11 @@ export function bestLocatedBarcode(barcodes = []) {
   return best;
 }
 
-/** True when a decoded barcode entry is a DataMatrix symbol. */
+/**
+ * True when a decoded barcode entry is a DataMatrix symbol. Matches the reported format,
+ * or GS1 AIs (Application Identifiers, the numeric prefixes that name a field) 420/8008
+ * in the payload, so a read whose decoder omitted the format still classifies correctly.
+ */
 export function isDataMatrixBarcode(barcode) {
   const fmt = String(barcode?.format || barcode?.symbology || '').toLowerCase();
   const raw = String(barcode?.rawValue || '');
