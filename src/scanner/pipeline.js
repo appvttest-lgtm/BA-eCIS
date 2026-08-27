@@ -3,7 +3,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { readBarcodes as readWasmBarcodes } from 'zxing-wasm/reader';
-import { mergeExtractedText, recognizeCanvasText, recognizeBarcodeCropText } from '../ocrText.js';
+import { mergeExtractedText, recognizeCanvasText, recognizeBarcodeCropText, appAssetUrl } from '../ocrText.js';
 import { isUprightOrientation, pickRotationCandidates, findLabelRegions } from '../preprocess.js';
 import { FORMAT_KIND } from './barcodeTypes.js';
 import { debugWarn } from './debugLog.js';
@@ -29,6 +29,7 @@ import {
   assessLabelQuality
 } from './inputPrep.js';
 import { dedupeBarcodes, detectWithBrowserBarcodeDetector, zxingDecodeCanvas, wasmDecodeCanvas } from './decoders.js';
+import { pdfWatchdog } from './pdfWatchdog.js';
 import { createLabelImages } from './labelImages.js';
 import {
   buildCategorizedScanTargets,
@@ -628,7 +629,11 @@ async function scannedPageNativeScale(page, viewport72) {
   if (aspectRatio < 0.7 || aspectRatio > 1.4) return null;
   let scale = best.width / viewport72.width;
   if (!Number.isFinite(scale) || scale < NATIVE_RENDER_MIN_SCALE) return null;
-  scale = Math.min(scale, NATIVE_RENDER_MAX_SCALE, Math.sqrt(MAX_IMAGE_PIXELS / (viewport72.width * viewport72.height)));
+  scale = Math.min(
+    scale,
+    NATIVE_RENDER_MAX_SCALE,
+    Math.sqrt(MAX_IMAGE_PIXELS / (viewport72.width * viewport72.height))
+  );
   return { scale, imageWidth: best.width, imageHeight: best.height };
 }
 
@@ -795,7 +800,17 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
   const documentStart = performance.now();
   // isEvalSupported: false blocks the font/PostScript eval path inside pdf.js
   // (CVE-2024-4367 class) - uploaded PDFs are untrusted input.
-  const pdf = await pdfjsLib.getDocument({ data, isEvalSupported: false }).promise;
+  // standardFontDataUrl points at the bundled copy of pdf.js's standard 14 fonts
+  // (public/standard_fonts/, synced by scripts/sync-pdf-assets.mjs) so labels
+  // using unembedded fonts never depend on an external font fetch.
+  const pdf = await pdfWatchdog(
+    pdfjsLib.getDocument({
+      data,
+      isEvalSupported: false,
+      standardFontDataUrl: appAssetUrl('standard_fonts/')
+    }).promise,
+    `opening ${file.name}`
+  );
   if (pdf.numPages > MAX_PDF_PAGES) {
     throw new Error(`PDF ${file.name} has ${pdf.numPages} pages; the safe limit is ${MAX_PDF_PAGES} pages per file.`);
   }
@@ -806,7 +821,7 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
     const pageStart = performance.now();
     mark(`Started page ${pageNumber} of ${pdf.numPages}`, pageStart);
     const getPageStart = performance.now();
-    const page = await pdf.getPage(pageNumber);
+    const page = await pdfWatchdog(pdf.getPage(pageNumber), `loading page ${pageNumber} of ${file.name}`);
     mark(`Loaded PDF page ${pageNumber}`, getPageStart);
     const viewport72 = page.getViewport({ scale: 1 });
     const pageMm = {
@@ -815,7 +830,12 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
     };
 
     const textStart = performance.now();
-    const textContent = await page.getTextContent().catch(() => ({ items: [] }));
+    // The inner catch keeps a malformed text layer non-fatal; a watchdog timeout
+    // still propagates, because a hung worker would hang every later call too.
+    const textContent = await pdfWatchdog(
+      page.getTextContent().catch(() => ({ items: [] })),
+      `extracting text from page ${pageNumber} of ${file.name}`
+    );
     const pageLines = textContentItemsToLines(textContent.items || []);
     mark(
       `Extracted text from page ${pageNumber} (${pageLines.length} line${pageLines.length === 1 ? '' : 's'})`,
@@ -842,7 +862,8 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
     renderCanvas.height = Math.floor(viewport.height);
     const ctx = renderCanvas.getContext('2d', { willReadFrequently: true });
     const renderStart = performance.now();
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    const renderTask = page.render({ canvasContext: ctx, viewport });
+    await pdfWatchdog(renderTask.promise, `rendering page ${pageNumber} of ${file.name}`, () => renderTask.cancel());
     mark(`Rendered page ${pageNumber} to canvas (${renderCanvas.width}x${renderCanvas.height}px)`, renderStart);
     await yieldToBrowser();
     // First step: normalize input quality. High-DPI vector renders are already

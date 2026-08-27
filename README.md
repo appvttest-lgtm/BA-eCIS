@@ -145,6 +145,8 @@ src/                  The app itself
     canvasUtils.js    Shared canvas and geometry helpers
     barcodeTypes.js   Shared names for barcode kinds
     debugLog.js       Extra logging, off unless you opt in (localStorage 'ba-debug')
+    pdfWatchdog.js    30s timeout around every pdf.js call so a dead PDF worker
+                      surfaces as an error instead of a silent hang
 
 tests/                Node test suite (npm test): rule evaluator, barcode parsers,
                       preprocessing, scan planning, field specs, and a rules catalogue lint
@@ -154,8 +156,10 @@ tests/                Node test suite (npm test): rule evaluator, barcode parser
 scripts/              Build tooling
   build-portable.mjs      Rebuilds portable/ from dist/ (the pre-commit hook runs this)
   sync-ocr-assets.mjs     Re-copies OCR runtime files from node_modules after an upgrade
+  sync-pdf-assets.mjs     Re-copies pdf.js standard fonts from node_modules after an upgrade
 
-public/               OCR runtime files bundled into the build (tesseract worker, WASM, language data)
+public/               OCR runtime files bundled into the build (tesseract worker, WASM, language
+                      data) plus pdf.js's standard 14 fallback fonts (standard_fonts/)
 dist/                 The built app — committed on purpose, see note below
 portable/             Ready-to-run copy: dist/ + server.mjs + a README (rebuilt on every commit)
 share/README.md       End-user "run it with Node" guide, bundled into portable/
@@ -182,6 +186,7 @@ npm run build        # build dist/ (commit it together with the source change)
 npm start            # serve the built app on 127.0.0.1:3000
 npm run build:portable   # rebuild portable/ from dist/
 npm run sync:ocr     # re-copy OCR runtime files after a tesseract.js upgrade
+npm run sync:pdf     # re-copy pdf.js standard fonts after a pdfjs-dist upgrade
 npm test             # Node test suite: evaluator, parsers, preprocessing, rules lint
 npm run lint         # ESLint over the whole repo
 npm run format       # Prettier --write (format:check verifies without writing)

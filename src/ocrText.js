@@ -39,7 +39,7 @@ let createOcrWorkerPromise = null;
 // transform, which returns undefined for public/ paths and breaks the OCR worker.
 const BUNDLE_URL = import.meta.url;
 
-function appAssetUrl(path) {
+export function appAssetUrl(path) {
   return new URL(`../${path}`, BUNDLE_URL).href;
 }
 
@@ -234,7 +234,10 @@ export function splitLineIntoRuns(words, gapThreshold) {
  * blocks pass through unchanged. Pure; exported for tests.
  */
 export function groupBlockLinesIntoColumnText(lines) {
-  const heights = lines.map(l => l.height).filter(h => h > 0).sort((a, b) => a - b);
+  const heights = lines
+    .map(l => l.height)
+    .filter(h => h > 0)
+    .sort((a, b) => a - b);
   const medianHeight = heights.length ? heights[Math.floor(heights.length / 2)] : 24;
   const gapThreshold = Math.max(30, medianHeight * 2.4);
   const lineRuns = lines.map(line => splitLineIntoRuns(line.words, gapThreshold));
