@@ -28,8 +28,16 @@ const CROP_OCR_MIN_USEFUL_CHARS = 6;
 let ocrWorkerPromise = null;
 let createOcrWorkerPromise = null;
 
+// Resolve OCR assets against this bundle's own URL (dist/assets/ -> one level up)
+// rather than the page URL, so they load from any host sub-path even when the page
+// URL lacks a trailing slash. In dev this module lives at /src/, so ../ is the root
+// too. The indirection through BUNDLE_URL is load-bearing: writing
+// `new URL(dynamic, import.meta.url)` inline triggers Vite's build-time asset-map
+// transform, which returns undefined for public/ paths and breaks the OCR worker.
+const BUNDLE_URL = import.meta.url;
+
 function appAssetUrl(path) {
-  return new URL(path, window.location.href).href;
+  return new URL(`../${path}`, BUNDLE_URL).href;
 }
 
 async function getOcrWorker() {

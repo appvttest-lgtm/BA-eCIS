@@ -80,8 +80,10 @@ const SERVICE_REFERENCE_ROWS = [
     .map(code => buildServiceReferenceRow(code, inferredServiceTicks(SERVICE_CODE_MAP[code] || {})))
 ];
 
+// A tick rather than the printed matrix's bare "X": non-technical readers misread
+// "X" as "not allowed", and screen readers announce "✓" as a check mark.
 function xMark(value) {
-  return value ? 'X' : '';
+  return value ? '✓' : '';
 }
 
 function servicePayloadText(row) {
@@ -101,15 +103,15 @@ export function ServiceCodeMatrix({ audit }) {
         <table className="service-matrix-table">
           <thead>
             <tr>
-              <th>Service Code</th>
-              <th>Safe Drop</th>
-              <th>Signature on Delivery required</th>
-              <th>Authority To Leave (ATL)</th>
-              <th>Partial delivery allowed</th>
-              <th>No signature allowed</th>
-              <th>API payload / manifest flags</th>
-              <th>Product Code</th>
-              <th>Product Name</th>
+              <th scope="col">Service Code</th>
+              <th scope="col">Safe Drop</th>
+              <th scope="col">Signature on Delivery required</th>
+              <th scope="col">Authority To Leave (ATL)</th>
+              <th scope="col">Partial delivery allowed</th>
+              <th scope="col">No signature allowed</th>
+              <th scope="col">API payload / manifest flags</th>
+              <th scope="col">Product Code</th>
+              <th scope="col">Product Name</th>
             </tr>
           </thead>
           <tbody>

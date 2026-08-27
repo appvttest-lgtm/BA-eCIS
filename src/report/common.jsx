@@ -1,7 +1,7 @@
 // Generic report components shared by every carrier: section chrome, rail
 // navigation, image evidence, field lines, copy buttons, and the colour-
 // segmented barcode renderer.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { RuleReport, StatusIcon } from './reportView.jsx';
 import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from '../scanner/barcodeTypes.js';
 import { isStarTrackAtlValue, isStarTrackFreightItemValue, isStarTrackRoutingValue } from '../scanner/labelImages.js';
@@ -211,10 +211,14 @@ export function RailNav({ audit, sections }) {
       <nav className="rail-nav" aria-label="Report sections">
         {nav.map(([id, label, items]) => {
           const tone = sectionTone(items);
+          // The dot is colour-only; screen readers get the status as text (WCAG 1.4.1).
+          const toneText =
+            tone === 'fail' ? 'has failures' : tone === 'review' ? 'needs review' : tone === 'pass' ? 'passed' : '';
           return (
             <a key={id} href={`#${id}`} className={`rail-nav-item rail-${tone}`}>
               <span className="nav-dot" aria-hidden="true" />
               <span className="rail-nav-label">{label}</span>
+              {toneText && <span className="sr-only">, {toneText}</span>}
             </a>
           );
         })}
@@ -243,7 +247,47 @@ export function RailNav({ audit, sections }) {
   );
 }
 
+/** Focus management for aria-modal dialogs: moves focus in on open, keeps Tab inside,
+ *  and returns focus to the opening control on close (WCAG 2.4.3). */
+export function useDialogFocus(active) {
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    if (!active) return undefined;
+    const dialog = dialogRef.current;
+    if (!dialog) return undefined;
+    const opener = document.activeElement;
+    const selector =
+      'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+    const focusables = () => [...dialog.querySelectorAll(selector)];
+    (focusables()[0] || dialog).focus();
+    const onKeyDown = event => {
+      if (event.key !== 'Tab') return;
+      const list = focusables();
+      if (!list.length) {
+        event.preventDefault();
+        return;
+      }
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    dialog.addEventListener('keydown', onKeyDown);
+    return () => {
+      dialog.removeEventListener('keydown', onKeyDown);
+      if (opener && typeof opener.focus === 'function') opener.focus();
+    };
+  }, [active]);
+  return dialogRef;
+}
+
 export function ImageZoomModal({ image, onClose }) {
+  const dialogRef = useDialogFocus(Boolean(image));
   useEffect(() => {
     if (!image) return undefined;
     const handleKeyDown = event => {
@@ -261,6 +305,8 @@ export function ImageZoomModal({ image, onClose }) {
       aria-modal="true"
       aria-label={image.alt || 'Full label image'}
       onClick={onClose}
+      ref={dialogRef}
+      tabIndex={-1}
     >
       <button className="image-zoom-close" type="button" onClick={onClose} aria-label="Close full screen label image">
         Close

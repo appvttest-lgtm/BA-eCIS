@@ -138,75 +138,75 @@ function RuleRow({ v, standardFor }) {
           {open ? '▴' : '▾'}
         </span>
       </button>
-      {open && (
-        <div className="rule-row-body">
-          <div className="rule-panes">
-            <div className="rule-pane">
-              <p className="rule-pane-title">Input data</p>
-              {v.input?.path && (
-                <p className="rule-kv">
-                  <span className="rule-kv-label">Source</span>
-                  <code>{v.input.path}</code>
-                  <ProvenanceBadge path={v.input.path} />
-                </p>
-              )}
-              {inputValue && <pre className="rule-input-value">{inputValue}</pre>}
-              {(v.input?.evidence || []).map(e => (
-                <div key={e.path} className="rule-kv-block">
-                  <span className="rule-kv-label">
-                    <code>{e.path}</code>
-                    <ProvenanceBadge path={e.path} />
-                  </span>
-                  <pre>{formatInputValue(e.value)}</pre>
-                </div>
-              ))}
-              {!inputValue && !(v.input?.evidence || []).length && !v.evidence && (
-                <p className="muted small">No input data was captured for this rule.</p>
-              )}
-              {v.evidence && (
-                <details className="rule-evidence">
-                  <summary>Evidence</summary>
-                  <pre>{v.evidence}</pre>
-                </details>
-              )}
-            </div>
-            <div className="rule-pane">
-              <p className="rule-pane-title">Validation rule</p>
-              {description && <p className="rule-description">{description}</p>}
-              {sourceText && <p className="rule-source">{sourceText}</p>}
-              {logic && (
-                <button type="button" className="rule-logic-toggle" onClick={() => setShowLogic(s => !s)}>
-                  {showLogic ? 'Hide rule logic' : 'View rule logic'}
-                </button>
-              )}
-              {logic && showLogic && <pre className="rule-logic">{JSON.stringify(logic, null, 2)}</pre>}
-            </div>
-            <div className="rule-pane">
-              <p className="rule-pane-title">Outcome</p>
-              {isIssue(v) ? (
-                <p>
-                  <RuleStatusBadge status={v.status} />
-                </p>
-              ) : (
-                <p className="rule-outcome-quiet">{v.status === 'pass' ? 'Passed' : 'Not applicable'}</p>
-              )}
-              {v.expected && (
-                <p className="rule-kv">
-                  <span className="rule-kv-label">Expected</span>
-                  <code>{v.expected}</code>
-                </p>
-              )}
-              {v.actual && (
-                <p className="rule-kv">
-                  <span className="rule-kv-label">Actual</span>
-                  <code>{v.actual}</code>
-                </p>
-              )}
-              <p className="rule-message">{v.message}</p>
-            </div>
+      {/* Rendered hidden rather than conditionally, so the print stylesheet can force
+          every row's detail panes open for the exported report. */}
+      <div className="rule-row-body" hidden={!open}>
+        <div className="rule-panes">
+          <div className="rule-pane">
+            <p className="rule-pane-title">Input data</p>
+            {v.input?.path && (
+              <p className="rule-kv">
+                <span className="rule-kv-label">Source</span>
+                <code>{v.input.path}</code>
+                <ProvenanceBadge path={v.input.path} />
+              </p>
+            )}
+            {inputValue && <pre className="rule-input-value">{inputValue}</pre>}
+            {(v.input?.evidence || []).map(e => (
+              <div key={e.path} className="rule-kv-block">
+                <span className="rule-kv-label">
+                  <code>{e.path}</code>
+                  <ProvenanceBadge path={e.path} />
+                </span>
+                <pre>{formatInputValue(e.value)}</pre>
+              </div>
+            ))}
+            {!inputValue && !(v.input?.evidence || []).length && !v.evidence && (
+              <p className="muted small">No input data was captured for this rule.</p>
+            )}
+            {v.evidence && (
+              <details className="rule-evidence">
+                <summary>Evidence</summary>
+                <pre>{v.evidence}</pre>
+              </details>
+            )}
+          </div>
+          <div className="rule-pane">
+            <p className="rule-pane-title">Validation rule</p>
+            {description && <p className="rule-description">{description}</p>}
+            {sourceText && <p className="rule-source">{sourceText}</p>}
+            {logic && (
+              <button type="button" className="rule-logic-toggle" onClick={() => setShowLogic(s => !s)}>
+                {showLogic ? 'Hide rule logic' : 'View rule logic'}
+              </button>
+            )}
+            {logic && showLogic && <pre className="rule-logic">{JSON.stringify(logic, null, 2)}</pre>}
+          </div>
+          <div className="rule-pane">
+            <p className="rule-pane-title">Outcome</p>
+            {isIssue(v) ? (
+              <p>
+                <RuleStatusBadge status={v.status} />
+              </p>
+            ) : (
+              <p className="rule-outcome-quiet">{v.status === 'pass' ? 'Passed' : 'Not applicable'}</p>
+            )}
+            {v.expected && (
+              <p className="rule-kv">
+                <span className="rule-kv-label">Expected</span>
+                <code>{v.expected}</code>
+              </p>
+            )}
+            {v.actual && (
+              <p className="rule-kv">
+                <span className="rule-kv-label">Actual</span>
+                <code>{v.actual}</code>
+              </p>
+            )}
+            <p className="rule-message">{v.message}</p>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

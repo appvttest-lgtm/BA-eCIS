@@ -13,7 +13,8 @@ import {
   SectionTitle,
   TextContentSection,
   formatBytes,
-  formatDurationMs
+  formatDurationMs,
+  useDialogFocus
 } from './report/common.jsx';
 import { ServiceArticleBreakdownSection, getAuditSections } from './report/sections.jsx';
 import { DataMatrixSection, LinearBarcodeSection } from './carriers/eparcel/sections.jsx';
@@ -53,6 +54,8 @@ const INITIAL_WORKFLOW = {
   scanDebugLines: [],
   // Short status/error text shown above the timing log and report.
   message: '',
+  // 'info' for status notes, 'error' for failures (red styling + role=alert).
+  messageTone: 'info',
   // Raw rendered label data is kept so payload comparison can be refreshed without
   // rescanning PDFs/images.
   scanDatas: [],
@@ -66,7 +69,7 @@ const INITIAL_WORKFLOW = {
 function workflowReducer(state, action) {
   switch (action.type) {
     case 'message':
-      return { ...state, message: action.message };
+      return { ...state, message: action.message, messageTone: action.tone || 'info' };
     case 'debug':
       return { ...state, scanDebugLines: [action.line, ...state.scanDebugLines].slice(0, MAX_SCAN_DEBUG_LINES) };
     case 'batch-start':
@@ -111,8 +114,8 @@ function App() {
   // Closing it preserves the current report; a new upload replaces the report.
   const [showUploader, setShowUploader] = useState(false);
 
-  const { processing, scanDebugLines, message, scanDatas, audits, activeIndex } = workflow;
-  const setMessage = text => dispatch({ type: 'message', message: text });
+  const { processing, scanDebugLines, message, messageTone, scanDatas, audits, activeIndex } = workflow;
+  const setMessage = (text, tone = 'info') => dispatch({ type: 'message', message: text, tone });
   // The upload box stays hidden until both audit-mode choices are made.
   const auditModeReady = Boolean(selectedCarrier && selectedLabelFormat);
 
@@ -121,6 +124,8 @@ function App() {
   const batchSummary = useMemo(() => combinedAuditSummary(audits), [audits]);
   const sections = useMemo(() => (activeAudit ? getAuditSections(activeAudit) : null), [activeAudit]);
   const hasReport = audits.length > 0;
+  // Focus management for the upload dialog (shown on first load and via "New audit").
+  const uploaderDialogRef = useDialogFocus(!processing && (showUploader || !hasReport));
 
   useEffect(() => {
     if (!showUploader) return undefined;
@@ -169,11 +174,11 @@ function App() {
         : [])
     ];
     if (!selected.length) {
-      setMessage(limitMessages[0] || 'No supported PDF or image files were selected.');
+      setMessage(limitMessages[0] || 'No supported PDF or image files were selected.', 'error');
       return;
     }
     if (limitMessages.length) {
-      setMessage(limitMessages.join(' '));
+      setMessage(limitMessages.join(' '), 'error');
     }
     await auditSelectedFiles(selected, { carrier: selectedCarrier, labelFormat: selectedLabelFormat });
   }
@@ -270,7 +275,7 @@ function App() {
     } catch (error) {
       console.error(error);
       appendScanDebug(`Stopped with error: ${error.message || String(error)}`);
-      setMessage(`Error: ${error.message || String(error)}`);
+      setMessage(`Error: ${error.message || String(error)}`, 'error');
     } finally {
       dispatch({ type: 'processing-finished' });
     }
@@ -359,6 +364,8 @@ function App() {
 
   return (
     <main className="app">
+      {/* Document heading for assistive tech; the visual brand is the rail logo. */}
+      <h1 className="sr-only">{APP_TITLE}</h1>
       {/* The app is intentionally local-only: static assets and all label data stay in the browser session. */}
       {/* The report shell is the permanent backdrop: before any audit it renders as an
           empty skeleton with the upload panel hovering over it. */}
@@ -403,7 +410,9 @@ function App() {
               </div>
             )}
             {audits.length > 1 && (
-              <div className="rail-files" role="tablist" aria-label="Uploaded labels">
+              // Plain buttons rather than a tablist: these switch the report, they are not
+              // ARIA tabs (no tab panels, no arrow-key model). aria-current marks the active one.
+              <div className="rail-files" role="group" aria-label="Uploaded labels">
                 <span className="rail-block-title">Labels ({audits.length})</span>
                 {audits.map((item, idx) => {
                   const h = auditDisplayHeader(item, idx);
@@ -413,14 +422,16 @@ function App() {
                     <button
                       key={`${h.articleNumber}-${idx}`}
                       type="button"
-                      role="tab"
-                      aria-selected={idx === activeIndex}
+                      aria-current={idx === activeIndex ? 'true' : undefined}
                       className={`rail-file rail-${tone === 'pass' ? 'pass' : tone === 'fail' ? 'fail' : 'review'} ${idx === activeIndex ? 'active' : ''}`}
                       onClick={() => dispatch({ type: 'set-active', index: idx })}
                     >
                       <span className="rail-file-head">
                         <span className="nav-dot" aria-hidden="true" />
                         <code className="rail-file-article">{h.articleNumber}</code>
+                        <span className="sr-only">
+                          , {tone === 'pass' ? 'passed' : tone === 'fail' ? 'failed' : 'needs review'}
+                        </span>
                       </span>
                       <span className="rail-file-sub">
                         {consignment ? `Consignment ${consignment}` : 'Consignment not detected'}
@@ -462,7 +473,11 @@ function App() {
             </section>
           )}
           {!processing && message && (
-            <section className="message" aria-live="polite">
+            <section
+              className={`message${messageTone === 'error' ? ' message--error' : ''}`}
+              role={messageTone === 'error' ? 'alert' : undefined}
+              aria-live={messageTone === 'error' ? undefined : 'polite'}
+            >
               {message}
             </section>
           )}
@@ -490,8 +505,28 @@ function App() {
             sections &&
             (() => {
               const h = auditDisplayHeader(activeAudit, activeIndex);
+              const spec = activeAudit.ruleSet?.spec;
+              const specLine = spec?.doc
+                ? `${spec.doc}${spec.date ? ` (${spec.date})` : ''}`
+                : activeAudit.ruleSet?.name || 'carrier defaults';
               return (
                 <section className="single-audit-view" key={`${h.articleNumber}-${activeIndex}`}>
+                  {/* Printed-report header: identifies the label, verdict and spec version on paper. */}
+                  <div className="print-only print-report-head">
+                    <strong>{APP_TITLE}</strong>
+                    <span>
+                      Barcode audit report — {h.articleNumber} · {h.displayFile || h.filename}
+                    </span>
+                    <span>
+                      Result: {activeAudit.summary?.overallStatus} — {activeAudit.summary?.passed} passed ·{' '}
+                      {activeAudit.summary?.manualReview} review · {activeAudit.summary?.failed} fail
+                      {activeAudit.summary?.failed === 1 ? '' : 's'}
+                    </span>
+                    <span>
+                      Automated digital check against {specLine}. Does not replace carrier certification or physical
+                      barcode grading. Text analysis is not included in this printed report.
+                    </span>
+                  </div>
                   <section className="card compact-card selected-label-header">
                     <button
                       type="button"
@@ -527,6 +562,14 @@ function App() {
                         label="Copy every decoded barcode value, one per line"
                         text="Copy all label data"
                       />
+                      <button
+                        type="button"
+                        className="copy-btn copy-btn-labeled print-report-btn"
+                        onClick={() => window.print()}
+                        title="Print this label's barcode findings, or choose 'Save as PDF' in the print dialog"
+                      >
+                        Print / Save PDF
+                      </button>
                     </div>
                     <div className="selected-label-meta">
                       <span>
@@ -635,7 +678,7 @@ function App() {
             if (hasReport) setShowUploader(false);
           }}
         >
-          <div className="uploader-modal" onClick={e => e.stopPropagation()}>
+          <div className="uploader-modal" onClick={e => e.stopPropagation()} ref={uploaderDialogRef} tabIndex={-1}>
             <div className="uploader-modal-head">
               <h2>{hasReport ? 'New audit' : APP_TITLE}</h2>
               {hasReport && (
