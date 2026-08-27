@@ -377,6 +377,80 @@ export function FullLabelImageSection({ audit, items, onZoomLabel }) {
     </section>
   );
 }
+const QUALITY_ADVICE = {
+  sharpness: 'Blurry input limits barcode decode and OCR accuracy. Rescan flat at 300 DPI, or hold the camera steady and closer.',
+  resolution: 'Low input resolution limits what the audit can read. Rescan or export at 300 DPI or higher.',
+  contrast: 'Faded print or a washed-out scan. Reprint the label or rescan with normal brightness settings.',
+  ocr: 'The OCR engine had low confidence in the visible text; text-based checks may be incomplete.'
+};
+
+function QualityChip({ label, value, rating, advice }) {
+  const cls = rating ? `q-${rating}` : 'q-info';
+  const title = rating === 'poor' || rating === 'fair' ? advice : undefined;
+  return (
+    <span className={`q-chip ${cls}`} title={title}>
+      <span className="q-chip-k">{label}</span> {value}
+    </span>
+  );
+}
+
+/**
+ * Input-quality gauge shown at the top of each label's results: sharpness,
+ * effective resolution (true DPI when the document declares physical size,
+ * otherwise pixels per barcode module measured off the decoded symbol), tonal
+ * contrast and OCR confidence, each rated good/fair/poor. Poor input is the most
+ * common cause of weak audit results, so it is called out before the findings.
+ */
+export function InputQualityGauge({ fileInfo }) {
+  const q = fileInfo?.quality;
+  if (!q) return null;
+  const ocr = fileInfo?.ocr;
+  const sharpnessWord = { good: 'crisp', fair: 'soft', poor: 'blurry' };
+  const chips = [];
+  if (q.sharpness) {
+    chips.push({ label: 'Sharpness', value: sharpnessWord[q.sharpness.rating] || '—', rating: q.sharpness.rating, advice: QUALITY_ADVICE.sharpness });
+  }
+  if (q.resolution) {
+    chips.push({
+      label: 'Resolution',
+      value: q.resolution.kind === 'dpi' ? `~${q.resolution.value} DPI` : `${q.resolution.value} px/module`,
+      rating: q.resolution.rating,
+      advice: QUALITY_ADVICE.resolution
+    });
+  }
+  if (q.contrast) {
+    chips.push({
+      label: 'Contrast',
+      value: q.contrast.rating === 'good' ? 'full' : q.contrast.rating === 'fair' ? 'reduced' : 'faded',
+      rating: q.contrast.rating,
+      advice: QUALITY_ADVICE.contrast
+    });
+  }
+  if (Number.isFinite(ocr?.confidence)) {
+    const rating = ocr.confidence >= 80 ? 'good' : ocr.confidence >= 60 ? 'fair' : 'poor';
+    chips.push({ label: 'OCR confidence', value: `${ocr.confidence}%`, rating, advice: QUALITY_ADVICE.ocr });
+  }
+  if (!chips.length && !q.deskewDegrees) return null;
+  return (
+    <div className="input-quality-gauge" aria-label="Input quality assessment">
+      <span className={`iq-overall q-${q.overall || 'info'}`}>Input quality</span>
+      {chips.map(chip => (
+        <QualityChip key={chip.label} {...chip} />
+      ))}
+      {q.deskewDegrees ? (
+        <span className="q-chip q-info" title="The scan was tilted; it was automatically straightened before auditing.">
+          auto-straightened {Math.abs(q.deskewDegrees)}°
+        </span>
+      ) : null}
+      {q.contrastApplied ? (
+        <span className="q-chip q-info" title="A faded scan was contrast-normalized before auditing.">
+          contrast lifted
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 /** Small pass / review / fail key shown above a field breakdown. */
 export function StatusKeyLegend() {
   return (

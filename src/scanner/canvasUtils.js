@@ -152,76 +152,8 @@ export function sharpenCanvas(sourceCanvas, factor = 2, amount = 1.0) {
   return out;
 }
 
-/**
- * Gentle, colour-preserving contrast stretch (2nd-98th luminance percentile),
- * applied in place. Only stretches when the dynamic range is compressed, so a clean
- * full-range scan (or a crisp PDF render) is left untouched. Content is preserved -
- * the remap is monotonic, so bar/space and glyph relationships are never inverted.
- */
-function normalizeCanvasContrast(ctx, width, height) {
-  const image = ctx.getImageData(0, 0, width, height);
-  const data = image.data;
-  const total = width * height;
-  const hist = new Uint32Array(256);
-  for (let i = 0; i < data.length; i += 4) {
-    hist[(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) | 0] += 1;
-  }
-  let lo = 0;
-  let hi = 255;
-  let cum = 0;
-  for (let v = 0; v < 256; v += 1) {
-    cum += hist[v];
-    if (cum >= total * 0.02) {
-      lo = v;
-      break;
-    }
-  }
-  cum = 0;
-  for (let v = 255; v >= 0; v -= 1) {
-    cum += hist[v];
-    if (cum >= total * 0.02) {
-      hi = v;
-      break;
-    }
-  }
-  if (hi <= lo || hi - lo >= 205) return false; // already full-range: leave the input untouched
-  const gain = 255 / (hi - lo);
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = Math.max(0, Math.min(255, (data[i] - lo) * gain));
-    data[i + 1] = Math.max(0, Math.min(255, (data[i + 1] - lo) * gain));
-    data[i + 2] = Math.max(0, Math.min(255, (data[i + 2] - lo) * gain));
-  }
-  ctx.putImageData(image, 0, 0);
-  return true;
-}
-
-/**
- * Upfront, content-preserving quality pass run on every rendered page/image before any
- * decode or OCR, so downstream operations work from the most readable copy possible
- * instead of being limited by the raw file's presentation.
- *
- * It deliberately does NOT resize: smoothly upscaling the shared canvas blurs barcode
- * bars and can drop an otherwise-decodable symbol, while nearest-neighbour upscaling
- * hurts OCR. Resolution is therefore handled per operation - crisp nearest-neighbour
- * variants when decoding, smooth upscale + sharpen when running OCR. The one globally
- * safe lift is a gentle, monotonic contrast stretch that rescues faded/low-contrast
- * scans for both decode and OCR without altering geometry or values.
- *
- * Returns `{ canvas, factor }`; `factor` is always 1 (no resize) and is kept so callers
- * can report the true source resolution unconditionally.
- */
-export function enhanceInputForQuality(canvas) {
-  const out = document.createElement('canvas');
-  out.width = canvas.width;
-  out.height = canvas.height;
-  const ctx = out.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(canvas, 0, 0); // same-size copy: an exact, non-interpolated duplicate
-  const contrastApplied = normalizeCanvasContrast(ctx, out.width, out.height);
-  return { canvas: out, factor: 1, contrastApplied };
-}
-
-/** Returns a copy with a white quiet-zone border added on all sides. */
-export function addWhiteBorder(sourceCanvas, borderRatio = 0.1) {
+/** Returns a copy with a white quiet-zone border added on all sides, plus the border size. */
+export function addWhiteBorderWithInfo(sourceCanvas, borderRatio = 0.1) {
   const border = Math.max(12, Math.round(Math.min(sourceCanvas.width, sourceCanvas.height) * borderRatio));
   const out = document.createElement('canvas');
   out.width = sourceCanvas.width + border * 2;
@@ -230,7 +162,12 @@ export function addWhiteBorder(sourceCanvas, borderRatio = 0.1) {
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, out.width, out.height);
   ctx.drawImage(sourceCanvas, border, border);
-  return out;
+  return { canvas: out, border };
+}
+
+/** Returns a copy with a white quiet-zone border added on all sides. */
+export function addWhiteBorder(sourceCanvas, borderRatio = 0.1) {
+  return addWhiteBorderWithInfo(sourceCanvas, borderRatio).canvas;
 }
 
 // Tuning knobs for content trimming and binarization, shared by scan variants.
@@ -238,8 +175,12 @@ export const TRIM_DARK_PADDING_PX = 14;
 export const TRIM_DARK_INK_THRESHOLD = 205;
 export const BINARY_THRESHOLD_DEFAULT = 150;
 
-/** Crops the canvas to its dark-content bounding box plus padding. */
-export function trimDarkBounds(sourceCanvas, padding = TRIM_DARK_PADDING_PX, threshold = TRIM_DARK_INK_THRESHOLD) {
+/** Crops the canvas to its dark-content bounding box plus padding; reports the crop origin. */
+export function trimDarkBoundsWithOffset(
+  sourceCanvas,
+  padding = TRIM_DARK_PADDING_PX,
+  threshold = TRIM_DARK_INK_THRESHOLD
+) {
   const ctx = sourceCanvas.getContext('2d', { willReadFrequently: true });
   const { width, height } = sourceCanvas;
   const data = ctx.getImageData(0, 0, width, height).data;
@@ -260,16 +201,25 @@ export function trimDarkBounds(sourceCanvas, padding = TRIM_DARK_PADDING_PX, thr
       }
     }
   }
-  if (maxX < minX || maxY < minY) return sourceCanvas;
+  if (maxX < minX || maxY < minY) return { canvas: sourceCanvas, dx: 0, dy: 0 };
   minX = Math.max(0, minX - padding);
   minY = Math.max(0, minY - padding);
   maxX = Math.min(width, maxX + padding);
   maxY = Math.min(height, maxY + padding);
-  return cropCanvas(sourceCanvas, minX, minY, Math.max(1, maxX - minX), Math.max(1, maxY - minY));
+  return {
+    canvas: cropCanvas(sourceCanvas, minX, minY, Math.max(1, maxX - minX), Math.max(1, maxY - minY)),
+    dx: minX,
+    dy: minY
+  };
 }
 
-/** Returns the image centred on a white square canvas (helps 2D decoders). */
-export function squareCanvas(sourceCanvas, paddingRatio = 0.08) {
+/** Crops the canvas to its dark-content bounding box plus padding. */
+export function trimDarkBounds(sourceCanvas, padding = TRIM_DARK_PADDING_PX, threshold = TRIM_DARK_INK_THRESHOLD) {
+  return trimDarkBoundsWithOffset(sourceCanvas, padding, threshold).canvas;
+}
+
+/** Returns the image centred on a white square canvas (helps 2D decoders), plus the placement offset. */
+export function squareCanvasWithInfo(sourceCanvas, paddingRatio = 0.08) {
   const size = Math.max(sourceCanvas.width, sourceCanvas.height);
   const pad = Math.round(size * paddingRatio);
   const out = document.createElement('canvas');
@@ -278,8 +228,15 @@ export function squareCanvas(sourceCanvas, paddingRatio = 0.08) {
   const ctx = out.getContext('2d', { willReadFrequently: true });
   ctx.fillStyle = 'white';
   ctx.fillRect(0, 0, out.width, out.height);
-  ctx.drawImage(sourceCanvas, pad + (size - sourceCanvas.width) / 2, pad + (size - sourceCanvas.height) / 2);
-  return out;
+  const ox = pad + (size - sourceCanvas.width) / 2;
+  const oy = pad + (size - sourceCanvas.height) / 2;
+  ctx.drawImage(sourceCanvas, ox, oy);
+  return { canvas: out, ox, oy };
+}
+
+/** Returns the image centred on a white square canvas (helps 2D decoders). */
+export function squareCanvas(sourceCanvas, paddingRatio = 0.08) {
+  return squareCanvasWithInfo(sourceCanvas, paddingRatio).canvas;
 }
 
 /** Returns a smoothly downscaled copy capped at maxDim on the long edge. */
@@ -364,6 +321,87 @@ export function countLinearBars(canvas, box) {
   counts.sort((a, b) => a - b);
   if (counts[counts.length - 1] - counts[0] > BAR_COUNT_MAX_SPREAD) return null;
   return counts[Math.floor(counts.length / 2)];
+}
+
+/**
+ * Walks outward from a reference row through per-row bar measurements and returns
+ * the contiguous index range whose bar count stays close to the reference count.
+ * `rows` is an array of `{ bars, contrast }`; rows below the contrast floor or
+ * with a diverging bar count end the walk (after a small tolerance of misses,
+ * because HRI digits or noise can interrupt a single sampled row). Pure; exported
+ * for tests.
+ */
+export function extendRowRange(rows, centerIndex, refBars, { minContrast = 50, maxMisses = 2, barTolerance = 4 } = {}) {
+  const qualifies = row =>
+    row && row.contrast >= minContrast && Math.abs(row.bars - refBars) <= Math.max(barTolerance, refBars * 0.15);
+  let start = centerIndex;
+  let misses = 0;
+  for (let i = centerIndex - 1; i >= 0; i -= 1) {
+    if (qualifies(rows[i])) {
+      start = i;
+      misses = 0;
+    } else if (++misses > maxMisses) break;
+  }
+  let end = centerIndex;
+  misses = 0;
+  for (let i = centerIndex + 1; i < rows.length; i += 1) {
+    if (qualifies(rows[i])) {
+      end = i;
+      misses = 0;
+    } else if (++misses > maxMisses) break;
+  }
+  return { start, end };
+}
+
+/**
+ * Measures the true vertical extent of a linear barcode around a (possibly
+ * scanline-thin) decoded box. ZXing reports 1D result points along one scanline,
+ * so the raw box height is unreliable; this walks rows up and down while the
+ * bar pattern persists and returns a corrected `{ y, height }`, or null when the
+ * measurement is not trustworthy. The corrected box drives outlines, evidence
+ * crops and the HRI OCR crop.
+ */
+export function measureLinearBarExtent(canvas, box) {
+  if (!canvas || !box || !(box.width >= 30)) return null;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  const x = Math.max(0, Math.floor(box.x));
+  const width = Math.min(canvas.width - x, Math.ceil(box.width));
+  if (width < 30) return null;
+  const centerY = Math.min(canvas.height - 1, Math.max(0, Math.round(box.y + box.height / 2)));
+  // Search window: covers any spec-height bar block at high render DPI, but hard-capped
+  // so the strip read stays a few MB even for a page-wide symbol on a 4x render.
+  const maxExtent = Math.min(canvas.height, Math.max(60, Math.min(360, Math.round(box.width * 0.6))));
+  const step = 2;
+  const yStart = Math.max(0, centerY - maxExtent);
+  const yEnd = Math.min(canvas.height - 1, centerY + maxExtent);
+  const rowCount = Math.floor((yEnd - yStart) / step) + 1;
+  if (rowCount < 3) return null;
+  const strip = ctx.getImageData(x, yStart, width, yEnd - yStart + 1).data;
+  const rows = new Array(rowCount);
+  for (let r = 0; r < rowCount; r += 1) {
+    const rowOffset = r * step * width * 4;
+    const luminances = new Array(width);
+    let min = 255;
+    let max = 0;
+    for (let i = 0; i < width; i += 1) {
+      const p = rowOffset + i * 4;
+      const value = strip[p] * 0.299 + strip[p + 1] * 0.587 + strip[p + 2] * 0.114;
+      luminances[i] = value;
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+    const contrast = max - min;
+    rows[r] = { contrast, bars: contrast >= 50 ? countBarRuns(luminances, (min + max) / 2) : 0 };
+  }
+  const centerIndex = Math.min(rowCount - 1, Math.max(0, Math.round((centerY - yStart) / step)));
+  const refBars = rows[centerIndex]?.bars || 0;
+  if (refBars < 12) return null;
+  const { start, end } = extendRowRange(rows, centerIndex, refBars);
+  const y = yStart + start * step;
+  const height = (end - start) * step + step;
+  if (height < 8) return null;
+  return { y, height };
 }
 
 /** Encodes the canvas as a bounded-width JPEG/PNG data URL for report embedding. */

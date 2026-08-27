@@ -9,6 +9,7 @@ import {
   CopyButton,
   FullLabelImageSection,
   ImageZoomModal,
+  InputQualityGauge,
   RailNav,
   SectionTitle,
   TextContentSection,
@@ -607,6 +608,9 @@ function App() {
                         <span className="meta-v">{h.displayFile || h.filename}</span>
                       </span>
                     </div>
+                    {/* Input-quality gauge: poor input is the most common cause of weak
+                        audit results, so it is surfaced before any findings. */}
+                    <InputQualityGauge fileInfo={activeAudit.fileInfo} />
                   </section>
 
                   {/* Full label image always leads the report so the reviewer sees the label first. */}

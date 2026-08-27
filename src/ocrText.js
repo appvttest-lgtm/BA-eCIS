@@ -1,3 +1,5 @@
+import { flattenGrayPlane } from './scanner/inputPrep.js';
+
 const OCR_MIN_LONG_EDGE = 1900;
 const OCR_MAX_LONG_EDGE = 3000;
 const OCR_MIN_USEFUL_CHARS = 12;
@@ -18,7 +20,8 @@ const CROP_OCR_PROFILE = {
   maxUpscale: 6,
   sharpenAmount: 1.4,
   lowFrac: 0.01,
-  highFrac: 0.99
+  highFrac: 0.99,
+  flatten: false
 };
 // HRI lines are uppercase alphanumerics (plus GS1 AI parentheses); constraining the
 // engine to that set sharply reduces digit/letter confusions on barcode crops.
@@ -56,7 +59,9 @@ async function getOcrWorker() {
         })
       )
       .then(async worker => {
-        await worker.setParameters({ preserve_interword_spaces: '1' });
+        // The OCR copy is upscaled to roughly 300 DPI equivalent; telling the
+        // engine so stops it guessing (canvas input carries no DPI metadata).
+        await worker.setParameters({ preserve_interword_spaces: '1', user_defined_dpi: '300' });
         return worker;
       })
       .catch(error => {
@@ -134,6 +139,10 @@ function enhanceTextForOcr(ctx, width, height, profile = {}) {
     const o = i * 4;
     gray[i] = data[o] * 0.299 + data[o + 1] * 0.587 + data[o + 2] * 0.114;
   }
+  // Camera photos light the label unevenly; flatten the background before the
+  // GLOBAL stretch so one dim corner no longer decides the whole page's mapping.
+  // A no-op on evenly lit scans, and skipped entirely for small barcode crops.
+  if (profile.flatten !== false) flattenGrayPlane(gray, width, height);
   const { lo, hi } = percentileBounds(gray, lowFrac, highFrac);
   const range = Math.max(1, hi - lo);
   for (let i = 0; i < n; i += 1) {
@@ -149,8 +158,13 @@ function enhanceTextForOcr(ctx, width, height, profile = {}) {
   ctx.putImageData(image, 0, 0);
 }
 
-/** Builds the magnified, sharpened grayscale copy OCR runs on (never used for barcode decoding). */
-function prepareOcrCanvas(sourceCanvas, profile = {}) {
+/**
+ * Builds the magnified, sharpened grayscale copy OCR runs on (never used for
+ * barcode decoding). `maskBoxes` (source-canvas coordinates) are painted white
+ * before enhancement: located barcode symbols are pure noise to text layout
+ * analysis, and their HRI digits are recovered by the dedicated crop pass.
+ */
+function prepareOcrCanvas(sourceCanvas, profile = {}, maskBoxes = []) {
   const minLongEdge = profile.minLongEdge ?? OCR_MIN_LONG_EDGE;
   const maxLongEdge = profile.maxLongEdge ?? OCR_MAX_LONG_EDGE;
   const maxUpscale = profile.maxUpscale ?? OCR_MAX_UPSCALE;
@@ -167,8 +181,114 @@ function prepareOcrCanvas(sourceCanvas, profile = {}) {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(sourceCanvas, 0, 0, out.width, out.height);
+  if (maskBoxes?.length) {
+    ctx.fillStyle = 'white';
+    for (const box of maskBoxes) {
+      if (!box || !(box.width > 0) || !(box.height > 0)) continue;
+      const pad = 3;
+      ctx.fillRect(
+        (box.x - pad) * scale,
+        (box.y - pad) * scale,
+        (box.width + pad * 2) * scale,
+        (box.height + pad * 2) * scale
+      );
+    }
+  }
   enhanceTextForOcr(ctx, out.width, out.height, profile);
   return out;
+}
+
+// Words the engine is less confident about than this are dropped from the
+// grouped output: they are overwhelmingly barcode remnants and paper noise.
+const OCR_MIN_WORD_CONFIDENCE = 20;
+
+/**
+ * Splits one recognized line's words into runs wherever the horizontal gap is
+ * too wide to be word spacing. Each run is one column cell. Pure; exported for tests.
+ */
+export function splitLineIntoRuns(words, gapThreshold) {
+  const runs = [];
+  let current = null;
+  for (const word of words) {
+    if (current && word.x0 - current.x1 > gapThreshold) {
+      runs.push(current);
+      current = null;
+    }
+    if (!current) {
+      current = { text: word.text, x0: word.x0, x1: word.x1 };
+    } else {
+      current.text += ` ${word.text}`;
+      current.x1 = Math.max(current.x1, word.x1);
+    }
+  }
+  if (current) runs.push(current);
+  return runs;
+}
+
+/**
+ * Regroups one layout block's lines into columns so side-by-side content (the
+ * address block next to the DG declaration, for example) comes out as separate
+ * contiguous line groups instead of interleaved half-lines the fact extractors
+ * cannot safely un-merge. Lines whose runs overlap a column's x-range join that
+ * column; columns are emitted left-to-right, each top-to-bottom. Single-column
+ * blocks pass through unchanged. Pure; exported for tests.
+ */
+export function groupBlockLinesIntoColumnText(lines) {
+  const heights = lines.map(l => l.height).filter(h => h > 0).sort((a, b) => a - b);
+  const medianHeight = heights.length ? heights[Math.floor(heights.length / 2)] : 24;
+  const gapThreshold = Math.max(30, medianHeight * 2.4);
+  const lineRuns = lines.map(line => splitLineIntoRuns(line.words, gapThreshold));
+  if (!lineRuns.some(runs => runs.length > 1)) {
+    return lineRuns.map(runs => runs.map(r => r.text).join(' ')).filter(Boolean);
+  }
+  const columns = [];
+  lineRuns.forEach((runs, lineIndex) => {
+    for (const run of runs) {
+      let column = columns.find(c => {
+        const overlap = Math.min(c.x1, run.x1) - Math.max(c.x0, run.x0);
+        return overlap > 0.25 * Math.min(c.x1 - c.x0, Math.max(1, run.x1 - run.x0));
+      });
+      if (!column) {
+        column = { x0: run.x0, x1: run.x1, cells: [] };
+        columns.push(column);
+      }
+      column.x0 = Math.min(column.x0, run.x0);
+      column.x1 = Math.max(column.x1, run.x1);
+      column.cells.push({ lineIndex, text: run.text });
+    }
+  });
+  columns.sort((a, b) => a.x0 - b.x0);
+  const out = [];
+  for (const column of columns) {
+    column.cells.sort((a, b) => a.lineIndex - b.lineIndex);
+    for (const cell of column.cells) if (cell.text) out.push(cell.text);
+  }
+  return out;
+}
+
+/**
+ * Rebuilds the recognized text from Tesseract's block/word geometry instead of
+ * its flat text string: low-confidence noise words are dropped and side-by-side
+ * columns are emitted as separate contiguous groups. Returns '' when no usable
+ * block data came back (caller falls back to the flat text). Pure; exported for tests.
+ */
+export function textFromTesseractBlocks(blocks, minWordConfidence = OCR_MIN_WORD_CONFIDENCE) {
+  const outLines = [];
+  for (const block of blocks || []) {
+    for (const paragraph of block?.paragraphs || []) {
+      const lines = [];
+      for (const line of paragraph?.lines || []) {
+        const words = (line?.words || [])
+          .filter(w => w?.text?.trim() && (w.confidence == null || w.confidence >= minWordConfidence))
+          .map(w => ({ text: w.text.trim(), x0: w.bbox?.x0 ?? 0, x1: w.bbox?.x1 ?? 0 }));
+        if (words.length) {
+          lines.push({ words, height: Math.abs((line.bbox?.y1 ?? 0) - (line.bbox?.y0 ?? 0)) });
+        }
+      }
+      outLines.push(...groupBlockLinesIntoColumnText(lines));
+    }
+  }
+  return outLines.join('\n');
 }
 
 function normaliseOcrText(text) {
@@ -200,37 +320,42 @@ export function mergeExtractedText(...texts) {
  * Runs Tesseract OCR over a rendered canvas and reports both the recognized text
  * and an explicit status so callers (and the report) can distinguish an engine
  * that failed to load from one that simply read nothing. Returns
- * `{ text, status, charCount, detail }` where status is one of:
+ * `{ text, status, charCount, detail, confidence }` where status is one of:
  *   'ok'     - usable text recognized (>= OCR_MIN_USEFUL_CHARS)
  *   'low'    - text recognized but below the usefulness threshold, so discarded
  *   'empty'  - engine ran but found no readable characters
  *   'failed' - the OCR engine could not load or run (detail carries the error)
+ * `opts.maskBoxes` (source-canvas coordinates) white out located barcode symbols
+ * before recognition. Text is rebuilt from word geometry (column-aware, noise
+ * words dropped) whenever the engine returns block data.
  */
-export async function recognizeCanvasText(canvas, mark, label) {
+export async function recognizeCanvasText(canvas, mark, label, opts = {}) {
   const ocrStart = performance.now();
   try {
     const worker = await getOcrWorker();
-    const ocrCanvas = prepareOcrCanvas(canvas);
-    const result = await worker.recognize(ocrCanvas);
-    const text = normaliseOcrText(result?.data?.text || '');
+    const ocrCanvas = prepareOcrCanvas(canvas, {}, opts.maskBoxes || []);
+    const result = await worker.recognize(ocrCanvas, {}, { text: true, blocks: true });
+    const structured = textFromTesseractBlocks(result?.data?.blocks);
+    const text = normaliseOcrText(structured || result?.data?.text || '');
+    const confidence = Number.isFinite(result?.data?.confidence) ? Math.round(result.data.confidence) : null;
     const charCount = text.length;
     if (charCount >= OCR_MIN_USEFUL_CHARS) {
       mark?.(`OCR read ${charCount} character${charCount === 1 ? '' : 's'} from ${label}`, ocrStart);
-      return { text, status: 'ok', charCount, detail: '' };
+      return { text, status: 'ok', charCount, detail: '', confidence };
     }
     if (charCount > 0) {
       mark?.(
         `OCR read only ${charCount} character${charCount === 1 ? '' : 's'} from ${label}; below the ${OCR_MIN_USEFUL_CHARS}-character usefulness threshold, so it was treated as no text`,
         ocrStart
       );
-      return { text: '', status: 'low', charCount, detail: '' };
+      return { text: '', status: 'low', charCount, detail: '', confidence };
     }
     mark?.(`OCR ran on ${label} but found no readable text`, ocrStart);
-    return { text: '', status: 'empty', charCount: 0, detail: '' };
+    return { text: '', status: 'empty', charCount: 0, detail: '', confidence };
   } catch (error) {
     const detail = error?.message || String(error);
     mark?.(`OCR engine failed for ${label}: ${detail}`, ocrStart);
-    return { text: '', status: 'failed', charCount: 0, detail };
+    return { text: '', status: 'failed', charCount: 0, detail, confidence: null };
   }
 }
 

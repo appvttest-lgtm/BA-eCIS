@@ -5,7 +5,7 @@
 // becomes reading-order lines. They live apart from pipeline.js because that module pulls
 // in Vite-only asset imports (the ZXing wasm URL) and so cannot be loaded outside a bundle
 // - keeping this logic here is what makes it directly testable.
-import { FORMAT_KIND } from './barcodeTypes.js';
+import { FORMAT_KIND, LOCATION_QUALITY } from './barcodeTypes.js';
 import { clampBox, cropCanvas } from './canvasUtils.js';
 import { EPARCEL_SCAN_TARGETS, STARTRACK_LINEAR_TARGETS } from './labelImages.js';
 
@@ -80,8 +80,61 @@ export function buildCategorizedScanTargets(canvas, labelFamily = 'eparcel') {
   ];
 }
 
-/** Maps a crop-local barcode box back to page coordinates when the crop was not transformed. */
-export function mapBarcodeToPage(barcode, target, variantLabel = '') {
+/**
+ * Inverts a 0/90/180/270-degree clockwise canvas rotation for an axis-aligned box.
+ * `rotatedWidth`/`rotatedHeight` are the dimensions of the ROTATED canvas the box
+ * was measured on. Matches the mapping used by `rotateCanvas`. Pure.
+ */
+export function unrotateBoxQuarter(box, degrees, rotatedWidth, rotatedHeight) {
+  if (!box) return null;
+  const d = ((degrees % 360) + 360) % 360;
+  if (d === 0) return { ...box };
+  if (d === 90) {
+    // rotate 90 CW mapped (x0, y0) -> (H0 - y0, x0); H0 = rotatedWidth.
+    return { x: box.y, y: rotatedWidth - box.x - box.width, width: box.height, height: box.width };
+  }
+  if (d === 180) {
+    return { x: rotatedWidth - box.x - box.width, y: rotatedHeight - box.y - box.height, width: box.width, height: box.height };
+  }
+  if (d === 270) {
+    // rotate 270 CW mapped (x0, y0) -> (y0, W0 - x0); W0 = rotatedHeight.
+    return { x: rotatedHeight - box.y - box.height, y: box.x, width: box.height, height: box.width };
+  }
+  return null;
+}
+
+/**
+ * Maps a barcode box measured on a preprocessed scan variant back to the
+ * coordinates of the variant's base (crop target) canvas. `transform` describes
+ * how the variant was built from the base: an optional quarter rotation
+ * (`rotate`, with the rotated canvas dimensions), a uniform `scale`, and the
+ * translation `dx`/`dy` (base = variant / scale + d). Returns null when the
+ * transform cannot be inverted. Pure; exported for tests.
+ */
+export function mapVariantBoxToBase(box, transform) {
+  if (!box || !transform) return null;
+  let b = { ...box };
+  if (transform.rotate) {
+    b = unrotateBoxQuarter(b, transform.rotate, transform.rotatedWidth || 0, transform.rotatedHeight || 0);
+    if (!b) return null;
+  }
+  const scale = transform.scale || 1;
+  if (!(scale > 0)) return null;
+  return {
+    x: Math.round(b.x / scale + (transform.dx || 0)),
+    y: Math.round(b.y / scale + (transform.dy || 0)),
+    width: Math.round(b.width / scale),
+    height: Math.round(b.height / scale)
+  };
+}
+
+/**
+ * Maps a crop-local barcode box back to page coordinates. Untransformed reads
+ * map directly; reads from preprocessed variants map through the variant's
+ * recorded transform (trim/border/scale/rotation are all invertible), carrying
+ * a slightly weaker location quality so direct reads still win evidence crops.
+ */
+export function mapBarcodeToPage(barcode, target, variantLabel = '', transform = null) {
   const base = { ...barcode };
   const targetBox = {
     x: Math.round(target.x || 0),
@@ -91,32 +144,32 @@ export function mapBarcodeToPage(barcode, target, variantLabel = '') {
   };
   base.targetBox = targetBox;
 
-  // Transformed crops are useful for decoding, but their coordinates are not reliable
-  // evidence of final label placement. Only untransformed reads can prove location.
-  const isUntransformed = !variantLabel || variantLabel === 'original';
-  if (base.boundingBox && isUntransformed) {
-    base.pageBoundingBox = clampBox(
-      {
-        x: targetBox.x + base.boundingBox.x,
-        y: targetBox.y + base.boundingBox.y,
-        width: base.boundingBox.width,
-        height: base.boundingBox.height
-      },
+  const clampToTarget = box =>
+    clampBox(
+      { x: targetBox.x + box.x, y: targetBox.y + box.y, width: box.width, height: box.height },
       targetBox.x + Math.max(targetBox.width, 1),
       targetBox.y + Math.max(targetBox.height, 1)
     );
-    base.locationQuality = 'decoded-symbol-bounding-box';
+
+  const isUntransformed = !variantLabel || variantLabel === 'original';
+  const mappedBox = !isUntransformed && base.boundingBox ? mapVariantBoxToBase(base.boundingBox, transform) : null;
+  if (base.boundingBox && isUntransformed) {
+    base.pageBoundingBox = clampToTarget(base.boundingBox);
+    base.locationQuality = LOCATION_QUALITY.decoded;
+  } else if (mappedBox && mappedBox.width > 0 && mappedBox.height > 0) {
+    base.pageBoundingBox = clampToTarget(mappedBox);
+    base.locationQuality = LOCATION_QUALITY.mapped;
   } else if (target.label === 'Full page safety scan' && base.boundingBox) {
     base.pageBoundingBox = clampBox(base.boundingBox, target.canvas.width, target.canvas.height);
-    base.locationQuality = 'decoded-symbol-bounding-box';
+    base.locationQuality = LOCATION_QUALITY.decoded;
   } else {
-    base.locationQuality = 'decoded-no-page-box';
+    base.locationQuality = LOCATION_QUALITY.none;
   }
   return base;
 }
 
-/** Groups pdf.js text items into reading-order lines. */
-export function textContentItemsToLines(items) {
+/** Extracts positioned text entries (PDF user units, y-up) from pdf.js text items. Pure. */
+export function textEntriesFromItems(items) {
   const entries = [];
   for (const item of items || []) {
     const str = String(item.str || '').trim();
@@ -124,6 +177,37 @@ export function textContentItemsToLines(items) {
     const tx = item.transform || [1, 0, 0, 1, 0, 0];
     entries.push({ text: str, x: tx[4] || 0, y: tx[5] || 0, height: Math.abs(tx[3] || item.height || 8) });
   }
+  return entries;
+}
+
+/**
+ * Splits a page's text entries between the label regions of a segmented sheet so
+ * each label is audited against its own text only (facts from one label must
+ * never contaminate another). Regions are pixel rects on the rendered canvas;
+ * `scale` converts PDF units to canvas pixels and `pageHeightPdf` flips the
+ * y-up PDF origin to the canvas's y-down origin. Entries falling outside every
+ * region are dropped. Pure; exported for tests.
+ */
+export function assignTextEntriesToRegions(entries, regions, scale, pageHeightPdf) {
+  const buckets = regions.map(() => []);
+  if (!(scale > 0)) return buckets;
+  for (const entry of entries || []) {
+    const px = entry.x * scale;
+    const py = (pageHeightPdf - entry.y) * scale;
+    for (let i = 0; i < regions.length; i += 1) {
+      const r = regions[i];
+      if (px >= r.x && px < r.x + r.w && py >= r.y && py < r.y + r.h) {
+        buckets[i].push(entry);
+        break;
+      }
+    }
+  }
+  return buckets;
+}
+
+/** Groups positioned text entries into reading-order lines. Pure. */
+export function linesFromTextEntries(sourceEntries) {
+  const entries = [...(sourceEntries || [])];
   entries.sort((a, b) => b.y - a.y || a.x - b.x);
 
   const groups = [];
@@ -164,4 +248,9 @@ export function textContentItemsToLines(items) {
         .trim();
     })
     .filter(Boolean);
+}
+
+/** Groups pdf.js text items into reading-order lines. */
+export function textContentItemsToLines(items) {
+  return linesFromTextEntries(textEntriesFromItems(items));
 }

@@ -9,7 +9,7 @@ import {
 } from '@zxing/library';
 import { readBarcodes as readWasmBarcodes, prepareZXingModule } from 'zxing-wasm/reader';
 import zxingReaderWasmUrl from 'zxing-wasm/reader/zxing_reader.wasm?url';
-import { FORMAT_KIND } from './barcodeTypes.js';
+import { FORMAT_KIND, locationQualityRank } from './barcodeTypes.js';
 import { pointsToBox } from './canvasUtils.js';
 import { debugWarn } from './debugLog.js';
 
@@ -83,13 +83,18 @@ export function dedupeBarcodes(items) {
       continue;
     }
     const existing = map.get(key);
-    // A value can decode several times from different crops. Prefer the copy that can
-    // prove where it came from on the original page, because that drives crop evidence.
+    // A value can decode several times from different crops. Prefer the copy with
+    // the strongest page-location evidence (a direct decoded box beats one mapped
+    // through a variant transform), because that drives crop evidence.
+    const locationUpgrade =
+      clean.pageBoundingBox &&
+      (!existing.pageBoundingBox || locationQualityRank(clean.locationQuality) > locationQualityRank(existing.locationQuality));
     map.set(key, {
       ...existing,
-      ...(!existing.pageBoundingBox && clean.pageBoundingBox ? { pageBoundingBox: clean.pageBoundingBox } : {}),
+      ...(locationUpgrade
+        ? { pageBoundingBox: clean.pageBoundingBox, locationQuality: clean.locationQuality }
+        : {}),
       ...(!existing.boundingBox && clean.boundingBox ? { boundingBox: clean.boundingBox } : {}),
-      ...(!existing.locationQuality && clean.locationQuality ? { locationQuality: clean.locationQuality } : {}),
       ...(!existing.targetBox && clean.targetBox ? { targetBox: clean.targetBox } : {}),
       ...(existing.barCount == null && clean.barCount != null ? { barCount: clean.barCount } : {}),
       // The ISO/IEC 15424 symbology identifier proves GS1 carrier compliance
@@ -98,7 +103,7 @@ export function dedupeBarcodes(items) {
         ? { symbologyIdentifier: clean.symbologyIdentifier }
         : {}),
       // Keep the source label that explains the successful location read in the UI.
-      ...(clean.pageBoundingBox && !existing.pageBoundingBox
+      ...(locationUpgrade
         ? {
             source: clean.source,
             regionLabel: clean.regionLabel,

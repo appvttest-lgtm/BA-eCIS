@@ -6,6 +6,35 @@ export const FORMAT_KIND = {
   mixed: 'mixed'
 };
 
+// Location-evidence quality, strongest first: a box decoded straight off the
+// untransformed crop, a box mapped back through a known variant transform, and
+// no page box at all. Evidence crops and dedupe both prefer higher quality.
+export const LOCATION_QUALITY = {
+  decoded: 'decoded-symbol-bounding-box',
+  mapped: 'variant-mapped-bounding-box',
+  none: 'decoded-no-page-box'
+};
+
+export function locationQualityRank(quality) {
+  if (quality === LOCATION_QUALITY.decoded) return 2;
+  if (quality === LOCATION_QUALITY.mapped) return 1;
+  return 0;
+}
+
+/** Picks the barcode whose page box carries the strongest location evidence. */
+export function bestLocatedBarcode(barcodes = []) {
+  let best = null;
+  let bestRank = -1;
+  for (const b of barcodes) {
+    const rank = locationQualityRank(b?.locationQuality);
+    if (rank > bestRank) {
+      best = b;
+      bestRank = rank;
+    }
+  }
+  return best;
+}
+
 /** True when a decoded barcode entry is a DataMatrix symbol. */
 export function isDataMatrixBarcode(barcode) {
   const fmt = String(barcode?.format || barcode?.symbology || '').toLowerCase();

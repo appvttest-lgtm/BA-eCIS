@@ -2226,3 +2226,55 @@ textarea:focus-visible,
     margin-top: 2px;
   }
 }
+
+/* Input-quality gauge (top of each label's results): rated chips for sharpness,
+   resolution, contrast and OCR confidence, plus preparation notes. */
+.input-quality-gauge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border, #e3e3e3);
+}
+.input-quality-gauge .iq-overall {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.q-chip {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.q-chip .q-chip-k {
+  font-weight: 600;
+  opacity: 0.75;
+  margin-right: 2px;
+}
+.q-good {
+  background: #eaf3de;
+  color: #3b6d11;
+  border-color: #cfe3b4;
+}
+.q-fair {
+  background: #faeeda;
+  color: #854f0b;
+  border-color: #ecd6ae;
+}
+.q-poor {
+  background: #fceaea;
+  color: #a32d2d;
+  border-color: #f0c4c4;
+}
+.q-info {
+  background: #eef1f4;
+  color: #4a5560;
+  border-color: #dde3e9;
+}

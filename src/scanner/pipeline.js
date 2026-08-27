@@ -13,17 +13,31 @@ import {
   scaleCanvas,
   thresholdCanvas,
   sharpenCanvas,
-  enhanceInputForQuality,
-  addWhiteBorder,
-  trimDarkBounds,
-  squareCanvas,
+  addWhiteBorderWithInfo,
+  trimDarkBoundsWithOffset,
+  squareCanvasWithInfo,
   downscaleCanvasSmooth,
   canvasLuminanceSample,
-  countLinearBars
+  countLinearBars,
+  measureLinearBarExtent
 } from './canvasUtils.js';
+import {
+  enhanceInputForQuality,
+  residualSkewDegrees,
+  estimateSkewByProjection,
+  rotateCanvasFine,
+  assessLabelQuality
+} from './inputPrep.js';
 import { dedupeBarcodes, detectWithBrowserBarcodeDetector, zxingDecodeCanvas, wasmDecodeCanvas } from './decoders.js';
 import { createLabelImages } from './labelImages.js';
-import { buildCategorizedScanTargets, mapBarcodeToPage, textContentItemsToLines } from './scanPlan.js';
+import {
+  buildCategorizedScanTargets,
+  mapBarcodeToPage,
+  textContentItemsToLines,
+  textEntriesFromItems,
+  assignTextEntriesToRegions,
+  linesFromTextEntries
+} from './scanPlan.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -66,37 +80,72 @@ export function yieldToBrowser() {
   return new Promise(resolve => setTimeout(resolve, 0));
 }
 
-/** Builds the preprocessed canvas variants (trim, threshold, scale...) for one target. */
+/**
+ * Builds the preprocessed canvas variants (trim, threshold, scale...) for one target.
+ * Every variant records the affine transform that produced it (base = variant / scale + d),
+ * so a symbol decoded from ANY variant can map its bounding box back to true page
+ * coordinates instead of falling back to fixed template crops.
+ */
 export function makeScanVariants(baseCanvas, kind, labels = null) {
   const allowed = labels ? new Set(labels) : null;
   const variants = [];
-  const add = (label, makeCanvas, options = {}) => {
-    if (!allowed || allowed.has(label)) variants.push({ label, canvas: makeCanvas(), options });
+  const add = (label, makeVariant, options = {}) => {
+    if (!allowed || allowed.has(label)) {
+      const made = makeVariant();
+      variants.push({ label, canvas: made.canvas, transform: made.transform, options });
+    }
   };
   const trimSettings = kind === FORMAT_KIND.datamatrix ? SCAN_TRIM_SETTINGS.datamatrix : SCAN_TRIM_SETTINGS.default;
-  const trimmed = trimDarkBounds(baseCanvas, trimSettings.padding, trimSettings.threshold);
-  const bordered = addWhiteBorder(trimmed, trimSettings.borderRatio);
+  const trimInfo = trimDarkBoundsWithOffset(baseCanvas, trimSettings.padding, trimSettings.threshold);
+  const trimmed = trimInfo.canvas;
+  const borderInfo = addWhiteBorderWithInfo(trimmed, trimSettings.borderRatio);
+  const bordered = borderInfo.canvas;
+  const borderedTransform = scale => ({
+    scale,
+    dx: trimInfo.dx - borderInfo.border,
+    dy: trimInfo.dy - borderInfo.border
+  });
   let bordered2x = null;
   const getBordered2x = () => {
     if (!bordered2x) bordered2x = scaleCanvas(bordered, 2);
     return bordered2x;
   };
-  add('original', () => baseCanvas);
-  add('trimmed + border', () => bordered);
-  add('2x nearest', getBordered2x);
-  add('4x nearest', () => scaleCanvas(bordered, 4));
-  add('threshold 150', () => thresholdCanvas(getBordered2x(), 150), { binarizer: 'FixedThreshold' });
-  add('threshold 185', () => thresholdCanvas(getBordered2x(), 185), { binarizer: 'FixedThreshold' });
+  add('original', () => ({ canvas: baseCanvas, transform: { scale: 1, dx: 0, dy: 0 } }));
+  add('trimmed + border', () => ({ canvas: bordered, transform: borderedTransform(1) }));
+  add('2x nearest', () => ({ canvas: getBordered2x(), transform: borderedTransform(2) }));
+  add('4x nearest', () => ({ canvas: scaleCanvas(bordered, 4), transform: borderedTransform(4) }));
+  add('threshold 150', () => ({ canvas: thresholdCanvas(getBordered2x(), 150), transform: borderedTransform(2) }), {
+    binarizer: 'FixedThreshold'
+  });
+  add('threshold 185', () => ({ canvas: thresholdCanvas(getBordered2x(), 185), transform: borderedTransform(2) }), {
+    binarizer: 'FixedThreshold'
+  });
   // Smooth-upscale + unsharp: recovers crisp bar edges on blurry/low-resolution input.
-  add('sharpen 2x', () => sharpenCanvas(bordered, 2, 1.0));
+  add('sharpen 2x', () => ({ canvas: sharpenCanvas(bordered, 2, 1.0), transform: borderedTransform(2) }));
   if (kind === FORMAT_KIND.datamatrix || kind === FORMAT_KIND.qr) {
-    add('square pure 2x', () => scaleCanvas(squareCanvas(trimmed, 0.2), 2), {
-      isPure: true,
-      binarizer: 'FixedThreshold'
-    });
+    add(
+      'square pure 2x',
+      () => {
+        const sq = squareCanvasWithInfo(trimmed, 0.2);
+        return {
+          canvas: scaleCanvas(sq.canvas, 2),
+          transform: { scale: 2, dx: trimInfo.dx - sq.ox, dy: trimInfo.dy - sq.oy }
+        };
+      },
+      { isPure: true, binarizer: 'FixedThreshold' }
+    );
     add(
       'square pure 4x',
-      () => scaleCanvas(kind === FORMAT_KIND.datamatrix ? squareCanvas(trimmed, 0.16) : bordered, 4),
+      () => {
+        if (kind === FORMAT_KIND.datamatrix) {
+          const sq = squareCanvasWithInfo(trimmed, 0.16);
+          return {
+            canvas: scaleCanvas(sq.canvas, 4),
+            transform: { scale: 4, dx: trimInfo.dx - sq.ox, dy: trimInfo.dy - sq.oy }
+          };
+        }
+        return { canvas: scaleCanvas(bordered, 4), transform: borderedTransform(4) };
+      },
       { isPure: true }
     );
   }
@@ -258,16 +307,26 @@ export function detectVisualBarcodeEvidence(canvas) {
 }
 
 /**
- * Attaches the measured bar count to Code 128 hits while the canvas the
- * symbol was decoded from is still in hand. The count is encodation evidence
- * (e.g. the compressed StarTrack freight barcode always has 61 bars).
+ * Refines a linear hit while the canvas it decoded from is still in hand:
+ * 1D result points sit on a single scanline, so the reported box height is
+ * unreliable - measure the true bar extent before the box drives outlines,
+ * evidence crops and the HRI OCR crop. Then attach the measured bar count
+ * (encodation evidence, e.g. the compressed StarTrack freight barcode always
+ * has 61 bars) using the corrected box.
  */
-function attachLinearBarCount(hit, canvas) {
-  if (hit?.barCount == null && hit?.boundingBox && /128/i.test(String(hit.format || ''))) {
-    const barCount = countLinearBars(canvas, hit.boundingBox);
-    if (barCount != null) return { ...hit, barCount };
+function refineLinearHit(hit, canvas) {
+  let out = hit;
+  if (out?.boundingBox && /128/i.test(String(out.format || ''))) {
+    const extent = measureLinearBarExtent(canvas, out.boundingBox);
+    if (extent && extent.height > out.boundingBox.height) {
+      out = { ...out, boundingBox: { ...out.boundingBox, y: extent.y, height: extent.height } };
+    }
+    if (out.barCount == null) {
+      const barCount = countLinearBars(canvas, out.boundingBox);
+      if (barCount != null) out = { ...out, barCount };
+    }
   }
-  return hit;
+  return out;
 }
 
 /** Runs every available decode engine over one scan target until something reads. */
@@ -280,9 +339,7 @@ export async function scanTargetWithAllEngines(target, detector, pageNumber = 1)
   // unnecessary WASM/JS passes on the same crop.
   if (detector) {
     const browserHits = await detectWithBrowserBarcodeDetector(target.canvas, detector, pageNumber, target.label);
-    found.push(
-      ...browserHits.map(hit => mapBarcodeToPage(attachLinearBarCount(hit, target.canvas), target, 'original'))
-    );
+    found.push(...browserHits.map(hit => mapBarcodeToPage(refineLinearHit(hit, target.canvas), target, 'original')));
     if (shouldStopTargetScan(target, found)) return found;
   }
 
@@ -298,7 +355,9 @@ export async function scanTargetWithAllEngines(target, detector, pageNumber = 1)
       variant.options || {}
     );
     found.push(
-      ...wasmHits.map(hit => mapBarcodeToPage(attachLinearBarCount(hit, variant.canvas), target, variant.label))
+      ...wasmHits.map(hit =>
+        mapBarcodeToPage(refineLinearHit(hit, variant.canvas), target, variant.label, variant.transform)
+      )
     );
     if (shouldStopTargetScan(target, found)) return found;
 
@@ -314,7 +373,9 @@ export async function scanTargetWithAllEngines(target, detector, pageNumber = 1)
         variant.label
       );
       found.push(
-        ...jsHits.map(hit => mapBarcodeToPage(attachLinearBarCount(hit, variant.canvas), target, variant.label))
+        ...jsHits.map(hit =>
+          mapBarcodeToPage(refineLinearHit(hit, variant.canvas), target, variant.label, variant.transform)
+        )
       );
       if (shouldStopTargetScan(target, found)) return found;
     }
@@ -325,6 +386,9 @@ export async function scanTargetWithAllEngines(target, detector, pageNumber = 1)
     for (const variant of variants.slice(0, 2)) {
       for (const degrees of [90, 270]) {
         const rotated = rotateCanvas(variant.canvas, degrees);
+        const rotatedTransform = variant.transform
+          ? { ...variant.transform, rotate: degrees, rotatedWidth: rotated.width, rotatedHeight: rotated.height }
+          : null;
         const rotWasmHits = await wasmDecodeCanvas(
           rotated,
           pageNumber,
@@ -336,7 +400,12 @@ export async function scanTargetWithAllEngines(target, detector, pageNumber = 1)
         );
         found.push(
           ...rotWasmHits.map(hit =>
-            mapBarcodeToPage(attachLinearBarCount(hit, rotated), target, `${variant.label} rotated ${degrees}`)
+            mapBarcodeToPage(
+              refineLinearHit(hit, rotated),
+              target,
+              `${variant.label} rotated ${degrees}`,
+              rotatedTransform
+            )
           )
         );
         if (shouldStopTargetScan(target, found)) return found;
@@ -413,7 +482,7 @@ export async function normalizeCanvasOrientation(canvas, mark = null, contextLab
       `Orientation check (${contextLabel}): upright or undetermined from ${symbols.length} reference symbol${symbols.length === 1 ? '' : 's'}`,
       performance.now() - probeStart
     );
-    return { canvas, rotation: 0 };
+    return { canvas, rotation: 0, symbols };
   }
   for (const candidate of pickRotationCandidates(symbols)) {
     const verify = await quickSymbolProbe(rotateCanvas(probe, candidate));
@@ -422,14 +491,65 @@ export async function normalizeCanvasOrientation(canvas, mark = null, contextLab
         `Orientation check (${contextLabel}): rotated input detected; auto-corrected by ${candidate} degrees`,
         performance.now() - probeStart
       );
-      return { canvas: rotateCanvas(canvas, candidate), rotation: candidate };
+      return { canvas: rotateCanvas(canvas, candidate), rotation: candidate, symbols };
     }
   }
   mark?.(
     `Orientation check (${contextLabel}): rotation suspected but could not be verified; continuing with the original orientation`,
     performance.now() - probeStart
   );
-  return { canvas, rotation: 0 };
+  return { canvas, rotation: 0, symbols };
+}
+
+/**
+ * Corrects the few degrees of scanner/camera tilt the quarter-turn orientation
+ * pass cannot see. The residual angle comes from decoded symbol orientation when
+ * available (verified by re-probing a rotated downscale, so the decoder's angle
+ * sign convention is never assumed); when nothing decoded, a projection-profile
+ * estimate on the luminance sample covers scans too degraded to read yet - the
+ * exact case where straightening most helps the retry and the OCR. Residuals
+ * mod 90 are invariant under the quarter-turn fix, so the original probe
+ * symbols stay valid here.
+ */
+export async function fineDeskewCanvas(canvas, symbols = [], mark = null, contextLabel = 'input') {
+  const start = performance.now();
+  const residual = residualSkewDegrees(symbols);
+  let candidates = residual ? [-residual, residual] : [];
+  if (!candidates.length) {
+    const { lum, width, height } = canvasLuminanceSample(canvas, 480);
+    const projected = estimateSkewByProjection(lum, width, height);
+    if (projected) candidates = [projected];
+  }
+  if (!candidates.length) return { canvas, degrees: 0 };
+
+  let chosen = null;
+  if (residual) {
+    const probe = downscaleCanvasSmooth(canvas, ORIENTATION_PROBE_MAX_DIM);
+    let bestAbs = Math.abs(residual);
+    for (const candidate of candidates) {
+      const verify = await quickSymbolProbe(rotateCanvasFine(probe, candidate));
+      if (!verify.length) continue;
+      const remainingAbs = Math.abs(residualSkewDegrees(verify));
+      if (remainingAbs < bestAbs - 0.2) {
+        bestAbs = remainingAbs;
+        chosen = candidate;
+      }
+    }
+    if (chosen == null) {
+      mark?.(
+        `Deskew check (${contextLabel}): ${Math.abs(residual).toFixed(1)} degree tilt suspected but could not be verified; keeping original geometry`,
+        performance.now() - start
+      );
+      return { canvas, degrees: 0 };
+    }
+  } else {
+    chosen = candidates[0];
+  }
+  mark?.(
+    `Deskew (${contextLabel}): straightened a ${Math.abs(chosen).toFixed(1)} degree scan tilt`,
+    performance.now() - start
+  );
+  return { canvas: rotateCanvasFine(canvas, chosen), degrees: Math.round(chosen * 10) / 10 };
 }
 
 /**
@@ -464,6 +584,52 @@ export function segmentLabelCanvases(canvas, mark = null, contextLabel = 'input'
 export function pdfTextLayerNeedsOcr(lines) {
   const usefulChars = lines.join(' ').replace(/[^A-Za-z0-9]/g, '').length;
   return usefulChars < PDF_TEXT_LAYER_MIN_USEFUL_CHARS;
+}
+
+export const NATIVE_RENDER_MIN_SCALE = 1.25;
+export const NATIVE_RENDER_MAX_SCALE = 8;
+
+/**
+ * For an image-only (scanned) PDF page, finds the embedded scan's native pixel
+ * size and returns the render scale that maps it 1:1 onto the canvas - so decode
+ * and OCR see every pixel the scanner captured instead of a fixed multiple that
+ * silently up- or down-samples it. Returns null (caller keeps PDF_RENDER_SCALE)
+ * whenever the page does not look like a single full-page scan, or inspection
+ * fails or times out; everything here is best-effort and bounded because the
+ * PDF is untrusted input.
+ */
+async function scannedPageNativeScale(page, viewport72) {
+  const withTimeout = (promise, ms) =>
+    Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+  const ops = await withTimeout(page.getOperatorList(), 6000);
+  const names = [];
+  for (let i = 0; i < ops.fnArray.length && names.length < 8; i += 1) {
+    if (ops.fnArray[i] === pdfjsLib.OPS.paintImageXObject) names.push(ops.argsArray[i][0]);
+  }
+  let best = null;
+  for (const name of names) {
+    const image = await withTimeout(
+      new Promise((resolve, reject) => {
+        try {
+          page.objs.get(name, resolve);
+        } catch (error) {
+          reject(error);
+        }
+      }),
+      2500
+    ).catch(() => null);
+    if (image?.width > 0 && image?.height > 0 && (!best || image.width * image.height > best.width * best.height)) {
+      best = { width: image.width, height: image.height };
+    }
+  }
+  if (!best) return null;
+  // Only trust an image that plausibly IS the scanned page (similar aspect ratio).
+  const aspectRatio = best.width / best.height / (viewport72.width / viewport72.height);
+  if (aspectRatio < 0.7 || aspectRatio > 1.4) return null;
+  let scale = best.width / viewport72.width;
+  if (!Number.isFinite(scale) || scale < NATIVE_RENDER_MIN_SCALE) return null;
+  scale = Math.min(scale, NATIVE_RENDER_MAX_SCALE, Math.sqrt(MAX_IMAGE_PIXELS / (viewport72.width * viewport72.height)));
+  return { scale, imageWidth: best.width, imageHeight: best.height };
 }
 
 // At most this many decoded barcodes get a dedicated HRI OCR pass per label.
@@ -537,7 +703,11 @@ export async function processImageLabels(file, detector, onDebug = null, labelFa
 
     const oriented = await normalizeCanvasOrientation(enhanced.canvas, mark, `image ${file.name}`);
     await yieldToBrowser();
-    const segments = segmentLabelCanvases(oriented.canvas, mark, `image ${file.name}`);
+    // Alignment: correct the small tilt scanners/cameras introduce before any
+    // segmentation, decode or OCR sees the canvas.
+    const deskewed = await fineDeskewCanvas(oriented.canvas, oriented.symbols, mark, `image ${file.name}`);
+    await yieldToBrowser();
+    const segments = segmentLabelCanvases(deskewed.canvas, mark, `image ${file.name}`);
 
     const labels = [];
     for (let segIndex = 0; segIndex < segments.length; segIndex += 1) {
@@ -560,13 +730,23 @@ export async function processImageLabels(file, detector, onDebug = null, labelFa
       // OCR is the final information grab: barcodes are the primary source of truth,
       // so they are decoded first; OCR then reads the whole label as text to supplement
       // them for validation (the label prints every barcode value in human-readable form,
-      // so OCR backs up any value a barcode failed to decode).
-      const ocr = await recognizeCanvasText(canvas, mark, segContext);
+      // so OCR backs up any value a barcode failed to decode). Located symbols are masked
+      // out of the full-label pass - their black mass only degrades layout analysis, and
+      // the dedicated crop pass below reads their HRI digits anyway.
+      const ocr = await recognizeCanvasText(canvas, mark, segContext, {
+        maskBoxes: detected.filter(b => b.pageBoundingBox).map(b => b.pageBoundingBox)
+      });
       // The gentle full-label pass often misses the small HRI digits printed with each
       // barcode; a second, aggressive pass over just the located barcode crops recovers
       // them for the printed-vs-decoded cross-checks.
       const cropOcrText = await recognizeBarcodeCropOcr(canvas, detected, mark, segContext);
       const ocrText = mergeExtractedText(ocr.text, cropOcrText);
+      const quality = assessLabelQuality(canvas, {
+        widthMm: null,
+        barcodes: detected,
+        deskewDegrees: deskewed.degrees,
+        contrastApplied: enhanced.contrastApplied
+      });
       await yieldToBrowser();
 
       labels.push({
@@ -581,12 +761,14 @@ export async function processImageLabels(file, detector, onDebug = null, labelFa
           pageLabel: segLabel || undefined,
           preprocess: {
             rotationApplied: oriented.rotation,
+            deskewDegrees: deskewed.degrees,
             segmentIndex: segIndex + 1,
             segmentCount: segments.length
           },
+          quality,
           note: 'Raster images do not reliably expose physical DPI. A6 dimensions are assumed for layout heuristics.',
           textSources: ocrText ? ['ocr'] : [],
-          ocr: { status: ocr.status, charCount: ocr.charCount, detail: ocr.detail }
+          ocr: { status: ocr.status, charCount: ocr.charCount, detail: ocr.detail, confidence: ocr.confidence ?? null }
         },
         detectedBarcodes: detected,
         visualEvidence,
@@ -640,7 +822,21 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
       textStart
     );
 
-    const viewport = page.getViewport({ scale: PDF_RENDER_SCALE });
+    // Vector pages render at the fixed high scale; image-only (scanned) pages
+    // render at the embedded scan's own resolution when it can be determined.
+    let renderScale = PDF_RENDER_SCALE;
+    if (pdfTextLayerNeedsOcr(pageLines)) {
+      const nativeStart = performance.now();
+      const native = await scannedPageNativeScale(page, viewport72).catch(() => null);
+      if (native) {
+        renderScale = native.scale;
+        mark(
+          `Scanned page detected on page ${pageNumber}; rendering at the embedded scan's native resolution (${native.imageWidth}x${native.imageHeight}px, ~${Math.round(renderScale * 72)} DPI)`,
+          nativeStart
+        );
+      }
+    }
+    const viewport = page.getViewport({ scale: renderScale });
     const renderCanvas = document.createElement('canvas');
     renderCanvas.width = Math.floor(viewport.width);
     renderCanvas.height = Math.floor(viewport.height);
@@ -661,15 +857,33 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
     await yieldToBrowser();
 
     const oriented = await normalizeCanvasOrientation(enhanced.canvas, mark, `page ${pageNumber}`);
+    // Alignment: correct the small scanner tilt before segmentation, decode or OCR.
+    const deskewed = await fineDeskewCanvas(oriented.canvas, oriented.symbols, mark, `page ${pageNumber}`);
     const rotatedQuarter = oriented.rotation === 90 || oriented.rotation === 270;
     const orientedMm = rotatedQuarter ? { widthMm: pageMm.heightMm, heightMm: pageMm.widthMm } : pageMm;
     // Only hunt for multiple labels when the sheet is bigger than any single
     // label format (A4 portrait/landscape and larger).
     const attemptSegmentation = Math.min(orientedMm.widthMm, orientedMm.heightMm) > 170;
     const segments = attemptSegmentation
-      ? segmentLabelCanvases(oriented.canvas, mark, `page ${pageNumber}`)
-      : [{ canvas: oriented.canvas, region: null }];
+      ? segmentLabelCanvases(deskewed.canvas, mark, `page ${pageNumber}`)
+      : [{ canvas: deskewed.canvas, region: null }];
     await yieldToBrowser();
+
+    // A segmented upright sheet keeps its exact PDF text layer: entries are split
+    // between the label regions by position, so one label's facts can never
+    // contaminate another. Once the canvas geometry changed (quarter rotation or
+    // deskew) the item coordinates no longer match and OCR takes over instead.
+    const geometryUnchanged = oriented.rotation === 0 && !deskewed.degrees;
+    let segmentTextLines = null;
+    if (geometryUnchanged && segments.length > 1 && pageLines.length && segments.every(s => s.region)) {
+      const buckets = assignTextEntriesToRegions(
+        textEntriesFromItems(textContent.items || []),
+        segments.map(s => s.region),
+        renderScale,
+        viewport72.height
+      );
+      segmentTextLines = buckets.map(bucket => linesFromTextEntries(bucket));
+    }
 
     for (let segIndex = 0; segIndex < segments.length; segIndex += 1) {
       const canvas = segments[segIndex].canvas;
@@ -677,11 +891,12 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
       const isSegmented = segments.length > 1;
       const segLabel = isSegmented ? `label ${segIndex + 1} of ${segments.length}` : null;
       const segContext = `PDF page ${pageNumber}${segLabel ? ` ${segLabel}` : ''}`;
-      // The PDF text layer covers the whole page, so it cannot be trusted once
-      // the page was rotated (line order scrambles) or split into multiple
-      // labels (facts from one label would contaminate another) - OCR instead.
-      const useTextLayer = !isSegmented && oriented.rotation === 0;
-      const segLines = useTextLayer ? pageLines : [];
+      // The text layer applies when the canvas geometry still matches the PDF's
+      // coordinates: whole upright pages use it directly, segmented upright sheets
+      // use the per-region split computed above, and anything rotated or deskewed
+      // falls back to OCR.
+      const useTextLayer = geometryUnchanged && (!isSegmented || Boolean(segmentTextLines));
+      const segLines = !useTextLayer ? [] : isSegmented ? segmentTextLines[segIndex] : pageLines;
       const shouldOcrPage = useTextLayer ? pdfTextLayerNeedsOcr(segLines) : true;
       const visualStart = performance.now();
       const visualEvidence = detectVisualBarcodeEvidence(canvas);
@@ -699,8 +914,12 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
       // OCR is the final information grab, after barcodes are decoded. It runs on the
       // rendered page only when the selectable PDF text layer is too sparse to audit;
       // its text is merged with the text layer to supplement the decoded barcodes.
+      // Located symbols are masked out of the full pass (their black mass only harms
+      // layout analysis); the crop pass below reads their HRI digits regardless.
       const ocr = shouldOcrPage
-        ? await recognizeCanvasText(canvas, mark, segContext)
+        ? await recognizeCanvasText(canvas, mark, segContext, {
+            maskBoxes: detected.filter(b => b.pageBoundingBox).map(b => b.pageBoundingBox)
+          })
         : {
             text: '',
             status: 'skipped',
@@ -718,6 +937,16 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
         );
       }
       const extractedText = mergeExtractedText(segLines.join('\n'), ocrText);
+      const segWidthMm =
+        isSegmented && region ? orientedMm.widthMm * (region.w / deskewed.canvas.width) : orientedMm.widthMm;
+      const segHeightMm =
+        isSegmented && region ? orientedMm.heightMm * (region.h / deskewed.canvas.height) : orientedMm.heightMm;
+      const quality = assessLabelQuality(canvas, {
+        widthMm: segWidthMm,
+        barcodes: detected,
+        deskewDegrees: deskewed.degrees,
+        contrastApplied: enhanced.contrastApplied
+      });
       await yieldToBrowser();
 
       const basePageLabel = pdf.numPages > 1 ? `page ${pageNumber} of ${pdf.numPages}` : 'page 1';
@@ -729,21 +958,23 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
           sourcePdfPage: pageNumber,
           sourcePdfPageCount: pdf.numPages,
           pageLabel: segLabel ? `${basePageLabel}, ${segLabel}` : basePageLabel,
-          widthMm: isSegmented && region ? orientedMm.widthMm * (region.w / oriented.canvas.width) : orientedMm.widthMm,
-          heightMm:
-            isSegmented && region ? orientedMm.heightMm * (region.h / oriented.canvas.height) : orientedMm.heightMm,
+          widthMm: segWidthMm,
+          heightMm: segHeightMm,
           pixelWidth: Math.round(canvas.width / qualityFactor),
           pixelHeight: Math.round(canvas.height / qualityFactor),
           preprocess: {
             rotationApplied: oriented.rotation,
+            deskewDegrees: deskewed.degrees,
+            renderDpi: Math.round(renderScale * 72),
             segmentIndex: segIndex + 1,
             segmentCount: segments.length
           },
+          quality,
           note: isSegmented
             ? 'Label region cropped from a multi-label sheet and audited as an individual label.'
             : 'PDF page rendered locally in the browser and audited as an individual label.',
           textSources: [...(segLines.length ? ['pdf-text-layer'] : []), ...(ocrText ? ['ocr'] : [])],
-          ocr: { status: ocr.status, charCount: ocr.charCount, detail: ocr.detail }
+          ocr: { status: ocr.status, charCount: ocr.charCount, detail: ocr.detail, confidence: ocr.confidence ?? null }
         },
         detectedBarcodes: detected,
         visualEvidence,

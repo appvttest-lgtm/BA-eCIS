@@ -1,6 +1,6 @@
 // Label preview images and per-barcode evidence crops for the report UI.
 import { STARTRACK_LABEL_CODE_MAP, parseEparcelBarcode } from '../auditEngine.js';
-import { FORMAT_KIND, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from './barcodeTypes.js';
+import { FORMAT_KIND, bestLocatedBarcode, isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from './barcodeTypes.js';
 import {
   BARCODE_BOX_MARGIN_PX,
   PREVIEW_BARCODE_BOX_MARGIN_PX,
@@ -91,9 +91,10 @@ export function cropForDecodedBarcode(canvas, barcodes, kind) {
           : isLinearBarcode(b) && !isDataMatrixBarcode(b) && !isQrBarcode(b))
   );
   if (!list.length) return null;
-  // Use the read with page coordinates because this crop is shown as evidence, not
-  // just as a convenience image.
-  const chosen = list.find(b => b.locationQuality === 'decoded-symbol-bounding-box') || list[0];
+  // Use the read with the strongest location evidence (direct page box beats one
+  // mapped through a variant transform) because this crop is shown as evidence,
+  // not just as a convenience image.
+  const chosen = bestLocatedBarcode(list);
   const box = expandBox(chosen.pageBoundingBox, canvas.width, canvas.height, BARCODE_BOX_MARGIN_PX);
   if (!box) return null;
   return {
@@ -107,7 +108,7 @@ export function cropForDecodedBarcode(canvas, barcodes, kind) {
 export function cropForDecodedBarcodeMatch(canvas, barcodes, predicate, marginPx = BARCODE_BOX_MARGIN_PX) {
   const list = (barcodes || []).filter(b => b.pageBoundingBox && predicate(b));
   if (!list.length) return null;
-  const chosen = list.find(b => b.locationQuality === 'decoded-symbol-bounding-box') || list[0];
+  const chosen = bestLocatedBarcode(list);
   const box = expandBox(chosen.pageBoundingBox, canvas.width, canvas.height, marginPx);
   if (!box) return null;
   return {
