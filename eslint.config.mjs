@@ -7,7 +7,8 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
 export default [
-  { ignores: ['dist/', 'portable/', 'node_modules/', 'public/'] },
+  // .claude/ can hold agent worktrees with their own dist builds; never lint them.
+  { ignores: ['dist/', 'portable/', 'node_modules/', 'public/', '.claude/'] },
   js.configs.recommended,
   {
     files: ['**/*.{js,jsx,mjs}'],

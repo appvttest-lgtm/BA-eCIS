@@ -621,12 +621,6 @@ details summary {
 .rail .review-links {
   min-height: 110px;
 }
-.rail-feedback {
-  margin-top: auto;
-  font-size: 12px;
-  color: var(--color-muted);
-  text-align: center;
-}
 .report-main {
   min-width: 0;
 }
@@ -692,9 +686,6 @@ details summary {
     position: static;
     height: auto;
     overflow: visible;
-  }
-  .rail-feedback {
-    margin-top: 0;
   }
 }
 html {
@@ -2224,6 +2215,71 @@ textarea:focus-visible,
     font-size: var(--text-sm);
     color: var(--color-muted);
     margin-top: 2px;
+  }
+  /* One page per barcode: each barcode section starts on its own sheet, and the
+     sections are compacted (smaller type, capped evidence images, tight rule
+     rows) so a section fits a single page. Page 1 keeps the header, gauge and
+     full label image. */
+  #datamatrix-section,
+  #linear-section,
+  #routing-section,
+  #atl-section,
+  #freight-section {
+    break-before: page;
+  }
+  /* On paper each barcode page reads top-to-bottom: evidence image, then the
+     colour-coded decoded string, then the field parameters whose swatches match
+     the colour coding (then the rule outcomes). */
+  #datamatrix-section .two-col,
+  #linear-section .two-col,
+  #routing-section .two-col,
+  #atl-section .two-col,
+  #freight-section .two-col {
+    display: block;
+  }
+  #datamatrix-section .category-crop,
+  #linear-section .category-crop,
+  #routing-section .category-crop,
+  #atl-section .category-crop,
+  #freight-section .category-crop {
+    margin: 0 auto 8px;
+    text-align: center;
+  }
+  section.card.audit-section {
+    font-size: 11px;
+    padding: 10px 12px;
+    margin: 0 0 10px;
+  }
+  section.card.audit-section h2 {
+    font-size: 15px;
+  }
+  section.card.audit-section h3 {
+    font-size: 12px;
+    margin: 8px 0 4px;
+  }
+  section.card.audit-section .category-crop img {
+    max-height: 55mm;
+    width: auto;
+    max-width: 100%;
+  }
+  #full-label-image .label-preview-large {
+    max-height: 115mm;
+    width: auto;
+    max-width: 100%;
+  }
+  section.card.audit-section figcaption,
+  section.card.audit-section .small,
+  section.card.audit-section .muted {
+    font-size: 9.5px;
+  }
+  section.card.audit-section .raw-code {
+    font-size: 10px;
+  }
+  .rule-row {
+    padding: 3px 0;
+  }
+  .rule-row-body {
+    font-size: 10px;
   }
 }
 
