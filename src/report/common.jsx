@@ -8,7 +8,7 @@ import { isStarTrackAtlValue, isStarTrackFreightItemValue, isStarTrackRoutingVal
 import { ARTICLE_FIELD_SPECS, fieldMetaText, fieldSpecsFor } from './barcodeFieldSpecs.js';
 import { standardForValidation } from './standards.js';
 import { barcodeDisplayName } from './auditInfo.js';
-import { rawSegments } from './segments.js';
+import { rawSegments, rawValueWithIdentifier } from './segments.js';
 
 export function formatBytes(bytes) {
   if (!Number.isFinite(bytes)) return 'unknown size';
@@ -675,7 +675,9 @@ export function DecodedBarcodes({ barcodes, kind, label, emptyText, showLegend }
   return (
     <ul className="barcode-list decoded-list">
       {barcodes.map(b => {
-        const segments = rawSegments(b.rawValue, kind).filter(s => s && (String(s.text).length > 0 || s.display));
+        const segments = rawSegments(rawValueWithIdentifier(b, kind), kind).filter(
+          s => s && (String(s.text).length > 0 || s.display)
+        );
         const hasFieldRows = segments.some(s => fieldSpecsFor(kind, segments)[s.label]);
         return (
           <li key={`${b.pageNumber || 0}-${b.rawValue}`}>

@@ -11,7 +11,7 @@ import {
   validateSelectedAuditMode
 } from '../shared/audit.js';
 import { uniqueNonEmpty } from '../shared/text.js';
-import { parseSsccBarcode } from '../formats/gs1.js';
+import { gs1LinearComplianceEvidence, parseSsccBarcode } from '../formats/gs1.js';
 import { enrichStarTrackFactsFromDecodedData, extractStarTrackFacts } from './facts.js';
 import { parseStarTrackFreightItemBarcode } from './formats/freightItem.js';
 import { parseStarTrackRoutingBarcode } from './formats/routing.js';
@@ -55,6 +55,23 @@ registerRuleFunction('receiverLocationCodesShown', (codes, { context }) => {
     message: pass
       ? `Receiver location codes found in the label text and consistent with the decoded routing/QR data (${expected}). Location Master File validity cannot be checked digitally.`
       : `Expected receiver location code(s) ${missing.join(', ')} - derived from the decoded routing barcode depot/port and QR destination depot - were not found in the extracted label text. Confirm the RC/R1/R2 line next to the routing barcode on the preview.`
+  };
+});
+
+// Depot and port destinations are issued from StarTrack's Location Master File, which has
+// no digital lookup, so every decoded routing barcode is held at manual review instead of
+// passing outright (ST-RTE-05). The GS1 421 routing form carries no depot segment; there the
+// sortation destination lives in the QR destination depot, which needs the same manual check.
+registerRuleFunction('routingDepotManualReview', route => {
+  const depot = String(route?.depotOrPort || '').toUpperCase();
+  return {
+    pass: false,
+    status: 'manual_review',
+    expected: 'depot/port confirmed against the StarTrack Location Master File',
+    actual: depot || 'no depot segment (GS1 421 routing form)',
+    message: depot
+      ? `Routing barcode decoded with depot/port ${depot}. Depot and port codes require manual validation against StarTrack's Location Master File - they cannot be verified digitally.`
+      : "GS1 421 routing barcode decoded. It carries no depot/port segment, so the sortation destination (the QR destination depot) requires manual validation against StarTrack's Location Master File - it cannot be verified digitally."
   };
 });
 
@@ -267,8 +284,18 @@ export function auditStarTrackLabel({
   // SSCC is an article identifier carried by the linear (Code 128) freight barcode,
   // so parse it from linear decodes only. Sourcing from every decoded value would let
   // a "00" + 18-digit run inside the QR payload masquerade as an SSCC article.
-  const ssccParses = linearValues
-    .map(parseSsccBarcode)
+  // Each parse keeps the decoder's ISO/IEC 15424 symbology identifier: ]C1 is the only
+  // digital proof the symbol starts with FNC1 (GS1-128), assessed by ST-SSC-09.
+  const ssccParses = linearBarcodes
+    .filter(b => b.rawValue)
+    .map(b => ({
+      ...parseSsccBarcode(b.rawValue),
+      ...gs1LinearComplianceEvidence({
+        raw: b.rawValue,
+        symbologyIdentifier: b.symbologyIdentifier,
+        decoderSource: b.source
+      })
+    }))
     .filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
   const validSsccs = ssccParses.filter(p => p.valid);
   const invalidSsccs = ssccParses.filter(p => !p.valid);

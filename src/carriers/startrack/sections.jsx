@@ -169,6 +169,12 @@ export function StarTrackRoutingSection({ audit, items }) {
             label="Routing barcode"
             emptyText="No StarTrack routing barcode value decoded."
           />
+          {routes.length > 0 && (
+            <p className="muted small routing-review-note">
+              Depot and port codes require manual validation: they are assigned from the StarTrack Location Master File,
+              which this audit cannot query digitally.
+            </p>
+          )}
           {sectionHasIssues(items) && routes.length > 0 && (
             <div className="fact-cards fact-cards-wide">
               {routes.map(route => (
@@ -360,7 +366,7 @@ export function StarTrackFreightItemSection({ audit, items }) {
               {ssccs.map(s => (
                 <SegmentedCode
                   key={`seg-${s.sscc}`}
-                  segments={rawSegments(`00${s.sscc}`, 'sscc')}
+                  segments={rawSegments(`${s.symbologyIdentifier || ''}00${s.sscc}`, 'sscc')}
                   title="SSCC field map (colour-coded)"
                 />
               ))}

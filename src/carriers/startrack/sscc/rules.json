@@ -23,7 +23,7 @@
     {
       "id": "ST-SSC-01",
       "title": "AI 00 SSCC freight barcode decoded",
-      "description": "SSCC retailer labels carry a GS1 AI 00 SSCC barcode as the article identifier.",
+      "description": "SSCC retailer labels carry the article identifier as a GS1-128 barcode containing FNC1 + AI 00 + the 18-digit SSCC (20 digits including AI 00) and nothing else.",
       "obligation": "mandatory",
       "severity": "CRITICAL",
       "category": "startrack-sscc",
@@ -57,6 +57,25 @@
         "pass": "All decoded SSCC barcodes have valid mod-10 check digits.",
         "fail": "One or more decoded SSCC values failed the mod-10 check digit.",
         "skipped": "No SSCC barcode was decoded, so the check digit could not be assessed."
+      }
+    },
+    {
+      "id": "ST-SSC-09",
+      "title": "GS1-128 FNC1 in first position",
+      "description": "The SSCC freight barcode is GS1-128: Code 128 with the FNC1 control character in the FIRST symbol position, ahead of AI 00. The leading FNC1 is never transmitted as data; scanners signal it with the ISO/IEC 15424 symbology identifier ]C1, which is the evidence assessed here.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "startrack-sscc",
+      "source": { "doc": "MOS v9", "page": 13, "ref": "ISO/IEC 15424 symbology identifier ]C1" },
+      "forEach": "barcodes.sscc.valid",
+      "input": "item.fnc1FirstPosition",
+      "evidence": ["item.symbologyIdentifier", "item.decoderSource", "item.raw"],
+      "onMissing": "manual_review",
+      "assert": { "op": "equals", "value": true },
+      "messages": {
+        "pass": "Scanner reported symbology identifier ]C1: FNC1 is encoded in the first position, so the symbol is a conforming GS1-128 SSCC barcode.",
+        "fail": "The reported symbology identifier indicates the symbol does NOT start with FNC1 - it decodes as plain Code 128, not GS1-128. See the identifier in the evidence.",
+        "missing": "The decoder did not report an ISO/IEC 15424 symbology identifier, so FNC1-in-first-position could not be verified digitally. Confirm the symbol was generated as GS1-128 (Code 128 with a leading FNC1), not plain Code 128."
       }
     },
     {

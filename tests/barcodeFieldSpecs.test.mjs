@@ -81,6 +81,25 @@ test('field checks still behave (spot checks)', () => {
   assert.equal(fieldSpecsFor('routing', [])['Label code'].check('EXP'), 'pass');
 });
 
+test('routing depot/port is held at manual review, never passed digitally', () => {
+  const depot = fieldSpecsFor('routing', [])['Depot/port'];
+  assert.equal(depot.check('SYD'), 'manual_review');
+  assert.equal(depot.check('ME'), 'manual_review');
+  assert.equal(depot.check('TOOLONG'), 'fail');
+  assert.match(depot.detail('SYD'), /requires manual validation/);
+  assert.match(depot.detail('SYD'), /Location Master File/);
+});
+
+test('SSCC field maps judge FNC1-in-first-position from the ]C1 identifier', () => {
+  const specs = GROUPS['startrack SSCC'];
+  assert.equal(specs['FNC1 start'].check(']C1'), 'pass');
+  assert.equal(specs['FNC1 start'].check(']C0'), 'fail');
+  assert.equal(specs['FNC1 start'].check(''), null, 'unknown identifier renders no verdict');
+  assert.match(specs['FNC1 start'].detail(''), /FNC1 in first position/);
+  assert.match(fieldMetaText(specs['FNC1 start']), /StarTrack Label Specifications.*p13$/);
+  assert.match(fieldMetaText(GROUPS['eparcel SSCC']['FNC1 start']), /Parcel Post and Express Post.*p26$/);
+});
+
 test('article check-digit drawer shows the full weighted-sum working', () => {
   const detail = ARTICLE_FIELD_SPECS['Check digit'].detail('5', { article: '2JD545583901000938305' });
   assert.match(detail, /^expected 5 /);

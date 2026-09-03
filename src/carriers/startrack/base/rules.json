@@ -447,6 +447,19 @@
       }
     },
     {
+      "id": "ST-RTE-05",
+      "title": "Depot/port requires manual validation",
+      "description": "Depot and primary/secondary port codes are issued from StarTrack's Location Master File, which has no digital lookup, so their validity cannot be confirmed by this audit. Every decoded routing barcode is therefore held at manual review: confirm the depot and port codes with StarTrack before relying on the routing.",
+      "obligation": "mandatory",
+      "severity": "INFO",
+      "category": "startrack-routing",
+      "source": { "doc": "StarTrack business rule", "ref": "Location Master File has no digital source" },
+      "forEach": "barcodes.routing",
+      "input": "item",
+      "evidence": ["item.raw"],
+      "assert": { "op": "fn", "name": "routingDepotManualReview" }
+    },
+    {
       "id": "ST-QR-MAND",
       "title": "QR mandatory fields populated",
       "description": "All mandatory fixed-width QR fields must be populated: receiver suburb/postcode/name/address, connote, freight item, product, quantity, weight, despatch date, unit type, destination depot, DG indicator and movement type.",

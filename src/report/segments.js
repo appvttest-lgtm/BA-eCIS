@@ -133,11 +133,29 @@ function dataMatrixSegments(value, symbologyIdent = '') {
     : [seg(String(value), 'Decoded value')];
 }
 
+// Kinds whose field map renders a leading FNC1-start marker; only these benefit from the
+// decoder-reported symbology identifier being re-attached to the value before segmentation.
+const FNC1_MARKER_KINDS = new Set(['freight', 'sscc', 'eparcel-linear', 'eparcel-linear-sscc', 'datamatrix']);
+
+/** Re-attaches the decoder-reported ISO/IEC 15424 symbology identifier (]C1 / ]d2) to a
+ *  decoded value for GS1 kinds, so the FNC1-start field row can display and judge it. Other
+ *  kinds get the value verbatim; rawSegments strips any identifier on entry regardless. */
+export function rawValueWithIdentifier(barcode, kind) {
+  const raw = String(barcode?.rawValue || '');
+  const ident = String(barcode?.symbologyIdentifier || '');
+  if (!ident || !FNC1_MARKER_KINDS.has(kind) || raw.startsWith(']')) return raw;
+  return `${ident}${raw}`;
+}
+
 /** Splits a decoded barcode value into colour-coded field segments by its fixed format and field
  *  lengths, operating on the literal decoded value so the highlighted string matches the scan.
  *  Always returns at least one segment for a non-empty value; a concat check guarantees no
  *  character is dropped or duplicated (falls back to a single block when slicing is unreliable). */
 export function rawSegments(rawValue, kind) {
+  // Keep any leading ISO/IEC 15424 symbology identifier (e.g. ]C1) aside: it is not data,
+  // but for GS1 carriers it is the proof of FNC1-in-first-position, so the SSCC map below
+  // re-uses it as the FNC1 start marker's text (the DataMatrix map does the same).
+  const ident = (String(rawValue || '').match(/^\][A-Za-z0-9]{2}/) || [])[0] || '';
   const v = String(rawValue || '').replace(/^\][A-Za-z0-9]{2}/, '');
   if (!v) return [];
   const seg = (text, label) => ({ text, label });
@@ -154,7 +172,7 @@ export function rawSegments(rawValue, kind) {
     }
     case 'freight': {
       const c = v.replace(/[()]/g, '');
-      if (/^00\d{18}$/.test(c)) return rawSegments(c, 'sscc');
+      if (/^00\d{18}$/.test(c)) return rawSegments(`${ident}${c}`, 'sscc');
       out = /^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(c)
         ? [
             seg(c.slice(0, 4), 'Despatch ID'),
@@ -205,8 +223,8 @@ export function rawSegments(rawValue, kind) {
     case 'eparcel-linear-sscc':
     case 'eparcel-linear': {
       const c = v.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-      if (/^00\d{18}$/.test(c)) return rawSegments(c, 'sscc');
-      if (kind === 'eparcel-linear-sscc') return rawSegments(c, 'sscc');
+      if (/^00\d{18}$/.test(c)) return rawSegments(`${ident}${c}`, 'sscc');
+      if (kind === 'eparcel-linear-sscc') return rawSegments(`${ident}${c}`, 'sscc');
       // GS1-128 carries AI 01 GTIN + AI 91 article; segment it by AI like the DataMatrix.
       if (/^01\d{14}91[A-Z0-9]+/.test(c)) return dataMatrixSegments(c);
       return rawSegments(c, 'article');
@@ -227,5 +245,12 @@ export function rawSegments(rawValue, kind) {
   const joined = out.map(s => String(s.text)).join('');
   const cleaned = v.replace(/[()\s]/g, '').toUpperCase();
   if (joined !== v && joined.toUpperCase() !== cleaned) return whole;
+  // GS1-128 requires FNC1 in the FIRST position, ahead of AI 00 (signalled as the ]C1
+  // symbology identifier, never as a data character). Mark the expected leading position
+  // on recognised SSCC symbols; when the decode kept the identifier it becomes the
+  // marker's text, mirroring the DataMatrix field map.
+  if (kind === 'sscc' && out[0]?.label === 'AI 00') {
+    return [{ text: ident, label: 'FNC1 start', display: ident ? `⟨FNC1⟩ ${ident}` : '⟨FNC1⟩' }, ...out];
+  }
   return out;
 }

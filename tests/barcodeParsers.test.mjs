@@ -8,6 +8,7 @@ import {
   analyzeArticleCandidate,
   calculateEparcelCheckDigit,
   dataMatrixComplianceEvidence,
+  gs1LinearComplianceEvidence,
   normalizeBarcode,
   parseEparcelBarcode,
   parseGs1DataMatrix,
@@ -75,6 +76,24 @@ test('parseSsccBarcode validates the GS1 mod-10 check digit', () => {
 
   assert.match(parseSsccBarcode('00000000000000000017EXTRA').reason, /nothing else/);
   assert.match(parseSsccBarcode('12345').reason, /No AI 00/);
+
+  // Any leading ISO/IEC 15424 symbology identifier is decoder metadata, not payload.
+  assert.equal(parseSsccBarcode(']C100000000000000000017').valid, true);
+  assert.equal(parseSsccBarcode(']C000000000000000000017').valid, true);
+});
+
+test('gs1LinearComplianceEvidence reads FNC1-first from the ]C1 identifier', () => {
+  const gs1 = gs1LinearComplianceEvidence({ symbologyIdentifier: ']C1', decoderSource: 'wasm' });
+  assert.equal(gs1.fnc1FirstPosition, true);
+  assert.equal(gs1.symbologyIdentifier, ']C1');
+  assert.equal(gs1.decoderSource, 'wasm');
+
+  assert.equal(gs1LinearComplianceEvidence({ symbologyIdentifier: ']C0' }).fnc1FirstPosition, false);
+  assert.equal(gs1LinearComplianceEvidence({ symbologyIdentifier: ']C2' }).fnc1FirstPosition, false);
+  // No identifier reported: unknown, never guessed.
+  assert.equal(gs1LinearComplianceEvidence({ raw: '00000000000000000017' }).fnc1FirstPosition, null);
+  // Some decoders keep the identifier on the text itself; that also counts as evidence.
+  assert.equal(gs1LinearComplianceEvidence({ raw: ']C100000000000000000017' }).fnc1FirstPosition, true);
 });
 
 test('parseGs1DataMatrix extracts AIs when separators are present and correct', () => {

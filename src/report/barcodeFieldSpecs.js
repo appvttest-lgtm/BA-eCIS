@@ -124,6 +124,17 @@ const ssccFromContext = ctx => parseSsccBarcode(ctx.joined.length === 18 ? `00${
 const ssccFieldSpecs = kind => {
   const src = kind === 'freight' ? cite('mandatory', ST_SPEC, 13) : cite('mandatory', EP_SPEC, 26);
   return {
+    'FNC1 start': pf(
+      'GS1-128 symbol start: FNC1 required in the FIRST position, ahead of AI 00 (scanners signal it as symbology identifier ]C1 — it is not a data character)',
+      t => (t === ']C1' ? 'pass' : /^\]C\d$/.test(t) ? 'fail' : null),
+      t =>
+        t === ''
+          ? 'not visible in this decode — see the "FNC1 in first position" rule row, which assesses the decoder-reported symbology identifier'
+          : t === ']C1'
+            ? `symbology identifier ${t}: FNC1 in first position (GS1-128)`
+            : `symbology identifier ${t}: FNC1 is NOT in first position`,
+      src
+    ),
     'AI 00': pf('GS1 Application Identifier 00 — SSCC follows', literalCheck('00'), null, src),
     'Extension digit': pf('Extension digit 0–9 (merchant assigned)', digitsCheck(1), null, src),
     'Company prefix + serial': pf('GS1 company prefix + serial reference — 16 digits', digitsCheck(16), null, src),
@@ -223,7 +234,7 @@ const GS1_FIELD_SPECS = {
     t => (t === ']d2' || t === ']d5' || t === ']C1' ? 'pass' : /^\]d\d$/.test(t) ? 'fail' : null),
     t =>
       t === ''
-        ? 'not visible in this decode — see the "GS1 FNC1 in first position" rule row, which assesses the decoder-reported symbology identifier'
+        ? 'not visible in this decode — see the "FNC1 in first position" rule row, which assesses the decoder-reported symbology identifier'
         : /^\](d[25]|C1)$/.test(t)
           ? `symbology identifier ${t}: FNC1 in first position (GS1 carrier)`
           : `symbology identifier ${t}: FNC1 is NOT in first position`,
@@ -272,9 +283,14 @@ const ROUTING_FIELD_SPECS = {
   ),
   Postcode: pf('Destination postcode — 4 digits', digitsCheck(4), null, cite('mandatory', ST_SPEC, 14)),
   'Depot/port': pf(
-    'Destination depot/port — 2–3 characters',
-    t => (/^[A-Z0-9]{2,3}$/i.test(t) ? 'pass' : 'fail'),
-    null,
+    'Destination depot/port — 2–3 characters, assigned from the StarTrack Location Master File',
+    // Format is checkable, validity is not: the Location Master File has no digital
+    // lookup, so a well-formed depot/port is held at manual review rather than passed.
+    t => (/^[A-Z0-9]{2,3}$/i.test(t) ? 'manual_review' : 'fail'),
+    t =>
+      /^[A-Z0-9]{2,3}$/i.test(t)
+        ? `depot/port ${t.toUpperCase()} requires manual validation — the StarTrack Location Master File cannot be queried digitally`
+        : 'not a 2-3 character depot/port code',
     cite('mandatory', ST_SPEC, 14)
   ),
   'AI 421': pf(

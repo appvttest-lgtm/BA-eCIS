@@ -9,7 +9,7 @@ import React from 'react';
 import { getAuditSections } from './sections.jsx';
 import { InputQualityGauge, SegmentedCode, SEG_PALETTE } from './common.jsx';
 import { StatusIcon } from './reportView.jsx';
-import { rawSegments } from './segments.js';
+import { rawSegments, rawValueWithIdentifier } from './segments.js';
 import { ARTICLE_FIELD_SPECS, fieldSpecsFor } from './barcodeFieldSpecs.js';
 import { isDataMatrixBarcode, isLinearBarcode, isQrBarcode } from '../scanner/barcodeTypes.js';
 import { isStarTrackAtlValue, isStarTrackFreightItemValue, isStarTrackRoutingValue } from '../scanner/labelImages.js';
@@ -163,7 +163,7 @@ function IssueLines({ items }) {
  */
 function PrintBarcodeSection({ group, items }) {
   const barcode = group.barcodes[0] || null;
-  const segments = barcode ? rawSegments(barcode.rawValue, group.kind) : [];
+  const segments = barcode ? rawSegments(rawValueWithIdentifier(barcode, group.kind), group.kind) : [];
   const rows = barcode ? fieldRows(segments, group.kind) : null;
   const passCount = items.filter(v => v.status === 'pass').length;
   return (

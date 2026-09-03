@@ -8,10 +8,11 @@
  *  separators (the GS1 control characters between fields) and newlines to "|", and unwraps
  *  printed "(AI)" brackets. */
 export function normalizeBarcode(raw) {
+  // The leading ISO/IEC 15424 symbology identifier (]C1, ]d2, ]C0, ...) is decoder metadata,
+  // never payload data, so any "]"+2 characters at the front is stripped before parsing.
   return String(raw || '')
     .trim()
-    .replace(/^\]C1/, '')
-    .replace(/^\]d2/, '')
+    .replace(/^\][A-Za-z0-9]{2}/, '')
     .replace(/\u001d/g, '|')
     .replace(/\x1d/g, '|')
     .replace(/\u001e/g, '|')
@@ -45,12 +46,26 @@ export function gs1Mod10CheckDigit(numberWithoutCheckDigit) {
  *  whitespace removed, uppercased. */
 export function stripAiDecorations(raw) {
   return String(raw || '')
-    .replace(/^\]C1/, '')
-    .replace(/^\]d2/, '')
+    .replace(/^\][A-Za-z0-9]{2}/, '')
     .replace(/[\u001d\x1d\u001e\x1e\u001c\x1c|]/g, '')
     .replace(/\s+/g, '')
     .trim()
     .toUpperCase();
+}
+
+/**
+ * FNC1-in-first-position evidence for a linear GS1-128 symbol. A GS1-128 barcode is Code 128
+ * with the FNC1 control character in the first symbol position; the leading FNC1 is never
+ * transmitted as data, so the only digital proof is the ISO/IEC 15424 symbology identifier:
+ * ]C1 means Code 128 + FNC1 first (GS1-128), other ]Cn values mean plain/other Code 128.
+ * With no identifier available, fnc1FirstPosition stays null (unknown) rather than guessing.
+ */
+export function gs1LinearComplianceEvidence({ raw = '', symbologyIdentifier = '', decoderSource = '' } = {}) {
+  const identifier = String(symbologyIdentifier || '') || (String(raw).match(/^\]C\d/) || [])[0] || '';
+  let fnc1FirstPosition = null;
+  if (identifier === ']C1') fnc1FirstPosition = true;
+  else if (/^\]C\d$/.test(identifier)) fnc1FirstPosition = false;
+  return { symbologyIdentifier: identifier, fnc1FirstPosition, decoderSource: String(decoderSource || '') };
 }
 
 /** Parses a GS1 AI 00 SSCC barcode and validates the embedded check digit. */

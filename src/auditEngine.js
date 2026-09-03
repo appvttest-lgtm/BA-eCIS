@@ -6,7 +6,7 @@ import { CARRIERS } from './carriers/index.js';
 
 export * from './carriers/eparcel/referenceData.js';
 export * from './carriers/startrack/referenceData.js';
-export { normalizeBarcode, parseSsccBarcode } from './carriers/formats/gs1.js';
+export { gs1LinearComplianceEvidence, normalizeBarcode, parseSsccBarcode } from './carriers/formats/gs1.js';
 export {
   analyzeArticleCandidate,
   calculateEparcelCheckDigit,
