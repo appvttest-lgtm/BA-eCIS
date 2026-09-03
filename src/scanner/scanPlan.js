@@ -18,10 +18,32 @@ export function makeTarget(sourceCanvas, kind, label, x, y, w, h, formats) {
   return { kind, label, x, y, w, h, canvas: targetCanvas, formats };
 }
 
+// Symbologies the Barcode Reader mode scans for. The carrier audits only ever ask for the
+// symbols their specs allow (Code 128 / DataMatrix / QR); the reader also accepts the retail
+// and logistics formats so any barcode on an uploaded label is surfaced.
+export const READER_SCAN_FORMATS = ['Code128', 'DataMatrix', 'QRCode', 'PDF417', 'EAN-13', 'EAN-8'];
+
 /** Plans the ordered list of crop scan targets for the carrier label family. */
 export function buildCategorizedScanTargets(canvas, labelFamily = 'eparcel') {
   const w = canvas.width;
   const h = canvas.height;
+  if (labelFamily === 'reader') {
+    // Barcode Reader mode: no carrier layout is assumed, so scan the full page per
+    // symbology family plus both carriers' linear sweep bands (dense 1D symbols decode
+    // more reliably from a band crop than from the whole page).
+    const st = STARTRACK_LINEAR_TARGETS;
+    const ep = EPARCEL_SCAN_TARGETS;
+    const linearFormats = READER_SCAN_FORMATS.filter(f => f !== 'DataMatrix' && f !== 'QRCode');
+    const band = (label, box) =>
+      makeTarget(canvas, FORMAT_KIND.linear, label, w * box.x, h * box.y, w * box.w, h * box.h, linearFormats);
+    return [
+      makeTarget(canvas, FORMAT_KIND.qr, 'Reader QR full page scan', 0, 0, w, h, ['QRCode']),
+      makeTarget(canvas, FORMAT_KIND.datamatrix, 'Reader DataMatrix full page scan', 0, 0, w, h, ['DataMatrix']),
+      band('Reader linear sweep (StarTrack band)', st.sweep),
+      band('Reader linear sweep (eParcel band)', ep.standardLinear),
+      makeTarget(canvas, FORMAT_KIND.mixed, 'Full page safety scan', 0, 0, w, h, READER_SCAN_FORMATS)
+    ];
+  }
   if (labelFamily === 'startrack') {
     const st = STARTRACK_LINEAR_TARGETS;
     return [

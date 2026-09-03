@@ -196,6 +196,8 @@ const PREVIEW_BOX_STYLE = {
 
 /** True when a decoded barcode reads as a valid symbol for its carrier role (drives green vs red). */
 export function isDecodedBarcodeValid(barcode, labelFamily = 'eparcel') {
+  // Barcode Reader mode applies no carrier roles: every successful decode outlines green.
+  if (labelFamily === 'reader') return true;
   // 2D symbols carry strong error correction, so a successful decode is a valid read.
   if (isQrBarcode(barcode) || isDataMatrixBarcode(barcode)) return true;
   const value = normalizeBarcodeValueForRole(barcode.rawValue);

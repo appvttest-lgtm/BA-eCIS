@@ -2189,3 +2189,106 @@ textarea:focus-visible,
   color: #4a5560;
   border-color: #dde3e9;
 }
+
+/* ---- Barcode Reader mode (grey identity; no validation rules) ---------------------- */
+/* Third label-type choice: same layout as the carrier modes, neutral grey accents. */
+.dropzone-reader {
+  border-color: #c6cdd6;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f5f8 100%);
+}
+.dropzone-reader:hover {
+  border-color: #5b6875;
+  background: #eef1f5;
+}
+.dropzone-reader .dropzone-title {
+  color: #38424d;
+}
+/* Same AP emblem desaturated to grey while reading (or picking) Barcode Reader mode. */
+.rail-logo-reader {
+  filter: grayscale(1) opacity(0.85);
+}
+.rail-verdict-reader {
+  border-color: #c6cdd6;
+  background: #f3f5f8;
+}
+.rail-verdict-reader .rail-verdict-status {
+  color: #38424d;
+}
+.rail-reader .nav-dot {
+  background: #7b8794;
+}
+.reader-section {
+  border-color: #d7dde3;
+}
+.reader-barcode-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.reader-fnc1-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 6px 0;
+}
+.fnc1-chip {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.fnc1-first {
+  background: #edf8f1;
+  border-color: #9fd7b2;
+  color: #087a2e;
+}
+.fnc1-absent {
+  background: #f3f5f8;
+  border-color: #c6cdd6;
+  color: #38424d;
+}
+.fnc1-unknown {
+  background: #fff8e5;
+  border-color: #f1c96d;
+  color: #8a5a00;
+}
+.reader-raw {
+  margin: 6px 0;
+}
+.reader-raw-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+/* Control characters (FNC1/GS and friends) rendered as visible chips inside raw content. */
+.ctrl-char {
+  display: inline-block;
+  margin: 0 2px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: #eef1f4;
+  border: 1px dashed #94a3b8;
+  color: #475569;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+/* The derived leading-FNC1 marker (from the symbology identifier) gets a solid border to
+ * distinguish it from separators that are literally present in the byte stream. */
+.ctrl-char-lead {
+  border-style: solid;
+}
+.reader-raw-code {
+  white-space: pre-wrap;
+  word-break: break-all;
+}

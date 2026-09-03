@@ -98,10 +98,12 @@ export function dedupeBarcodes(items) {
       ...(existing.barCount == null && clean.barCount != null ? { barCount: clean.barCount } : {}),
       // The ISO/IEC 15424 symbology identifier proves GS1 carrier compliance (]d2 means
       // ECC 200 DataMatrix led by FNC1, the GS1 control character); keep it from
-      // whichever decoder reported it.
+      // whichever decoder reported it. Same for the raw byte stream, which preserves
+      // FNC1 group separators (ASCII 29) that display text modes strip.
       ...(!existing.symbologyIdentifier && clean.symbologyIdentifier
         ? { symbologyIdentifier: clean.symbologyIdentifier }
         : {}),
+      ...(!existing.rawBytes && clean.rawBytes ? { rawBytes: clean.rawBytes } : {}),
       // Keep the source label that explains the successful location read in the UI.
       ...(locationUpgrade
         ? {
@@ -154,7 +156,12 @@ export function makeZxingReader(formats = ['Code128', 'DataMatrix']) {
     UPCA: BarcodeFormat.UPC_A,
     ITF: BarcodeFormat.ITF,
     Code39: BarcodeFormat.CODE_39,
-    Code93: BarcodeFormat.CODE_93
+    Code93: BarcodeFormat.CODE_93,
+    // zxing-wasm spells the retail formats with a dash; accept both so one target
+    // format list drives both engines.
+    'EAN-13': BarcodeFormat.EAN_13,
+    'EAN-8': BarcodeFormat.EAN_8,
+    'UPC-A': BarcodeFormat.UPC_A
   };
   const hints = new Map();
   hints.set(DecodeHintType.POSSIBLE_FORMATS, formats.map(f => formatMap[f]).filter(Boolean));
@@ -259,6 +266,10 @@ export async function wasmDecodeCanvas(
         variantLabel,
         orientation: r.orientation,
         symbologyIdentifier: r.symbologyIdentifier || '',
+        // The raw byte stream as transmitted: FNC1 group separators arrive here as
+        // ASCII 29 even when the display text mode (HRI) strips or rewrites them.
+        // Kept as a latin-1 string so it survives dedupe/state without typed arrays.
+        rawBytes: r.bytes?.length ? Array.from(r.bytes, byte => String.fromCharCode(byte)).join('') : '',
         boundingBox: positionToBox(r.position)
       }));
   } catch (error) {

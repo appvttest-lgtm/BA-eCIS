@@ -748,14 +748,23 @@ export async function processImageLabels(file, detector, onDebug = null, labelFa
       // them for validation (the label prints every barcode value in human-readable form,
       // so OCR backs up any value a barcode failed to decode). Located symbols are masked
       // out of the full-label pass - their black mass only degrades layout analysis, and
-      // the dedicated crop pass below reads their HRI digits anyway.
-      const ocr = await recognizeCanvasText(canvas, mark, segContext, {
-        maskBoxes: detected.filter(b => b.pageBoundingBox).map(b => b.pageBoundingBox)
-      });
+      // the dedicated crop pass below reads their HRI digits anyway. Barcode Reader mode
+      // runs no text checks, so it skips OCR entirely for speed.
+      const wantsOcr = labelFamily !== 'reader';
+      const ocr = wantsOcr
+        ? await recognizeCanvasText(canvas, mark, segContext, {
+            maskBoxes: detected.filter(b => b.pageBoundingBox).map(b => b.pageBoundingBox)
+          })
+        : {
+            text: '',
+            status: 'skipped',
+            charCount: 0,
+            detail: 'Barcode Reader mode reads barcodes only; OCR is not used.'
+          };
       // The gentle full-label pass often misses the small HRI digits printed with each
       // barcode; a second, aggressive pass over just the located barcode crops recovers
       // them for the printed-vs-decoded cross-checks.
-      const cropOcrText = await recognizeBarcodeCropOcr(canvas, detected, mark, segContext);
+      const cropOcrText = wantsOcr ? await recognizeBarcodeCropOcr(canvas, detected, mark, segContext) : '';
       const ocrText = mergeExtractedText(ocr.text, cropOcrText);
       const quality = assessLabelQuality(canvas, {
         widthMm: null,
@@ -929,7 +938,8 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
       // falls back to OCR.
       const useTextLayer = geometryUnchanged && (!isSegmented || Boolean(segmentTextLines));
       const segLines = !useTextLayer ? [] : isSegmented ? segmentTextLines[segIndex] : pageLines;
-      const shouldOcrPage = useTextLayer ? pdfTextLayerNeedsOcr(segLines) : true;
+      // Barcode Reader mode runs no text checks, so OCR never pays for itself there.
+      const shouldOcrPage = labelFamily === 'reader' ? false : useTextLayer ? pdfTextLayerNeedsOcr(segLines) : true;
       const visualStart = performance.now();
       const visualEvidence = detectVisualBarcodeEvidence(canvas);
       mark(`Checked visual barcode evidence on ${segContext}`, visualStart);
@@ -956,7 +966,10 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
             text: '',
             status: 'skipped',
             charCount: 0,
-            detail: 'Selectable PDF text layer was sufficient; OCR not required.'
+            detail:
+              labelFamily === 'reader'
+                ? 'Barcode Reader mode reads barcodes only; OCR is not used.'
+                : 'Selectable PDF text layer was sufficient; OCR not required.'
           };
       // Barcode-crop OCR runs whenever the page needed OCR at all: on scanned/rotated
       // pages the HRI digits are exactly the text the gentle full-page pass misses.
@@ -964,7 +977,9 @@ export async function processPdfLabels(file, detector, onDebug = null, labelFami
       const ocrText = mergeExtractedText(ocr.text, cropOcrText);
       if (!shouldOcrPage) {
         mark(
-          `Skipped OCR on page ${pageNumber}; selectable PDF text layer provided sufficient audit text`,
+          labelFamily === 'reader'
+            ? `Skipped OCR on page ${pageNumber}; Barcode Reader mode reads barcodes only`
+            : `Skipped OCR on page ${pageNumber}; selectable PDF text layer provided sufficient audit text`,
           performance.now()
         );
       }

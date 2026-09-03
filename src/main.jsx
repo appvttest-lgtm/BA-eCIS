@@ -19,6 +19,8 @@ import {
 } from './report/common.jsx';
 import { ServiceArticleBreakdownSection, getAuditSections } from './report/sections.jsx';
 import { PrintReport, printAuditReport } from './report/printReport.jsx';
+import { ReaderReportView } from './report/readerReport.jsx';
+import { buildReaderResult } from './report/readerData.js';
 import { DataMatrixSection, LinearBarcodeSection } from './carriers/eparcel/sections.jsx';
 import {
   StarTrackAtlSection,
@@ -38,7 +40,8 @@ import './styles.css';
 const APP_TITLE = 'Australia Post - eCommerce Integration Label Auditor';
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'v?';
 const ACCEPTED_LABEL_FILE_TYPES = 'application/pdf,image/png,image/jpeg,image/webp,image/bmp';
-const LABEL_FAMILY_NAMES = { eparcel: 'eParcel', startrack: 'StarTrack' };
+// 'reader' is the rule-free Barcode Reader mode: same render/scan pipeline, no validation.
+const LABEL_FAMILY_NAMES = { eparcel: 'eParcel', startrack: 'StarTrack', reader: 'Barcode Reader' };
 // 'sscc' = labels whose article ID is an SSCC (Serial Shipping Container Code, the GS1 AI 00
 // 18-digit logistics-unit identifier) rather than a standard article number.
 const LABEL_FORMAT_NAMES = { standard: 'Standard article format', sscc: 'SSCC article identifier' };
@@ -120,14 +123,21 @@ function App() {
 
   const { processing, scanDebugLines, message, messageTone, scanDatas, audits, activeIndex } = workflow;
   const setMessage = (text, tone = 'info') => dispatch({ type: 'message', message: text, tone });
-  // The upload box stays hidden until both audit-mode choices are made.
-  const auditModeReady = Boolean(selectedCarrier && selectedLabelFormat);
+  // The upload box stays hidden until both audit-mode choices are made. The Barcode
+  // Reader applies no rule set, so it has no label-format choice to wait for.
+  const auditModeReady = selectedCarrier === 'reader' ? true : Boolean(selectedCarrier && selectedLabelFormat);
 
   const activeAudit = audits[activeIndex] || null;
   const activeScanData = scanDatas[activeIndex] || null;
   const batchSummary = useMemo(() => combinedAuditSummary(audits), [audits]);
-  const sections = useMemo(() => (activeAudit ? getAuditSections(activeAudit) : null), [activeAudit]);
+  // Reader results carry no validations, so the rule-section grouping does not apply.
+  const sections = useMemo(
+    () => (activeAudit && activeAudit.carrier !== 'reader' ? getAuditSections(activeAudit) : null),
+    [activeAudit]
+  );
   const hasReport = audits.length > 0;
+  const isReaderBatch = audits[0]?.carrier === 'reader';
+  const railCarrier = activeAudit ? activeAudit.selectedAuditMode?.carrier || activeAudit.carrier : selectedCarrier;
   // Focus management for the upload dialog (shown on first load and via "New audit").
   const uploaderDialogRef = useDialogFocus(!processing && (showUploader || !hasReport));
 
@@ -165,8 +175,8 @@ function App() {
 
   /** Starts the full audit immediately after a user drops or chooses files. */
   async function acceptSelectedFiles(selectedFiles) {
-    if (!selectedCarrier || !selectedLabelFormat) {
-      setMessage('Select a label type and a label format before uploading a label.');
+    if (!auditModeReady) {
+      setMessage('Select a label type (and label format) before uploading a label.');
       return;
     }
     const { accepted, rejected } = normaliseSelectedFiles(selectedFiles);
@@ -184,7 +194,10 @@ function App() {
     if (limitMessages.length) {
       setMessage(limitMessages.join(' '), 'error');
     }
-    await auditSelectedFiles(selected, { carrier: selectedCarrier, labelFormat: selectedLabelFormat });
+    await auditSelectedFiles(selected, {
+      carrier: selectedCarrier,
+      labelFormat: selectedCarrier === 'reader' ? 'read' : selectedLabelFormat
+    });
   }
 
   /** Adds a wall-clock-stamped line (with optional elapsed time) to the on-screen timing log. */
@@ -230,7 +243,7 @@ function App() {
       for (let i = 0; i < batches.length; i += 1) {
         const { file: currentFile, labelFamily, labelFormat } = batches[i];
         const carrierLabel = labelFamilyName(labelFamily);
-        const formatLabel = LABEL_FORMAT_NAMES[labelFormat] || labelFormat;
+        const formatLabel = labelFamily === 'reader' ? 'read-only' : LABEL_FORMAT_NAMES[labelFormat] || labelFormat;
         const fileDebugPrefix = `${carrierLabel} ${formatLabel} file ${i + 1}/${batches.length}: ${currentFile.name}`;
         const fileTimer = performance.now();
         const fileDebug = (message, durationMs = null) =>
@@ -252,14 +265,26 @@ function App() {
           const itemLabel =
             data.fileInfo?.pageLabel ||
             (data.fileInfo?.sourcePdfPage ? `page ${data.fileInfo.sourcePdfPage}` : 'image');
-          setMessage(`Auditing ${currentFile.name} — ${itemLabel}`);
+          setMessage(
+            labelFamily === 'reader'
+              ? `Listing barcodes from ${currentFile.name} — ${itemLabel}`
+              : `Auditing ${currentFile.name} — ${itemLabel}`
+          );
           const auditRuleStart = performance.now();
-          const nextAudit = auditLabel({
-            ...data,
-            labelFamily,
-            labelFormat
-          });
-          appendScanDebug(`${fileDebugPrefix} - ran audit rules for ${itemLabel}`, performance.now() - auditRuleStart);
+          // Barcode Reader mode runs no rules: the scan data is shaped straight into a
+          // read result instead of going through a carrier audit.
+          const nextAudit =
+            labelFamily === 'reader'
+              ? buildReaderResult(data)
+              : auditLabel({
+                  ...data,
+                  labelFamily,
+                  labelFormat
+                });
+          appendScanDebug(
+            `${fileDebugPrefix} - ${labelFamily === 'reader' ? 'listed decoded barcodes' : 'ran audit rules'} for ${itemLabel}`,
+            performance.now() - auditRuleStart
+          );
           nextAudit.labelImages = data.labelImages || {};
           nextAudit.extractedText = data.extractedText || '';
           nextAudit.scanDiagnostics = data.scanDiagnostics || [];
@@ -310,22 +335,24 @@ function App() {
               ))}
             </div>
           </div>
-          <div>
-            <span className="field-label">Label format</span>
-            <div className="segmented-control" role="group" aria-label="Label format">
-              {Object.entries(LABEL_FORMAT_NAMES).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={selectedLabelFormat === value ? 'active' : ''}
-                  disabled={processing}
-                  onClick={() => setSelectedLabelFormat(value)}
-                >
-                  {label}
-                </button>
-              ))}
+          {selectedCarrier !== 'reader' && (
+            <div>
+              <span className="field-label">Label format</span>
+              <div className="segmented-control" role="group" aria-label="Label format">
+                {Object.entries(LABEL_FORMAT_NAMES).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={selectedLabelFormat === value ? 'active' : ''}
+                    disabled={processing}
+                    onClick={() => setSelectedLabelFormat(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
         {auditModeReady ? (
           <label
@@ -351,9 +378,15 @@ function App() {
               }}
             />
             <span className="dropzone-title">
-              Drop {LABEL_FAMILY_NAMES[selectedCarrier]} {LABEL_FORMAT_NAMES[selectedLabelFormat]} labels here
+              {selectedCarrier === 'reader'
+                ? 'Drop labels here to read every barcode'
+                : `Drop ${LABEL_FAMILY_NAMES[selectedCarrier]} ${LABEL_FORMAT_NAMES[selectedLabelFormat]} labels here`}
             </span>
-            <span className="dropzone-subtitle">PDF, PNG, JPG, WebP or BMP</span>
+            <span className="dropzone-subtitle">
+              {selectedCarrier === 'reader'
+                ? 'PDF, PNG, JPG, WebP or BMP — raw barcode contents only, no validation rules'
+                : 'PDF, PNG, JPG, WebP or BMP'}
+            </span>
           </label>
         ) : (
           <p className="dropzone-pending muted" role="status">
@@ -384,30 +417,42 @@ function App() {
               {/* Same AP emblem, tinted StarTrack blue when the audit (or the picker) is StarTrack. */}
               <img
                 className={`rail-logo ${
-                  (activeAudit ? activeAudit.selectedAuditMode?.carrier || activeAudit.carrier : selectedCarrier) ===
-                  'startrack'
+                  railCarrier === 'startrack'
                     ? 'rail-logo-startrack'
-                    : ''
+                    : railCarrier === 'reader'
+                      ? 'rail-logo-reader'
+                      : ''
                 }`}
                 src={australiaPostLogoUrl}
                 alt="Australia Post"
               />
             </div>
             {hasReport ? (
-              <div
-                className={`rail-verdict summary-${batchSummary.overallStatus.toLowerCase()}`}
-                id="audit-result"
-                role="status"
-              >
-                <span className="rail-verdict-label">Audit result</span>
-                <strong className={`rail-verdict-status overall-${batchSummary.overallStatus.toLowerCase()}`}>
-                  {batchSummary.overallStatus}
-                </strong>
-                <span className="rail-verdict-counts">
-                  {batchSummary.passed} passed · {batchSummary.manualReview} review · {batchSummary.failed} fail
-                  {batchSummary.failed === 1 ? '' : 's'}
-                </span>
-              </div>
+              isReaderBatch ? (
+                <div className="rail-verdict rail-verdict-reader" id="audit-result" role="status">
+                  <span className="rail-verdict-label">Barcode reader</span>
+                  <strong className="rail-verdict-status">READ</strong>
+                  <span className="rail-verdict-counts">
+                    {batchSummary.decoded} barcode{batchSummary.decoded === 1 ? '' : 's'} decoded
+                    {audits.length > 1 ? ` across ${audits.length} labels` : ''} · no rules applied
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className={`rail-verdict summary-${batchSummary.overallStatus.toLowerCase()}`}
+                  id="audit-result"
+                  role="status"
+                >
+                  <span className="rail-verdict-label">Audit result</span>
+                  <strong className={`rail-verdict-status overall-${batchSummary.overallStatus.toLowerCase()}`}>
+                    {batchSummary.overallStatus}
+                  </strong>
+                  <span className="rail-verdict-counts">
+                    {batchSummary.passed} passed · {batchSummary.manualReview} review · {batchSummary.failed} fail
+                    {batchSummary.failed === 1 ? '' : 's'}
+                  </span>
+                </div>
+              )
             ) : (
               <div className="rail-verdict rail-verdict-empty" id="audit-result" role="status">
                 <span className="rail-verdict-label">Audit result</span>
@@ -421,6 +466,29 @@ function App() {
               <div className="rail-files" role="group" aria-label="Uploaded labels">
                 <span className="rail-block-title">Labels ({audits.length})</span>
                 {audits.map((item, idx) => {
+                  if (item.carrier === 'reader') {
+                    const count = item.detectedBarcodes?.length || 0;
+                    return (
+                      <button
+                        key={`reader-${idx}`}
+                        type="button"
+                        aria-current={idx === activeIndex ? 'true' : undefined}
+                        className={`rail-file rail-reader ${idx === activeIndex ? 'active' : ''}`}
+                        onClick={() => dispatch({ type: 'set-active', index: idx })}
+                      >
+                        <span className="rail-file-head">
+                          <span className="nav-dot" aria-hidden="true" />
+                          <code className="rail-file-article">
+                            {item.fileInfo?.pageLabel || item.fileInfo?.filename || `Label ${idx + 1}`}
+                          </code>
+                        </span>
+                        <span className="rail-file-sub">
+                          {count} barcode{count === 1 ? '' : 's'} decoded
+                        </span>
+                        <span className="rail-file-sub">{item.fileInfo?.filename || 'Barcode read'}</span>
+                      </button>
+                    );
+                  }
                   const h = auditDisplayHeader(item, idx);
                   const consignment = auditConsignmentId(item);
                   const tone = String(item.summary?.overallStatus || 'review').toLowerCase();
@@ -503,6 +571,15 @@ function App() {
                 <span className="skl skl-w70" />
               </section>
             </div>
+          )}
+          {activeAudit && activeAudit.carrier === 'reader' && (
+            <ReaderReportView
+              result={activeAudit}
+              index={activeIndex}
+              onNewAudit={() => setShowUploader(true)}
+              processing={processing}
+              onZoomLabel={setZoomImage}
+            />
           )}
           {activeAudit &&
             sections &&
