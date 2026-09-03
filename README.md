@@ -20,7 +20,7 @@ Every stage runs in the user's browser. The bundled server (or any static web ho
 
 ## How it works, step by step
 
-1. **Upload** — you drop one or more label files into either the eParcel section or the StarTrack section. The two are kept separate so a label is always judged against the right rules.
+1. **Upload** — you drop one or more label files into either the eParcel section or the StarTrack section. The two are kept separate so a label is always judged against the right rules. A third choice, **Barcode Reader**, runs the same render-and-scan steps with no rules at all: it simply lists every decoded barcode with its raw content (FNC1 characters shown where the scan captured them) — steps 4 and 5 below don't apply, and OCR is skipped.
 2. **Render** — each PDF page or image is drawn in the browser. If a label is sideways it gets rotated, and a sheet with several labels on it is cut into individual labels.
 3. **Read** — the app scans each label for barcodes (linear, Data Matrix, QR) using three decoders, and runs OCR to read the printed text.
 4. **Check** — the audit engine works out which product the label is for (from the codes it just read), loads the matching rule set, and runs every rule: format, check digits, identity, routing, product/service combination, and printed text.
@@ -210,6 +210,8 @@ src/                  The app itself
     standards.js      Merges the carriers' spec example texts
     barcodeFieldSpecs.js   Barcode field breakdown specs: per-field check, obligation, citation
     ruleSource.js     Spec citation line for the report (document title, version, page)
+    readerData.js     Barcode Reader mode data shaping (leading-FNC1 evidence, raw byte display)
+    readerReport.jsx  Barcode Reader mode report: rule-free per-barcode cards
   preprocess.js       Rotates sideways labels, splits multi-label sheets
   ocrText.js          OCR of the printed label text
   scanner/
