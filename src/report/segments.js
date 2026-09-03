@@ -246,11 +246,12 @@ export function rawSegments(rawValue, kind) {
   const cleaned = v.replace(/[()\s]/g, '').toUpperCase();
   if (joined !== v && joined.toUpperCase() !== cleaned) return whole;
   // GS1-128 requires FNC1 in the FIRST position, ahead of AI 00 (signalled as the ]C1
-  // symbology identifier, never as a data character). Mark the expected leading position
-  // on recognised SSCC symbols; when the decode kept the identifier it becomes the
-  // marker's text, mirroring the DataMatrix field map.
-  if (kind === 'sscc' && out[0]?.label === 'AI 00') {
-    return [{ text: ident, label: 'FNC1 start', display: ident ? `⟨FNC1⟩ ${ident}` : '⟨FNC1⟩' }, ...out];
+  // symbology identifier, never as a data character). The marker renders ONLY when the
+  // scan captured an identifier: ]C1 shows as an FNC1-present marker, any other
+  // identifier shows as itself (the field row judges it), and a decode with no
+  // identifier shows nothing rather than implying FNC1 evidence that was never seen.
+  if (kind === 'sscc' && out[0]?.label === 'AI 00' && ident) {
+    return [{ text: ident, label: 'FNC1 start', display: ident === ']C1' ? `⟨FNC1⟩ ${ident}` : ident }, ...out];
   }
   return out;
 }

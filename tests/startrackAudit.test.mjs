@@ -34,6 +34,19 @@ test('ST-SSC-09 passes when the decoder reports ]C1 (FNC1 in first position)', (
   assert.equal(audit.startrack.ssccParses[0].symbologyIdentifier, ']C1');
 });
 
+test('an SSCC label audited as SSCC passes the format mode check (no phantom freight item)', () => {
+  const audit = runStarTrackAudit([{ rawValue: VALID_SSCC, format: 'code_128', symbologyIdentifier: ']C1' }]);
+  assert.equal(audit.startrack.freightParses.length, 0, 'the all-digit SSCC must not classify as a freight item');
+  assert.equal(findValidation(audit, 'AUDIT_MODE_FORMAT')?.status, 'pass');
+});
+
+test('an SSCC failing its check digit still detects as SSCC format; the check-digit rule fails', () => {
+  const audit = runStarTrackAudit([{ rawValue: '00000000000000000018', format: 'code_128' }]);
+  assert.equal(findValidation(audit, 'AUDIT_MODE_FORMAT')?.status, 'pass');
+  assert.equal(findValidation(audit, 'AUDIT_MODE_FORMAT')?.evidence.includes('failing their check digit'), true);
+  assert.equal(findValidation(audit, 'ST-SSC-02')?.status, 'fail');
+});
+
 test('ST-SSC-09 fails when the identifier shows plain Code 128 (no leading FNC1)', () => {
   const audit = runStarTrackAudit([
     { rawValue: VALID_SSCC, format: 'code_128', symbologyIdentifier: ']C0', source: 'ZXing-WASM crop scanner' }

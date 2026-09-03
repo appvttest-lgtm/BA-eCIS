@@ -147,6 +147,12 @@ test('dataMatrixComplianceEvidence reads the ISO/IEC 15424 symbology identifier'
   assert.equal(zxingOnly.fnc1FirstPosition, null, 'FNC1-first stays unknown without an identifier');
 });
 
+test('parseStarTrackFreightItemBarcode rejects AI 00 SSCC values despite the 20-char shape', () => {
+  const rejected = parseStarTrackFreightItemBarcode('00000000000000000017');
+  assert.equal(rejected.valid, false);
+  assert.match(rejected.reason, /SSCC article identifier/);
+});
+
 test('parseStarTrackFreightItemBarcode splits the 20-character freight item id', () => {
   const parsed = parseStarTrackFreightItemBarcode('ABCD12345678EXP00001');
   assert.equal(parsed.valid, true);

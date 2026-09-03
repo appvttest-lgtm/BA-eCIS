@@ -6,6 +6,19 @@ import { STARTRACK_PRODUCT_CODE_MAP } from '../referenceData.js';
  *  ID + 8 digits), 3-char product code, and 5-digit item number. */
 export function parseStarTrackFreightItemBarcode(raw) {
   const compact = stripAiDecorations(raw).replace(/[()]/g, '');
+  // An AI 00 + 18-digit value is the SSCC article identifier, never a freight item. The
+  // 20-char shapes collide on all-digit values, but a real freight item can never be all
+  // digits: despatch IDs carry an alphabetic 3rd character (and Z 4th) and every StarTrack
+  // product code is alphabetic. Without this rejection an SSCC label is misdetected as a
+  // standard label and the audit-mode check fails.
+  if (/^00\d{18}$/.test(compact)) {
+    return {
+      valid: false,
+      raw,
+      compact,
+      reason: 'This is a GS1 AI 00 SSCC article identifier, not a 20-character freight item barcode.'
+    };
+  }
   if (!/^[A-Z0-9]{4}\d{8}[A-Z0-9]{3}\d{5}$/.test(compact)) {
     return { valid: false, raw, compact, reason: 'Not a StarTrack 20-character freight item barcode.' };
   }

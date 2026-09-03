@@ -335,18 +335,18 @@ export function auditStarTrackLabel({
     /STAR\s*TRACK|STARTRACK/i.test(extractedText || '')
       ? 'startrack'
       : 'unknown';
+  // An SSCC that fails its check digit is still format evidence: the AI 00 + 18-digit
+  // shape identifies the label format, and the check-digit rule reports the failure.
+  const ssccShaped = ssccParses.length > 0;
   const detectedFormat =
-    validSsccs.length && !freightParses.length
-      ? 'sscc'
-      : freightParses.length
-        ? 'standard'
-        : validSsccs.length
-          ? 'sscc'
-          : 'unknown';
+    ssccShaped && !freightParses.length ? 'sscc' : freightParses.length ? 'standard' : ssccShaped ? 'sscc' : 'unknown';
   const modeEvidence = [
     qrParses.length ? `StarTrack QR payload(s): ${qrParses.length}` : '',
     freightParses.length ? `freight item barcode(s): ${freightParses.map(f => f.freightItemId).join(', ')}` : '',
     validSsccs.length ? `SSCC barcode(s): ${validSsccs.map(s => `00${s.sscc}`).join(', ')}` : '',
+    invalidSsccs.length
+      ? `SSCC barcode(s) failing their check digit: ${invalidSsccs.map(s => `00${s.sscc}`).join(', ')}`
+      : '',
     routingParses.length ? `routing barcode(s): ${routingParses.map(r => r.raw).join(', ')}` : ''
   ]
     .filter(Boolean)
