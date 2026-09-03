@@ -322,17 +322,21 @@ function App() {
           <div>
             <span className="field-label">Label type</span>
             <div className="segmented-control" role="group" aria-label="Label type">
-              {Object.entries(LABEL_FAMILY_NAMES).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={selectedCarrier === value ? 'active' : ''}
-                  disabled={processing}
-                  onClick={() => setSelectedCarrier(value)}
-                >
-                  {label}
-                </button>
-              ))}
+              {/* The Barcode Reader lives in its own block below - only the audited
+                  carriers belong in the label-type choice. */}
+              {Object.entries(LABEL_FAMILY_NAMES)
+                .filter(([value]) => value !== 'reader')
+                .map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={selectedCarrier === value ? 'active' : ''}
+                    disabled={processing}
+                    onClick={() => setSelectedCarrier(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
             </div>
           </div>
           {selectedCarrier !== 'reader' && (
@@ -353,6 +357,18 @@ function App() {
               </div>
             </div>
           )}
+        </div>
+        <div className="reader-mode-block">
+          <button
+            type="button"
+            className={`reader-mode-btn ${selectedCarrier === 'reader' ? 'active' : ''}`}
+            disabled={processing}
+            aria-pressed={selectedCarrier === 'reader'}
+            onClick={() => setSelectedCarrier('reader')}
+          >
+            <span className="reader-mode-title">Barcode Reader</span>
+            <span className="reader-mode-desc">Lists every barcode with its raw value — no validation rules</span>
+          </button>
         </div>
         {auditModeReady ? (
           <label
@@ -391,9 +407,9 @@ function App() {
         ) : (
           <p className="dropzone-pending muted" role="status">
             {!selectedCarrier && !selectedLabelFormat
-              ? 'Choose a label type and a label format above to enable label upload.'
+              ? 'Choose a label type and a label format — or select the Barcode Reader — to enable label upload.'
               : !selectedCarrier
-                ? 'Choose a label type above to enable label upload.'
+                ? 'Choose a label type above (or the Barcode Reader) to enable label upload.'
                 : 'Choose a label format above to enable label upload.'}
           </p>
         )}

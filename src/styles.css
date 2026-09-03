@@ -2227,48 +2227,44 @@ textarea:focus-visible,
   gap: 10px;
   flex-wrap: wrap;
 }
-.reader-fnc1-line {
+/* Standalone Barcode Reader entry on the upload panel, separate from the label-type
+ * choice: a full-width grey tile with the mode name and a one-line description. */
+.reader-mode-block {
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+.reader-mode-btn {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 6px 0;
-}
-.fnc1-chip {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-.fnc1-first {
-  background: #edf8f1;
-  border-color: #9fd7b2;
-  color: #087a2e;
-}
-.fnc1-absent {
-  background: #f3f5f8;
-  border-color: #c6cdd6;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid #c6cdd6;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f5f8 100%);
   color: #38424d;
+  text-align: left;
+  cursor: pointer;
 }
-.fnc1-unknown {
-  background: #fff8e5;
-  border-color: #f1c96d;
-  color: #8a5a00;
+.reader-mode-btn:hover {
+  border-color: #5b6875;
+  background: #eef1f5;
 }
-.reader-raw {
-  margin: 6px 0;
+.reader-mode-btn.active {
+  border-color: #38424d;
+  background: #e8ebef;
+  box-shadow: 0 3px 10px rgba(16, 24, 40, 0.08);
 }
-.reader-raw-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.reader-mode-title {
+  font-weight: 800;
+  font-size: 14px;
+}
+.reader-mode-desc {
+  font-size: 12px;
   color: #64748b;
-  margin-bottom: 4px;
 }
 /* Control characters (FNC1/GS and friends) rendered as visible chips inside raw content. */
 .ctrl-char {

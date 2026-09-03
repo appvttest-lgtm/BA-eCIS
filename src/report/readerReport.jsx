@@ -1,6 +1,6 @@
-// Barcode Reader mode report: no verdict, no rule tables - the full label image with
-// decode outlines, then one card per decoded barcode showing its raw content with FNC1
-// evidence made visible. Data shaping lives in readerData.js (pure, Node-tested).
+// Barcode Reader mode report, kept deliberately minimal: the full label image with decode
+// outlines, then one line per decoded barcode - its raw value with FNC1/control characters
+// rendered visibly, and copy actions. Data shaping lives in readerData.js (pure, Node-tested).
 import React from 'react';
 import { CopyButton, InputQualityGauge, SectionTitle } from './common.jsx';
 import {
@@ -11,10 +11,11 @@ import {
   readerSymbologyName
 } from './readerData.js';
 
-/** One decoded barcode: symbology + engine, leading-FNC1 evidence, raw content with
- *  control characters rendered visibly, and the readable text when it differs. */
+/** One decoded barcode: symbology, then the raw value. The leading FNC1 marker renders only
+ *  when the scan captured a GS1 symbology identifier (]C1 / ]d2 ...); in-payload FNC1 group
+ *  separators (ASCII 29) always render as visible markers. */
 function ReaderBarcodeCard({ barcode, ordinal }) {
-  const { raw, fromBytes } = rawContentOf(barcode);
+  const { raw } = rawContentOf(barcode);
   const segments = rawDisplaySegments(raw);
   const fnc1 = leadingFnc1Info(barcode.symbologyIdentifier);
   const readable = String(barcode.rawValue || '');
@@ -25,65 +26,36 @@ function ReaderBarcodeCard({ barcode, ordinal }) {
         <strong>
           #{ordinal} · {readerSymbologyName(barcode)}
         </strong>
-        <span className="muted small">
-          {barcode.pageNumber ? `page ${barcode.pageNumber} · ` : ''}
-          {barcode.source || 'unknown decoder'}
-        </span>
+        {barcode.pageNumber > 1 ? <span className="muted small">page {barcode.pageNumber}</span> : null}
       </div>
-      <p className="reader-fnc1-line">
-        <span className={`fnc1-chip fnc1-${fnc1.status}`}>{fnc1.label}</span>
-        <span className="muted small">{fnc1.detail}</span>
-      </p>
-      <div className="reader-raw">
-        <span className="reader-raw-label">Raw content {fromBytes ? '(byte stream)' : '(decoded text)'}</span>
-        <div className="segmented-code-row">
-          <code className="raw-code raw-code-block reader-raw-code">
-            {fnc1.status === 'first' ? (
-              <span
-                className="ctrl-char ctrl-char-lead"
-                title={`FNC1 in first position - signalled by symbology identifier ${fnc1.code}, not transmitted as data`}
-              >
-                ⟨FNC1⟩ {fnc1.code}
-              </span>
-            ) : null}
-            {segments.map((seg, i) =>
-              seg.ctrl ? (
-                <span key={i} className="ctrl-char" title={seg.title}>
-                  {seg.display}
-                </span>
-              ) : (
-                <span key={i}>{seg.text}</span>
-              )
-            )}
-          </code>
-          <CopyButton value={raw} label="Copy raw content (control characters included)" text="Copy raw" />
-          {!readableDiffers && readable ? (
-            <CopyButton value={readable} label="Copy readable value" text="Copy readable" />
+      <div className="segmented-code-row">
+        <code className="raw-code raw-code-block reader-raw-code">
+          {fnc1.status === 'first' ? (
+            <span
+              className="ctrl-char ctrl-char-lead"
+              title={`FNC1 in first position - signalled by symbology identifier ${fnc1.code}, not transmitted as data`}
+            >
+              ⟨FNC1⟩ {fnc1.code}
+            </span>
           ) : null}
-        </div>
-        {!fromBytes && (
-          <p className="muted small">This decoder did not report the raw byte stream; showing its decoded text.</p>
-        )}
-      </div>
-      {readableDiffers && (
-        <div className="reader-raw">
-          <span className="reader-raw-label">Readable (human-readable interpretation)</span>
-          <div className="segmented-code-row">
-            <code className="raw-code raw-code-block">{readable}</code>
-            <CopyButton value={readable} label="Copy readable value" text="Copy readable" />
-          </div>
-        </div>
-      )}
-      <div className="muted small">
-        {barcode.pageBoundingBox
-          ? 'Barcode location verified on this label.'
-          : 'Barcode decoded; exact location not mapped.'}
+          {segments.map((seg, i) =>
+            seg.ctrl ? (
+              <span key={i} className="ctrl-char" title={seg.title}>
+                {seg.display}
+              </span>
+            ) : (
+              <span key={i}>{seg.text}</span>
+            )
+          )}
+        </code>
+        <CopyButton value={raw} label="Copy raw value (control characters included)" text="Copy raw" />
+        {readableDiffers ? <CopyButton value={readable} label="Copy readable value" text="Copy readable" /> : null}
       </div>
     </li>
   );
 }
 
-/** The complete Barcode Reader report for one scanned label. */
+/** The complete Barcode Reader report for one scanned label: picture, then raw values. */
 export function ReaderReportView({ result, index = 0, onNewAudit, processing = false, onZoomLabel }) {
   const barcodes = result?.detectedBarcodes || [];
   const images = result?.labelImages || {};
@@ -125,10 +97,6 @@ export function ReaderReportView({ result, index = 0, onNewAudit, processing = f
         </div>
         <div className="selected-label-meta">
           <span>
-            <span className="meta-k">Mode</span>
-            <span className="meta-v">Barcode Reader — no validation rules applied</span>
-          </span>
-          <span>
             <span className="meta-k">File</span>
             <span className="meta-v">{fileLine}</span>
           </span>
@@ -138,8 +106,10 @@ export function ReaderReportView({ result, index = 0, onNewAudit, processing = f
 
       <section className="card audit-section reader-section" id="full-label-image">
         <div className="section-heading">
-          <SectionTitle id="full-label-image-title">Full label image</SectionTitle>
-          <span className="section-status section-status-neutral">read only</span>
+          <SectionTitle id="full-label-image-title">Label</SectionTitle>
+          <span className="section-status section-status-neutral">
+            {barcodes.length} barcode{barcodes.length === 1 ? '' : 's'}
+          </span>
         </div>
         {images.labelPreview ? (
           <>
@@ -152,20 +122,12 @@ export function ReaderReportView({ result, index = 0, onNewAudit, processing = f
               <img className="label-preview-large" src={images.labelPreview} alt="Full label preview" />
             </button>
             <p className="small muted preview-legend">
-              Barcode outlines: <span className="legend-dot legend-valid" /> decoded barcode — every decode is shown; no
-              expected/valid judgement is applied in reader mode
+              <span className="legend-dot legend-valid" /> decoded barcode
             </p>
           </>
         ) : (
           <p className="muted">No label preview captured.</p>
         )}
-      </section>
-
-      <section className="card audit-section reader-section" id="reader-barcodes">
-        <div className="section-heading">
-          <SectionTitle id="reader-barcodes-title">Decoded barcodes</SectionTitle>
-          <span className="section-status section-status-neutral">{barcodes.length} decoded</span>
-        </div>
         {barcodes.length === 0 ? (
           <p className="muted">
             No barcodes were decoded from this label. Low resolution is the most common cause — upload the original PDF
