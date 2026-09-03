@@ -46,6 +46,25 @@
       }
     },
     {
+      "id": "EP-SS-09",
+      "title": "GS1-128 FNC1 in first position",
+      "description": "The linear SSCC barcode is GS1-128: Code 128 with the FNC1 control character in the FIRST symbol position, ahead of AI 00. The leading FNC1 is never transmitted as data; scanners signal it with the ISO/IEC 15424 symbology identifier ]C1, which is the evidence assessed here.",
+      "obligation": "mandatory",
+      "severity": "CRITICAL",
+      "category": "sscc",
+      "source": { "doc": "PP&EP v1.4", "page": 26, "ref": "ISO/IEC 15424 symbology identifier ]C1" },
+      "forEach": "barcodes.sscc.valid",
+      "input": "item.fnc1FirstPosition",
+      "evidence": ["item.symbologyIdentifier", "item.decoderSource", "item.raw"],
+      "onMissing": "manual_review",
+      "assert": { "op": "equals", "value": true },
+      "messages": {
+        "pass": "Scanner reported symbology identifier ]C1: FNC1 is encoded in the first position, so the symbol is a conforming GS1-128 SSCC barcode.",
+        "fail": "The reported symbology identifier indicates the symbol does NOT start with FNC1 - it decodes as plain Code 128, not GS1-128. See the identifier in the evidence.",
+        "missing": "The decoder did not report an ISO/IEC 15424 symbology identifier, so FNC1-in-first-position could not be verified digitally. Confirm the symbol was generated as GS1-128 (Code 128 with a leading FNC1), not plain Code 128."
+      }
+    },
+    {
       "id": "EP-SS-03",
       "title": "DataMatrix repeats the linear SSCC",
       "description": "The GS1 DataMatrix must carry the same AI 00 SSCC as the linear barcode in its AI 91 article position. A DataMatrix with a different or missing SSCC breaks the label's article identity.",

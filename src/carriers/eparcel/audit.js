@@ -11,7 +11,7 @@ import {
   validateSelectedAuditMode
 } from '../shared/audit.js';
 import { addressState, lastAddressLine } from '../shared/text.js';
-import { parseSsccBarcode } from '../formats/gs1.js';
+import { gs1LinearComplianceEvidence, parseSsccBarcode } from '../formats/gs1.js';
 import { extractLabelFacts } from './facts.js';
 import { calculateEparcelCheckDigit, parseEparcelBarcode } from './formats/article.js';
 import { dataMatrixComplianceEvidence, looksLikeDataMatrix, parseGs1DataMatrix } from './formats/dataMatrix.js';
@@ -25,15 +25,12 @@ import { ruleSetFor } from './ruleSets.js';
 // Classify by decoded symbology only (never by payload content - a real SSCC's digits
 // can coincidentally contain "8008"/"420") so the SSCC check reflects the linear scan
 // being to spec.
-function decodedLinearRawValues(detectedBarcodes) {
-  return detectedBarcodes
-    .filter(b => {
-      const fmt = String(b.format || b.symbology || '');
-      if (/data[_\s-]?matrix|qr/i.test(fmt)) return false;
-      return /code[_\s-]?128|gs1/i.test(fmt) || b.kind === 'linear';
-    })
-    .map(b => b.rawValue || b.raw || b.text || '')
-    .filter(Boolean);
+function decodedLinearBarcodes(detectedBarcodes) {
+  return detectedBarcodes.filter(b => {
+    const fmt = String(b.format || b.symbology || '');
+    if (/data[_\s-]?matrix|qr/i.test(fmt)) return false;
+    return /code[_\s-]?128|gs1/i.test(fmt) || b.kind === 'linear';
+  });
 }
 
 // True only when a linear (1D) symbol decoded in its own right; 2D symbols never count.
@@ -340,9 +337,19 @@ export function auditEparcelLabel({
         : parseEparcelBarcode(s.raw)
     );
   // SSCC is proven by the linear barcode only (EP-SS-01); never let a GS1 Data
-  // Matrix that repeats AI (00) SSCC stand in for the linear scan.
-  const ssccParses = decodedLinearRawValues(detectedBarcodes)
-    .map(parseSsccBarcode)
+  // Matrix that repeats AI (00) SSCC stand in for the linear scan. Each parse keeps
+  // the decoder's ISO/IEC 15424 symbology identifier: ]C1 is the only digital proof
+  // the symbol starts with FNC1 (GS1-128), assessed by EP-SS-09.
+  const ssccParses = decodedLinearBarcodes(detectedBarcodes)
+    .filter(b => b.rawValue || b.raw || b.text)
+    .map(b => ({
+      ...parseSsccBarcode(b.rawValue || b.raw || b.text || ''),
+      ...gs1LinearComplianceEvidence({
+        raw: b.rawValue || b.raw || b.text || '',
+        symbologyIdentifier: b.symbologyIdentifier,
+        decoderSource: b.source
+      })
+    }))
     .filter(p => p.type === 'sscc' && p.valid !== undefined && p.raw);
   const validSsccs = ssccParses.filter(p => p.valid);
   const invalidSsccs = ssccParses.filter(p => !p.valid);
